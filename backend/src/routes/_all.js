@@ -77,6 +77,39 @@ klientiRouter.delete('/:id', auth, requireRole('admin'), async (req, res, next) 
 // ── routes/cenik.js ───────────────────────────────────────────
 const cenikRouter = express.Router();
 
+// GET /kategorie – seznam hodnot enumu z pg_enum
+cenikRouter.get('/kategorie', auth, async (req, res, next) => {
+  try {
+    const { rows } = await query(
+      `SELECT enumlabel AS hodnota FROM pg_enum
+       WHERE enumtypid = (SELECT oid FROM pg_type WHERE typname = 'cenik_kategorie')
+       ORDER BY enumsortorder`
+    );
+    res.json({ data: rows.map(r => r.hodnota) });
+  } catch (err) { next(err); }
+});
+
+// POST /kategorie – přidání nové hodnoty do enumu (jen admin)
+cenikRouter.post('/kategorie', auth, requireRole('admin'), async (req, res, next) => {
+  try {
+    const { klic } = req.body;
+    if (!klic || !/^[a-z0-9_]+$/.test(klic)) {
+      return res.status(400).json({ error: 'Klíč kategorie musí obsahovat pouze malá písmena, číslice a podtržítka' });
+    }
+    // Zjistit, zda hodnota již existuje
+    const exists = await query(
+      `SELECT 1 FROM pg_enum WHERE enumtypid = (SELECT oid FROM pg_type WHERE typname = 'cenik_kategorie') AND enumlabel = $1`,
+      [klic]
+    );
+    if (exists.rows.length > 0) {
+      return res.status(409).json({ error: 'Kategorie s tímto klíčem již existuje' });
+    }
+    // DDL příkaz – klic je ověřen regexpem, bezpečné pro interpolaci
+    await query(`ALTER TYPE cenik_kategorie ADD VALUE '${klic}'`);
+    res.status(201).json({ hodnota: klic });
+  } catch (err) { next(err); }
+});
+
 cenikRouter.get('/', auth, async (req, res, next) => {
   try {
     const { kategorie, aktivni, q } = req.query;

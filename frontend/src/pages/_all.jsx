@@ -287,16 +287,29 @@ export function DokumentyPage() {
 import { cenikApi } from '../api';
 import { Tag } from 'lucide-react';
 
-const KAT_CENIK = { jidlo:'Jídlo', napoje:'Nápoje', personal:'Personál', doprava:'Doprava', vybaveni:'Vybavení', pronajem:'Pronájem', externi:'Externí' };
+// Převede klíč enumu na zobrazitelný název: 'firemni_catering' → 'Firemní catering'
+const katLabel = (k) => k.charAt(0).toUpperCase() + k.slice(1).replace(/_/g, ' ');
+
+// Převede uživatelský vstup na platný klíč enumu
+const toKlic = (s) => s.trim().toLowerCase()
+  .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // odstranit diakritiku
+  .replace(/\s+/g, '_')
+  .replace(/[^a-z0-9_]/g, '');
 
 export function CenikPage() {
   const qc = useQueryClient();
   const [modal, setModal] = useState(false);
+  const [katModal, setKatModal] = useState(false);
   const [katFilter, setKatFilter] = useState('');
   const [editRow, setEditRow] = useState(null);
   const [cenaEdit, setCenaEdit] = useState('');
   const [form, setForm] = useState({ nazev:'', kategorie:'jidlo', jednotka:'os.', cena_nakup:0, cena_prodej:0, dph_sazba:12 });
+  const [katForm, setKatForm] = useState({ nazev:'' });
 
+  const { data: katData, isLoading: katLoading } = useQuery({
+    queryKey: ['cenik-kategorie'],
+    queryFn: () => cenikApi.listKategorie(),
+  });
   const { data, isLoading } = useQuery({
     queryKey: ['cenik', katFilter],
     queryFn: () => cenikApi.list({ kategorie: katFilter||undefined, aktivni: 'true' }),
@@ -307,25 +320,44 @@ export function CenikPage() {
     onSuccess: () => { qc.invalidateQueries(['cenik']); toast.success('Položka přidána'); setModal(false); },
   });
 
+  const addKatMut = useMutation({
+    mutationFn: (d) => cenikApi.addKategorie(d),
+    onSuccess: (res) => {
+      qc.invalidateQueries(['cenik-kategorie']);
+      toast.success('Kategorie přidána');
+      setKatModal(false);
+      setKatForm({ nazev: '' });
+      setForm(f => ({ ...f, kategorie: res.data.hodnota }));
+    },
+    onError: (err) => toast.error(err?.response?.data?.error || 'Chyba při přidávání kategorie'),
+  });
+
   const updateMut = useMutation({
     mutationFn: ({ id, ...d }) => cenikApi.update(id, d),
     onSuccess: () => { qc.invalidateQueries(['cenik']); setEditRow(null); toast.success('Cena aktualizována'); },
   });
 
+  const kategorie = katData?.data?.data || [];
   const items = data?.data?.data || [];
   const grouped = items.reduce((acc, item) => { (acc[item.kategorie] = acc[item.kategorie]||[]).push(item); return acc; }, {});
   const set = (k,v) => setForm(f=>({...f,[k]:v}));
   const marze = (n,p) => p>0 ? Math.round((p-n)/p*100) : 0;
   const marze_color = (m) => m >= 40 ? 'text-green-700' : m >= 25 ? 'text-amber-700' : 'text-red-600';
+  const klic = toKlic(katForm.nazev);
 
   return (
     <div>
       <PageHeader title="Ceníky a číselníky" subtitle={`${items.length} aktivních položek`}
-        actions={<Btn variant="primary" size="sm" onClick={() => setModal(true)}><Plus size={12}/> Nová položka</Btn>}/>
+        actions={
+          <div className="flex gap-2">
+            <Btn size="sm" onClick={() => setKatModal(true)}><Plus size={12}/> Přidat kategorii</Btn>
+            <Btn variant="primary" size="sm" onClick={() => setModal(true)}><Plus size={12}/> Nová položka</Btn>
+          </div>
+        }/>
       <div className="bg-stone-50 border-b border-stone-100 px-6 py-3 flex gap-2 flex-wrap">
         <button onClick={() => setKatFilter('')} className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${!katFilter?'bg-stone-900 text-white border-stone-900':'bg-white border-stone-200 text-stone-600 hover:border-stone-400'}`}>Vše</button>
-        {Object.entries(KAT_CENIK).map(([k,l]) => (
-          <button key={k} onClick={() => setKatFilter(k)} className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${katFilter===k?'bg-stone-900 text-white border-stone-900':'bg-white border-stone-200 text-stone-600 hover:border-stone-400'}`}>{l}</button>
+        {kategorie.map(k => (
+          <button key={k} onClick={() => setKatFilter(k)} className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${katFilter===k?'bg-stone-900 text-white border-stone-900':'bg-white border-stone-200 text-stone-600 hover:border-stone-400'}`}>{katLabel(k)}</button>
         ))}
       </div>
       <div className="p-6 space-y-6">
@@ -334,7 +366,7 @@ export function CenikPage() {
          Object.entries(grouped).map(([kat, polozky]) => (
            <div key={kat} className="bg-white rounded-xl border border-stone-200 overflow-hidden">
              <div className="px-5 py-3 bg-stone-50 border-b border-stone-100">
-               <span className="text-xs font-semibold text-stone-700 uppercase tracking-wide">{KAT_CENIK[kat]} ({polozky.length})</span>
+               <span className="text-xs font-semibold text-stone-700 uppercase tracking-wide">{katLabel(kat)} ({polozky.length})</span>
              </div>
              <table className="w-full">
                <thead><tr className="border-b border-stone-50">
@@ -373,12 +405,19 @@ export function CenikPage() {
            </div>
          ))}
       </div>
+
+      {/* Modal – nová položka ceníku */}
       <Modal open={modal} onClose={() => setModal(false)} title="Nová položka ceníku"
         footer={<><Btn onClick={()=>setModal(false)}>Zrušit</Btn><Btn variant="primary" onClick={()=>createMut.mutate(form)} disabled={!form.nazev||createMut.isPending}>{createMut.isPending?'Ukládám…':'Přidat'}</Btn></>}>
         <div className="space-y-3">
           <div><label className="text-xs text-stone-500 block mb-1">Název *</label><input className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" value={form.nazev} onChange={e=>set('nazev',e.target.value)}/></div>
           <div className="grid grid-cols-2 gap-3">
-            <div><label className="text-xs text-stone-500 block mb-1">Kategorie</label><select className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" value={form.kategorie} onChange={e=>set('kategorie',e.target.value)}>{Object.entries(KAT_CENIK).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></div>
+            <div>
+              <label className="text-xs text-stone-500 block mb-1">Kategorie</label>
+              <select className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" value={form.kategorie} onChange={e=>set('kategorie',e.target.value)}>
+                {kategorie.map(k => <option key={k} value={k}>{katLabel(k)}</option>)}
+              </select>
+            </div>
             <div><label className="text-xs text-stone-500 block mb-1">Jednotka</label><input className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" value={form.jednotka} onChange={e=>set('jednotka',e.target.value)}/></div>
           </div>
           <div className="grid grid-cols-3 gap-3">
@@ -387,6 +426,25 @@ export function CenikPage() {
             <div><label className="text-xs text-stone-500 block mb-1">DPH %</label><select className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" value={form.dph_sazba} onChange={e=>set('dph_sazba',e.target.value)}><option value={12}>12 %</option><option value={21}>21 %</option><option value={0}>0 %</option></select></div>
           </div>
           {form.cena_prodej > 0 && <div className="text-xs text-stone-500">Marže: <span className={`font-medium ${marze_color(marze(form.cena_nakup, form.cena_prodej))}`}>{marze(form.cena_nakup, form.cena_prodej)} %</span></div>}
+        </div>
+      </Modal>
+
+      {/* Modal – nová kategorie */}
+      <Modal open={katModal} onClose={() => { setKatModal(false); setKatForm({ nazev: '' }); }} title="Přidat kategorii"
+        footer={<><Btn onClick={() => { setKatModal(false); setKatForm({ nazev: '' }); }}>Zrušit</Btn><Btn variant="primary" onClick={() => addKatMut.mutate({ klic })} disabled={!klic||addKatMut.isPending}>{addKatMut.isPending?'Ukládám…':'Přidat kategorii'}</Btn></>}>
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs text-stone-500 block mb-1">Název kategorie *</label>
+            <input className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+              placeholder="např. Dezerty, Speciální menu…"
+              value={katForm.nazev} onChange={e => setKatForm({ nazev: e.target.value })} autoFocus/>
+          </div>
+          {katForm.nazev && (
+            <div className="text-xs text-stone-400">
+              Klíč v databázi: <span className="font-mono font-medium text-stone-600">{klic || '—'}</span>
+            </div>
+          )}
+          <p className="text-xs text-stone-400">Kategorie se přidá do databáze a bude dostupná pro všechny položky ceníku. Tato operace je nevratná.</p>
         </div>
       </Modal>
     </div>

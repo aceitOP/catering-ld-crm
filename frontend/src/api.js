@@ -67,10 +67,12 @@ export const kalkulaceApi = {
 
 // ── Ceník ────────────────────────────────────────────────────
 export const cenikApi = {
-  list:   (params) => api.get('/cenik', { params }),
-  create: (data)   => api.post('/cenik', data),
-  update: (id, d)  => api.patch(`/cenik/${id}`, d),
-  delete: (id)     => api.delete(`/cenik/${id}`),
+  list:           (params) => api.get('/cenik', { params }),
+  create:         (data)   => api.post('/cenik', data),
+  update:         (id, d)  => api.patch(`/cenik/${id}`, d),
+  delete:         (id)     => api.delete(`/cenik/${id}`),
+  listKategorie:  ()       => api.get('/cenik/kategorie'),
+  addKategorie:   (data)   => api.post('/cenik/kategorie', data),
 };
 
 // ── Personál ─────────────────────────────────────────────────
