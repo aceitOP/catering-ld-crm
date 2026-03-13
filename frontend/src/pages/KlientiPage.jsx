@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { klientiApi } from '../api';
-import { PageHeader, KlientTypBadge, StavBadge, formatCena, formatDatum, Spinner, EmptyState, Btn, Modal } from '../components/ui';
+import { PageHeader, KlientTypBadge, StavBadge, formatCena, formatDatum, Spinner, EmptyState, Btn, Modal, ExportMenu } from '../components/ui';
 import toast from 'react-hot-toast';
 import { Plus, Search, Users, X } from 'lucide-react';
 
@@ -46,9 +46,23 @@ export default function KlientiPage() {
         title="Klienti"
         subtitle={`${klienti.length} klientů`}
         actions={
-          <Btn variant="primary" size="sm" onClick={() => setModal(true)}>
-            <Plus size={12}/> Nový klient
-          </Btn>
+          <div className="flex items-center gap-2">
+            <ExportMenu
+              data={klienti}
+              columns={[
+                { header: 'Jméno',        accessor: r => `${r.jmeno} ${r.prijmeni||''}`.trim() },
+                { header: 'Firma',        accessor: 'firma' },
+                { header: 'Typ',          accessor: r => ({ soukromy:'Soukromý', firemni:'Firemní', vip:'VIP' })[r.typ] || r.typ },
+                { header: 'E-mail',       accessor: 'email' },
+                { header: 'Telefon',      accessor: 'telefon' },
+                { header: 'Počet zakázek',accessor: 'pocet_zakazek' },
+              ]}
+              filename="klienti"
+            />
+            <Btn variant="primary" size="sm" onClick={() => setModal(true)}>
+              <Plus size={12}/> Nový klient
+            </Btn>
+          </div>
         }
       />
 

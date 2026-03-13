@@ -2,6 +2,7 @@
 const express = require('express');
 const { query } = require('../db');
 const { auth, requireRole } = require('../middleware/auth');
+const { sendNabidka } = require('../emailService');
 
 const klientiRouter = express.Router();
 
@@ -203,6 +204,14 @@ personalRouter.patch('/:id', auth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+personalRouter.delete('/:id', auth, async (req, res, next) => {
+  try {
+    const { rows } = await query('DELETE FROM personal WHERE id = $1 RETURNING id', [req.params.id]);
+    if (!rows[0]) return res.status(404).json({ error: 'Osoba nenalezena' });
+    res.json({ message: 'Osoba smazána' });
+  } catch (err) { next(err); }
+});
+
 // POST přiřazení personálu k zakázce
 personalRouter.post('/:id/prirazeni', auth, async (req, res, next) => {
   try {
@@ -229,7 +238,7 @@ nabidkyRouter.get('/', auth, async (req, res, next) => {
     const wc = where.length ? 'WHERE ' + where.join(' AND ') : '';
     const { rows } = await query(
       `SELECT n.*, z.cislo AS zakazka_cislo, z.nazev AS zakazka_nazev,
-              k.jmeno AS klient_jmeno, k.prijmeni AS klient_prijmeni
+              k.jmeno AS klient_jmeno, k.prijmeni AS klient_prijmeni, k.firma AS klient_firma
        FROM nabidky n
        JOIN zakazky z ON z.id = n.zakazka_id
        LEFT JOIN klienti k ON k.id = z.klient_id
@@ -279,6 +288,40 @@ nabidkyRouter.post('/', auth, async (req, res, next) => {
 
     res.status(201).json(rows[0]);
   } catch (err) { next(err); }
+});
+
+// POST /api/nabidky/:id/odeslat – odešle nabídku emailem klientovi + změní stav na 'odeslano'
+nabidkyRouter.post('/:id/odeslat', auth, async (req, res, next) => {
+  try {
+    const { to, poznamka } = req.body;
+    if (!to) return res.status(400).json({ error: 'Chybí emailová adresa příjemce' });
+
+    // Načti nabídku + položky
+    const { rows } = await query('SELECT * FROM nabidky WHERE id = $1', [req.params.id]);
+    if (!rows[0]) return res.status(404).json({ error: 'Nabídka nenalezena' });
+    const polozky = await query('SELECT * FROM nabidky_polozky WHERE nabidka_id = $1 ORDER BY poradi, id', [req.params.id]);
+    const nabidka = { ...rows[0], polozky: polozky.rows };
+
+    // Načti zakázku
+    const { rows: zRows } = await query(
+      'SELECT * FROM zakazky WHERE id = $1', [nabidka.zakazka_id]);
+    const zakazka = zRows[0] || {};
+
+    // Načti nastavení firmy
+    const { rows: nastaveni } = await query('SELECT klic, hodnota FROM nastaveni');
+    const firma = {};
+    nastaveni.forEach(r => { firma[r.klic] = r.hodnota; });
+
+    await sendNabidka({ to, nabidka, zakazka, firma, poznamka });
+
+    // Automaticky změň stav na 'odeslano' a zaznamenej datum
+    await query(`UPDATE nabidky SET stav = 'odeslano', odeslano_at = NOW() WHERE id = $1`, [req.params.id]);
+
+    res.json({ message: `Nabídka odeslána na ${to}` });
+  } catch (err) {
+    if (err.message.includes('SMTP')) return res.status(503).json({ error: err.message });
+    next(err);
+  }
 });
 
 nabidkyRouter.patch('/:id/stav', auth, async (req, res, next) => {

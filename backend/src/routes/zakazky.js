@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const { query, withTransaction } = require('../db');
 const { auth, requireRole } = require('../middleware/auth');
+const { sendKomando, sendDekujeme } = require('../emailService');
 
 // Generátor čísla zakázky
 async function genCislo() {
@@ -168,6 +169,65 @@ router.patch('/:id/stav', auth, async (req, res, next) => {
 
     res.json({ message: 'Stav zakázky aktualizován', stav });
   } catch (err) { next(err); }
+});
+
+// POST /api/zakazky/:id/komando – odešle komando email přiřazenému personálu
+router.post('/:id/komando', auth, async (req, res, next) => {
+  try {
+    const { poznamka } = req.body;
+
+    // Načti zakázku
+    const { rows: zRows } = await query(`
+      SELECT z.*, k.jmeno AS klient_jmeno, k.prijmeni AS klient_prijmeni, k.firma AS klient_firma
+      FROM zakazky z LEFT JOIN klienti k ON k.id = z.klient_id
+      WHERE z.id = $1`, [req.params.id]);
+    if (!zRows[0]) return res.status(404).json({ error: 'Zakázka nenalezena' });
+
+    // Načti personál
+    const { rows: personal } = await query(`
+      SELECT zp.role_na_akci, zp.cas_prichod, zp.cas_odchod,
+             p.jmeno, p.prijmeni, p.email, p.role
+      FROM zakazky_personal zp
+      JOIN personal p ON p.id = zp.personal_id
+      WHERE zp.zakazka_id = $1`, [req.params.id]);
+
+    // Načti nastavení firmy
+    const { rows: nastaveni } = await query('SELECT klic, hodnota FROM nastaveni');
+    const firma = {};
+    nastaveni.forEach(r => { firma[r.klic] = r.hodnota; });
+
+    const count = await sendKomando({ personal, zakazka: zRows[0], firma, poznamka });
+    res.json({ message: `Komando odesláno ${count} osobám` });
+  } catch (err) {
+    if (err.message.includes('SMTP')) return res.status(503).json({ error: err.message });
+    next(err);
+  }
+});
+
+// POST /api/zakazky/:id/dekujeme – odešle děkovací email klientovi
+router.post('/:id/dekujeme', auth, async (req, res, next) => {
+  try {
+    const { to, text } = req.body;
+
+    const { rows } = await query(`
+      SELECT z.*, k.email AS klient_email, k.jmeno AS klient_jmeno, k.prijmeni AS klient_prijmeni, k.firma AS klient_firma
+      FROM zakazky z LEFT JOIN klienti k ON k.id = z.klient_id
+      WHERE z.id = $1`, [req.params.id]);
+    if (!rows[0]) return res.status(404).json({ error: 'Zakázka nenalezena' });
+
+    const recipient = to || rows[0].klient_email;
+    if (!recipient) return res.status(400).json({ error: 'Chybí emailová adresa příjemce' });
+
+    const { rows: nastaveni } = await query('SELECT klic, hodnota FROM nastaveni');
+    const firma = {};
+    nastaveni.forEach(r => { firma[r.klic] = r.hodnota; });
+
+    await sendDekujeme({ to: recipient, zakazka: rows[0], firma, text });
+    res.json({ message: `Děkovací email odeslán na ${recipient}` });
+  } catch (err) {
+    if (err.message.includes('SMTP')) return res.status(503).json({ error: err.message });
+    next(err);
+  }
 });
 
 // DELETE /api/zakazky/:id (pouze admin)

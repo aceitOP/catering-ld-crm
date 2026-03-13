@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { zakazkyApi } from '../api';
-import { PageHeader, StavBadge, TypBadge, formatCena, formatDatum, Spinner, EmptyState } from '../components/ui';
-import { Plus, Search, ClipboardList, ArrowUpDown } from 'lucide-react';
+import { PageHeader, StavBadge, TypBadge, formatCena, formatDatum, Spinner, EmptyState, ExportMenu } from '../components/ui';
+import { Plus, Search, ClipboardList, ArrowUpDown, Printer } from 'lucide-react';
+import { printKomandoPdf } from '../utils/print';
 
 const STAVY  = ['nova_poptavka','rozpracovano','nabidka_pripravena','nabidka_odeslana','ceka_na_vyjadreni','potvrzeno','ve_priprave','realizovano','uzavreno','stornovano'];
 const TYPY   = ['svatba','soukroma_akce','firemni_akce','zavoz','bistro'];
@@ -29,18 +30,31 @@ export default function ZakazkyPage() {
   const potvrzene = rows.filter(z => z.stav === 'potvrzeno').length;
   const cekaNa    = rows.filter(z => ['nabidka_pripravena','nabidka_odeslana','ceka_na_vyjadreni'].includes(z.stav)).length;
 
+  const ZAKAZKY_COLS = [
+    { header: 'Číslo',      accessor: 'cislo' },
+    { header: 'Název',      accessor: 'nazev' },
+    { header: 'Typ',        accessor: r => TYP_LABELS[r.typ] || r.typ },
+    { header: 'Stav',       accessor: r => STAV_LABELS[r.stav] || r.stav },
+    { header: 'Datum akce', accessor: r => r.datum_akce ? formatDatum(r.datum_akce) : '—' },
+    { header: 'Klient',     accessor: r => r.klient_firma || `${r.klient_jmeno||''} ${r.klient_prijmeni||''}`.trim() },
+    { header: 'Cena',       accessor: r => r.cena_celkem != null ? Number(r.cena_celkem).toFixed(0) : '—' },
+  ];
+
   return (
     <div>
       <PageHeader
         title="Zakázky"
         subtitle={meta.total ? `${meta.total} zakázek celkem` : ''}
         actions={
-          <button
-            onClick={() => navigate('/zakazky/nova')}
-            className="inline-flex items-center gap-1.5 bg-stone-900 text-white text-xs font-medium px-3 py-2 rounded-md hover:bg-stone-800 transition-colors"
-          >
-            <Plus size={13} /> Nová zakázka
-          </button>
+          <div className="flex items-center gap-2">
+            <ExportMenu data={rows} columns={ZAKAZKY_COLS} filename="zakazky"/>
+            <button
+              onClick={() => navigate('/zakazky/nova')}
+              className="inline-flex items-center gap-1.5 bg-stone-900 text-white text-xs font-medium px-3 py-2 rounded-md hover:bg-stone-800 transition-colors"
+            >
+              <Plus size={13} /> Nová zakázka
+            </button>
+          </div>
         }
       />
 
@@ -93,7 +107,7 @@ export default function ZakazkyPage() {
             <table className="w-full">
               <thead>
                 <tr className="bg-stone-50 border-b border-stone-100">
-                  {['Zakázka','Klient','Typ','Stav','Datum','Cena'].map(h => (
+                  {['Zakázka','Klient','Typ','Stav','Datum','Cena',''].map(h => (
                     <th key={h} className="px-4 py-3 text-left text-xs font-medium text-stone-500 whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
@@ -116,6 +130,15 @@ export default function ZakazkyPage() {
                     <td className="px-4 py-3"><StavBadge stav={z.stav} /></td>
                     <td className="px-4 py-3 text-sm text-stone-500">{formatDatum(z.datum_akce)}</td>
                     <td className="px-4 py-3 text-sm font-medium text-stone-700">{formatCena(z.cena_celkem)}</td>
+                    <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                      <button
+                        onClick={() => zakazkyApi.get(z.id).then(res => printKomandoPdf(res.data))}
+                        className="p-1.5 text-stone-400 hover:text-brand-900 hover:bg-brand-50 rounded transition-colors"
+                        title="Komando PDF"
+                      >
+                        <Printer size={13}/>
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>

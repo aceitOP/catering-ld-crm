@@ -1,6 +1,8 @@
 // ── Shared UI components ─────────────────────────────────────
 
-import { X, Loader2 } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { X, Loader2, Download } from 'lucide-react';
+import * as XLSX from 'xlsx';
 
 // Stavové badge – zakázky
 const STAV_STYLES = {
@@ -92,9 +94,10 @@ export function Btn({ children, variant = 'default', size = 'md', className = ''
   const base = 'inline-flex items-center gap-1.5 font-medium rounded-md transition-colors focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed';
   const variants = {
     default: 'bg-white border border-stone-200 text-stone-700 hover:bg-stone-50',
-    primary: 'bg-stone-900 border border-stone-900 text-white hover:bg-stone-800',
+    primary: 'bg-brand-900 border border-brand-900 text-white hover:bg-brand-800',
     danger:  'bg-red-600 border border-red-600 text-white hover:bg-red-700',
     ghost:   'text-stone-600 hover:bg-stone-100 border border-transparent',
+    accent:  'bg-accent text-white hover:bg-accent-600 border border-accent',
   };
   const sizes = {
     sm: 'px-2.5 py-1.5 text-xs',
@@ -186,3 +189,88 @@ export function formatDatum(d) {
 }
 
 export { STAV_LABELS, TYP_LABELS, TYP_STYLES, KLIENT_TYP };
+
+// ── Export menu (PDF / CSV / XLS) ─────────────────────────────
+// columns: [{ header: string, accessor: string | (row) => any }]
+function getCell(row, accessor) {
+  return typeof accessor === 'function' ? accessor(row) : (row[accessor] ?? '');
+}
+
+export function ExportMenu({ data = [], columns = [], filename = 'export' }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const headers = columns.map(c => c.header);
+  const toRows  = () => data.map(row => columns.map(col => String(getCell(row, col.accessor) ?? '')));
+
+  const exportCsv = () => {
+    const rows = [headers, ...toRows()];
+    const csv  = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\r\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
+    const url  = URL.createObjectURL(blob);
+    const a    = Object.assign(document.createElement('a'), { href: url, download: `${filename}.csv` });
+    a.click();
+    URL.revokeObjectURL(url);
+    setOpen(false);
+  };
+
+  const exportXls = () => {
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...toRows()]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Export');
+    XLSX.writeFile(wb, `${filename}.xlsx`);
+    setOpen(false);
+  };
+
+  const exportPdf = () => {
+    const rows = toRows();
+    const thCells = headers.map(h => `<th>${h}</th>`).join('');
+    const tbRows  = rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('');
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${filename}</title>
+      <style>
+        body{font-family:Arial,sans-serif;font-size:10px;margin:1cm}
+        h2{font-size:13px;margin-bottom:8px;color:#1c1917}
+        table{width:100%;border-collapse:collapse}
+        th{background:#1c1917;color:#fff;padding:5px 7px;text-align:left;font-size:9px;white-space:nowrap}
+        td{padding:4px 7px;border-bottom:1px solid #e7e5e4;vertical-align:top}
+        tr:nth-child(even) td{background:#fafaf9}
+        @media print{@page{size:A4 landscape;margin:1cm}}
+      </style></head><body>
+      <h2>${filename}</h2>
+      <table><thead><tr>${thCells}</tr></thead><tbody>${tbRows}</tbody></table>
+      <script>window.onload=()=>{window.print();}<\/script>
+      </body></html>`;
+    const w = window.open('', '_blank', 'width=900,height=600');
+    w.document.write(html);
+    w.document.close();
+    setOpen(false);
+  };
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="inline-flex items-center gap-1.5 bg-white border border-stone-200 text-stone-700 text-xs font-medium px-2.5 py-1.5 rounded-md hover:bg-stone-50 transition-colors"
+        title="Exportovat data"
+      >
+        <Download size={12} /> Export
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full mt-1 bg-white border border-stone-200 rounded-lg shadow-lg z-30 min-w-[110px] py-1">
+          {[['PDF (tisk)', exportPdf], ['CSV', exportCsv], ['XLS', exportXls]].map(([label, fn]) => (
+            <button key={label} onClick={fn}
+              className="w-full text-left px-3 py-2 text-xs text-stone-700 hover:bg-stone-50 transition-colors">
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

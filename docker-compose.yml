@@ -32,6 +32,12 @@ services:
       DATABASE_URL: postgres://catering:${DB_PASSWORD:-changeme123}@db:5432/catering_ld
       JWT_SECRET: ${JWT_SECRET:-superSecretKey2026changeMe}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-}
     ports:
       - "4000:4000"
     volumes:

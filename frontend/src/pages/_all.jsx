@@ -1,18 +1,21 @@
 // ── KalendarPage.jsx ─────────────────────────────────────────
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { kalendarApi } from '../api';
-import { PageHeader, TypBadge, StavBadge, formatDatum } from '../components/ui';
+import { TypBadge, StavBadge, formatDatum } from '../components/ui';
+import { ChevronDown } from 'lucide-react';
 
 export function KalendarPage() {
   const navigate = useNavigate();
-  const now  = new Date();
-  const [year, setYear]   = useState(now.getFullYear());
-  const [month, setMonth] = useState(now.getMonth());
+  const now = new Date();
+  const [year, setYear]         = useState(now.getFullYear());
+  const [month, setMonth]       = useState(now.getMonth());
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerYear, setPickerYear] = useState(now.getFullYear());
 
-  const od  = new Date(year, month, 1).toISOString().slice(0,10);
-  const doo = new Date(year, month+1, 0).toISOString().slice(0,10);
+  const od  = new Date(year, month, 1).toISOString().slice(0, 10);
+  const doo = new Date(year, month + 1, 0).toISOString().slice(0, 10);
 
   const { data } = useQuery({
     queryKey: ['kalendar', od, doo],
@@ -20,64 +23,140 @@ export function KalendarPage() {
   });
   const events = data?.data?.data || [];
 
-  // Build calendar grid
-  const firstDay = new Date(year, month, 1).getDay();
-  const daysInMonth = new Date(year, month+1, 0).getDate();
-  const offset = (firstDay + 6) % 7; // Monday start
+  // Build calendar grid (always full weeks)
+  const firstDay    = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const offset      = (firstDay + 6) % 7; // Monday start
+  const totalCells  = Math.ceil((offset + daysInMonth) / 7) * 7;
   const days = [];
   for (let i = 0; i < offset; i++) days.push(null);
   for (let d = 1; d <= daysInMonth; d++) days.push(d);
+  while (days.length < totalCells) days.push(null);
 
   const eventsForDay = (d) => {
     if (!d) return [];
-    const ds = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const ds = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
     return events.filter(e => e.datum_akce === ds);
   };
 
-  const MONTHS = ['Leden','Únor','Březen','Duben','Květen','Červen','Červenec','Srpen','Září','Říjen','Listopad','Prosinec'];
-  const DAYS   = ['Po','Út','St','Čt','Pá','So','Ne'];
+  const prevMonth = () => { if (month === 0) { setMonth(11); setYear(y => y - 1); } else setMonth(m => m - 1); };
+  const nextMonth = () => { if (month === 11) { setMonth(0); setYear(y => y + 1); } else setMonth(m => m + 1); };
 
-  const TYP_COLOR = { svatba:'bg-blue-200',soukroma_akce:'bg-orange-200',firemni_akce:'bg-green-200',zavoz:'bg-purple-200',bistro:'bg-stone-200' };
+  const MONTHS = ['Leden','Únor','Březen','Duben','Květen','Červen','Červenec','Srpen','Září','Říjen','Listopad','Prosinec'];
+  const DAYS   = ['Po', 'Út', 'St', 'Čt', 'Pá', 'So', 'Ne'];
+
+  const TYP_CHIP = {
+    svatba:        'bg-blue-50 text-blue-700 border border-blue-200',
+    soukroma_akce: 'bg-orange-50 text-orange-700 border border-orange-200',
+    firemni_akce:  'bg-emerald-50 text-emerald-700 border border-emerald-200',
+    zavoz:         'bg-violet-50 text-violet-700 border border-violet-200',
+    bistro:        'bg-amber-50 text-amber-700 border border-amber-200',
+  };
+  const TYP_DOT = {
+    svatba: 'bg-blue-500', soukroma_akce: 'bg-orange-500',
+    firemni_akce: 'bg-emerald-500', zavoz: 'bg-violet-500', bistro: 'bg-amber-500',
+  };
 
   return (
     <div>
-      <PageHeader
-        title="Kalendář"
-        subtitle={`${MONTHS[month]} ${year}`}
-        actions={
-          <div className="flex items-center gap-2">
-            <button onClick={() => { if(month===0){setMonth(11);setYear(y=>y-1);}else setMonth(m=>m-1); }}
-              className="px-2 py-1.5 text-sm border border-stone-200 rounded-md hover:bg-stone-50">←</button>
-            <button onClick={() => { setMonth(now.getMonth()); setYear(now.getFullYear()); }}
-              className="px-3 py-1.5 text-xs border border-stone-200 rounded-md hover:bg-stone-50">Dnes</button>
-            <button onClick={() => { if(month===11){setMonth(0);setYear(y=>y+1);}else setMonth(m=>m+1); }}
-              className="px-2 py-1.5 text-sm border border-stone-200 rounded-md hover:bg-stone-50">→</button>
-          </div>
-        }
-      />
+      {/* ── Header ── */}
+      <div className="flex items-center justify-between px-6 py-4 border-b border-stone-100">
+
+        {/* Klikatelný nadpis → month/year picker */}
+        <div className="relative">
+          <button
+            onClick={() => { setPickerYear(year); setPickerOpen(p => !p); }}
+            className="flex items-center gap-1.5 text-xl font-semibold text-stone-800 hover:text-stone-600 transition-colors"
+          >
+            {MONTHS[month]} {year}
+            <ChevronDown size={18} className={`transition-transform duration-200 ${pickerOpen ? 'rotate-180' : ''}`} />
+          </button>
+
+          {pickerOpen && (
+            <div className="absolute top-full left-0 mt-2 bg-white border border-stone-200 rounded-xl shadow-xl z-20 p-4 w-72">
+              {/* Rok navigace */}
+              <div className="flex items-center justify-between mb-3">
+                <button onClick={() => setPickerYear(y => y - 1)}
+                  className="p-1.5 hover:bg-stone-100 rounded-lg text-stone-600 text-sm">←</button>
+                <span className="font-semibold text-stone-700">{pickerYear}</span>
+                <button onClick={() => setPickerYear(y => y + 1)}
+                  className="p-1.5 hover:bg-stone-100 rounded-lg text-stone-600 text-sm">→</button>
+              </div>
+              {/* 4×3 mřížka měsíců */}
+              <div className="grid grid-cols-4 gap-1">
+                {MONTHS.map((m, i) => (
+                  <button key={i}
+                    onClick={() => { setYear(pickerYear); setMonth(i); setPickerOpen(false); }}
+                    className={`py-2 text-xs rounded-lg transition-colors ${
+                      i === month && pickerYear === year
+                        ? 'bg-stone-900 text-white font-semibold'
+                        : 'hover:bg-stone-100 text-stone-600'
+                    }`}
+                  >
+                    {m.slice(0, 3)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Prev / Dnes / Next */}
+        <div className="flex items-center gap-1">
+          <button onClick={prevMonth}
+            className="p-2 hover:bg-stone-100 rounded-lg text-stone-600 text-sm transition-colors">←</button>
+          <button onClick={() => { setMonth(now.getMonth()); setYear(now.getFullYear()); }}
+            className="px-3 py-1.5 text-xs border border-stone-200 rounded-lg hover:bg-stone-50 transition-colors">Dnes</button>
+          <button onClick={nextMonth}
+            className="p-2 hover:bg-stone-100 rounded-lg text-stone-600 text-sm transition-colors">→</button>
+        </div>
+      </div>
+
       <div className="p-6">
         <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
-          {/* Day headers */}
+          {/* Záhlaví dnů */}
           <div className="grid grid-cols-7 border-b border-stone-100">
-            {DAYS.map(d => <div key={d} className="py-2 text-center text-xs font-medium text-stone-500">{d}</div>)}
+            {DAYS.map((d, i) => (
+              <div key={d} className={`py-3 text-center text-xs font-semibold uppercase tracking-wide ${i >= 5 ? 'text-stone-400' : 'text-stone-500'}`}>
+                {d}
+              </div>
+            ))}
           </div>
-          {/* Cells */}
-          <div className="grid grid-cols-7">
+
+          {/* Buňky */}
+          <div className="grid grid-cols-7 divide-x divide-y divide-stone-100">
             {days.map((d, i) => {
-              const evs = eventsForDay(d);
-              const isToday = d && year===now.getFullYear() && month===now.getMonth() && d===now.getDate();
+              const evs     = eventsForDay(d);
+              const isToday = d && year === now.getFullYear() && month === now.getMonth() && d === now.getDate();
+              const isWeekend = i % 7 >= 5;
               return (
-                <div key={i} className={`min-h-[90px] p-2 border-b border-r border-stone-50 ${!d?'bg-stone-50/50':''}`}>
+                <div key={i} className={`min-h-[120px] p-1.5 ${!d ? 'bg-stone-50/50' : isWeekend ? 'bg-stone-50/40' : 'bg-white'}`}>
                   {d && (
                     <>
-                      <div className={`text-xs font-medium mb-1 w-6 h-6 flex items-center justify-center rounded-full ${isToday?'bg-stone-900 text-white':'text-stone-600'}`}>{d}</div>
-                      {evs.map(e => (
-                        <div key={e.id} onClick={() => navigate(`/zakazky/${e.id}`)}
-                          className={`text-xs px-1.5 py-0.5 rounded mb-0.5 cursor-pointer truncate ${TYP_COLOR[e.typ]||'bg-stone-200'} text-stone-700 hover:opacity-80`}
-                          title={e.nazev}>
-                          {e.cas_zacatek ? e.cas_zacatek.slice(0,5)+' ' : ''}{e.nazev}
-                        </div>
-                      ))}
+                      <div className="mb-1 px-0.5">
+                        <span className={`text-xs font-semibold inline-flex items-center justify-center w-7 h-7 rounded-full select-none
+                          ${isToday ? 'bg-brand-900 text-white' : isWeekend ? 'text-stone-400' : 'text-stone-600'}`}>
+                          {d}
+                        </span>
+                      </div>
+                      <div className="space-y-0.5">
+                        {evs.slice(0, 3).map(e => (
+                          <div key={e.id}
+                            onClick={() => navigate(`/zakazky/${e.id}`)}
+                            title={e.nazev}
+                            className={`flex items-center gap-1 text-xs px-1.5 py-0.5 rounded cursor-pointer hover:opacity-75 transition-opacity
+                              ${TYP_CHIP[e.typ] || 'bg-stone-100 text-stone-700 border border-stone-200'}`}
+                          >
+                            <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${TYP_DOT[e.typ] || 'bg-stone-400'}`} />
+                            <span className="truncate">
+                              {e.cas_zacatek ? e.cas_zacatek.slice(0, 5) + ' ' : ''}{e.nazev}
+                            </span>
+                          </div>
+                        ))}
+                        {evs.length > 3 && (
+                          <div className="text-xs text-stone-400 pl-1 cursor-default">+{evs.length - 3} více</div>
+                        )}
+                      </div>
                     </>
                   )}
                 </div>
@@ -86,21 +165,22 @@ export function KalendarPage() {
           </div>
         </div>
 
-        {/* Upcoming list */}
+        {/* Seznam akcí v měsíci */}
         {events.length > 0 && (
           <div className="mt-6">
             <h3 className="text-sm font-semibold text-stone-700 mb-3">Akce v {MONTHS[month].toLowerCase()}</h3>
             <div className="space-y-2">
-              {events.sort((a,b) => a.datum_akce.localeCompare(b.datum_akce)).map(e => (
+              {[...events].sort((a, b) => a.datum_akce.localeCompare(b.datum_akce)).map(e => (
                 <div key={e.id} onClick={() => navigate(`/zakazky/${e.id}`)}
-                  className="flex items-center gap-3 bg-white rounded-lg border border-stone-200 px-4 py-3 cursor-pointer hover:bg-stone-50">
-                  <div className="text-sm font-medium text-stone-800 w-24 flex-shrink-0">{formatDatum(e.datum_akce)}</div>
+                  className="flex items-center gap-3 bg-white rounded-lg border border-stone-200 px-4 py-3 cursor-pointer hover:bg-stone-50 transition-colors">
+                  <div className={`w-1 self-stretch rounded-full flex-shrink-0 ${TYP_DOT[e.typ] || 'bg-stone-400'}`} />
+                  <div className="text-sm font-medium text-stone-500 w-24 flex-shrink-0">{formatDatum(e.datum_akce)}</div>
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium text-stone-800 truncate">{e.nazev}</div>
-                    <div className="text-xs text-stone-400">{e.misto || '—'} · {e.pocet_hostu ? e.pocet_hostu+' hostů' : ''}</div>
+                    <div className="text-xs text-stone-400">{e.misto || '—'} · {e.pocet_hostu ? e.pocet_hostu + ' hostů' : ''}</div>
                   </div>
-                  <TypBadge typ={e.typ}/>
-                  <StavBadge stav={e.stav}/>
+                  <TypBadge typ={e.typ} />
+                  <StavBadge stav={e.stav} />
                 </div>
               ))}
             </div>
@@ -114,35 +194,109 @@ export function KalendarPage() {
 // ── PersonalPage.jsx ──────────────────────────────────────────
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { personalApi } from '../api';
-import { EmptyState, Btn, Modal, Spinner } from '../components/ui';
+import { PageHeader, EmptyState, Btn, Modal, Spinner, ExportMenu } from '../components/ui';
 import toast from 'react-hot-toast';
-import { Plus, UserCheck } from 'lucide-react';
+import { Plus, UserCheck, Pencil, Trash2 as Trash2Personal } from 'lucide-react';
 
 const ROLE_LABELS = { koordinator:'Koordinátor', cisnik:'Číšník / servírka', kuchar:'Kuchař', ridic:'Řidič', barman:'Barman', pomocna_sila:'Pomocná síla' };
 
+const PERSONAL_EXPORT_COLS = [
+  { header: 'Jméno',       accessor: 'jmeno' },
+  { header: 'Příjmení',    accessor: 'prijmeni' },
+  { header: 'Typ',         accessor: r => r.typ === 'interni' ? 'Interní' : 'Externí' },
+  { header: 'Role',        accessor: r => ROLE_LABELS[r.role] || r.role },
+  { header: 'E-mail',      accessor: 'email' },
+  { header: 'Telefon',     accessor: 'telefon' },
+  { header: 'Specializace',accessor: r => (r.specializace || []).join(', ') },
+];
+
+const EMPTY_PERSON = { jmeno:'', prijmeni:'', typ:'interni', role:'cisnik', email:'', telefon:'', specializace:'' };
+
 export function PersonalPage() {
   const qc = useQueryClient();
-  const [modal, setModal] = useState(false);
-  const [form, setForm]   = useState({ jmeno:'', prijmeni:'', typ:'interni', role:'cisnik', email:'', telefon:'', specializace:'' });
+  const [modal, setModal]       = useState(false);
+  const [editModal, setEditModal] = useState(false);
+  const [editPerson, setEditPerson] = useState(null);
+  const [form, setForm]         = useState(EMPTY_PERSON);
+  const [editForm, setEditForm] = useState(EMPTY_PERSON);
 
   const { data, isLoading } = useQuery({
     queryKey: ['personal'],
     queryFn: () => personalApi.list(),
   });
 
+  const specsToArr = (s) => typeof s === 'string' ? s.split(',').map(x => x.trim()).filter(Boolean) : (s || []);
+
   const createMut = useMutation({
-    mutationFn: (d) => personalApi.create({ ...d, specializace: d.specializace.split(',').map(s=>s.trim()).filter(Boolean) }),
-    onSuccess: () => { qc.invalidateQueries(['personal']); toast.success('Osoba přidána'); setModal(false); },
+    mutationFn: (d) => personalApi.create({ ...d, specializace: specsToArr(d.specializace) }),
+    onSuccess: () => { qc.invalidateQueries(['personal']); toast.success('Osoba přidána'); setModal(false); setForm(EMPTY_PERSON); },
     onError: () => toast.error('Chyba při ukládání'),
+  });
+
+  const updateMut = useMutation({
+    mutationFn: (d) => personalApi.update(d.id, { ...d, specializace: specsToArr(d.specializace) }),
+    onSuccess: () => { qc.invalidateQueries(['personal']); toast.success('Uloženo'); setEditModal(false); setEditPerson(null); },
+    onError: () => toast.error('Chyba při ukládání'),
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: (id) => personalApi.delete(id),
+    onSuccess: () => { qc.invalidateQueries(['personal']); toast.success('Osoba smazána'); },
+    onError: () => toast.error('Chybu při mazání'),
   });
 
   const personal = data?.data?.data || [];
   const interni  = personal.filter(p => p.typ === 'interni');
   const externi  = personal.filter(p => p.typ === 'externi');
-  const set = (k,v) => setForm(f=>({...f,[k]:v}));
+
+  const openEdit = (p) => {
+    setEditPerson(p);
+    setEditForm({ ...p, specializace: (p.specializace || []).join(', ') });
+    setEditModal(true);
+  };
+
+  const handleDelete = (p) => {
+    if (window.confirm(`Opravdu smazat ${p.jmeno} ${p.prijmeni}?`)) {
+      deleteMut.mutate(p.id);
+    }
+  };
+
+  const set  = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  const setE = (k, v) => setEditForm(f => ({ ...f, [k]: v }));
+
+  const PersonForm = ({ f, onChange, prefix = '' }) => (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-3">
+        <div><label className="text-xs text-stone-500 block mb-1">Jméno</label><input className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" value={f.jmeno} onChange={e=>onChange('jmeno',e.target.value)}/></div>
+        <div><label className="text-xs text-stone-500 block mb-1">Příjmení</label><input className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" value={f.prijmeni} onChange={e=>onChange('prijmeni',e.target.value)}/></div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div><label className="text-xs text-stone-500 block mb-1">Typ</label><select className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" value={f.typ} onChange={e=>onChange('typ',e.target.value)}><option value="interni">Interní</option><option value="externi">Externí</option></select></div>
+        <div><label className="text-xs text-stone-500 block mb-1">Role</label><select className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" value={f.role} onChange={e=>onChange('role',e.target.value)}>{Object.entries(ROLE_LABELS).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div><label className="text-xs text-stone-500 block mb-1">E-mail</label><input type="email" className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" value={f.email} onChange={e=>onChange('email',e.target.value)}/></div>
+        <div><label className="text-xs text-stone-500 block mb-1">Telefon</label><input className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" value={f.telefon} onChange={e=>onChange('telefon',e.target.value)}/></div>
+      </div>
+      <div><label className="text-xs text-stone-500 block mb-1">Specializace (čárkou oddělené)</label><input className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" placeholder="Servírování, Fine dining" value={f.specializace} onChange={e=>onChange('specializace',e.target.value)}/></div>
+    </div>
+  );
 
   const Card = ({ p }) => (
-    <div className="bg-white rounded-lg border border-stone-200 p-4">
+    <div className="bg-white rounded-lg border border-stone-200 p-4 relative group">
+      {/* Action buttons – shown on hover */}
+      <div className="absolute top-2.5 right-2.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <button onClick={() => openEdit(p)}
+          className="p-1.5 rounded-md bg-stone-100 hover:bg-stone-200 text-stone-500 hover:text-stone-700 transition-colors"
+          title="Upravit">
+          <Pencil size={12}/>
+        </button>
+        <button onClick={() => handleDelete(p)}
+          className="p-1.5 rounded-md bg-stone-100 hover:bg-red-100 text-stone-500 hover:text-red-600 transition-colors"
+          title="Smazat">
+          <Trash2Personal size={12}/>
+        </button>
+      </div>
       <div className="flex items-center gap-3 mb-3">
         <div className="w-9 h-9 rounded-full bg-stone-100 flex items-center justify-center text-xs font-medium text-stone-600 flex-shrink-0">
           {p.jmeno[0]}{p.prijmeni[0]}
@@ -165,7 +319,12 @@ export function PersonalPage() {
   return (
     <div>
       <PageHeader title="Personál" subtitle={`${personal.length} osob`}
-        actions={<Btn variant="primary" size="sm" onClick={() => setModal(true)}><Plus size={12}/> Přidat osobu</Btn>}/>
+        actions={
+          <div className="flex items-center gap-2">
+            <ExportMenu data={personal} columns={PERSONAL_EXPORT_COLS} filename="personal"/>
+            <Btn variant="primary" size="sm" onClick={() => setModal(true)}><Plus size={12}/> Přidat osobu</Btn>
+          </div>
+        }/>
       <div className="p-6 space-y-6">
         {isLoading ? <div className="flex justify-center py-10"><Spinner/></div> : <>
           {interni.length > 0 && <>
@@ -179,23 +338,17 @@ export function PersonalPage() {
           {personal.length === 0 && <EmptyState icon={UserCheck} title="Žádný personál"/>}
         </>}
       </div>
-      <Modal open={modal} onClose={() => setModal(false)} title="Přidat osobu"
-        footer={<><Btn onClick={() => setModal(false)}>Zrušit</Btn><Btn variant="primary" onClick={() => createMut.mutate(form)} disabled={!form.jmeno||!form.prijmeni||createMut.isPending}>{createMut.isPending?'Ukládám…':'Přidat'}</Btn></>}>
-        <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            <div><label className="text-xs text-stone-500 block mb-1">Jméno</label><input className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" value={form.jmeno} onChange={e=>set('jmeno',e.target.value)}/></div>
-            <div><label className="text-xs text-stone-500 block mb-1">Příjmení</label><input className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" value={form.prijmeni} onChange={e=>set('prijmeni',e.target.value)}/></div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div><label className="text-xs text-stone-500 block mb-1">Typ</label><select className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" value={form.typ} onChange={e=>set('typ',e.target.value)}><option value="interni">Interní</option><option value="externi">Externí</option></select></div>
-            <div><label className="text-xs text-stone-500 block mb-1">Role</label><select className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" value={form.role} onChange={e=>set('role',e.target.value)}>{Object.entries(ROLE_LABELS).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div><label className="text-xs text-stone-500 block mb-1">E-mail</label><input type="email" className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" value={form.email} onChange={e=>set('email',e.target.value)}/></div>
-            <div><label className="text-xs text-stone-500 block mb-1">Telefon</label><input className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" value={form.telefon} onChange={e=>set('telefon',e.target.value)}/></div>
-          </div>
-          <div><label className="text-xs text-stone-500 block mb-1">Specializace (čárkou oddělené)</label><input className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" placeholder="Servírování, Fine dining" value={form.specializace} onChange={e=>set('specializace',e.target.value)}/></div>
-        </div>
+
+      {/* Modal – přidat */}
+      <Modal open={modal} onClose={() => { setModal(false); setForm(EMPTY_PERSON); }} title="Přidat osobu"
+        footer={<><Btn onClick={() => { setModal(false); setForm(EMPTY_PERSON); }}>Zrušit</Btn><Btn variant="primary" onClick={() => createMut.mutate(form)} disabled={!form.jmeno||!form.prijmeni||createMut.isPending}>{createMut.isPending?'Ukládám…':'Přidat'}</Btn></>}>
+        <PersonForm f={form} onChange={set}/>
+      </Modal>
+
+      {/* Modal – editovat */}
+      <Modal open={editModal} onClose={() => { setEditModal(false); setEditPerson(null); }} title={editPerson ? `Upravit – ${editPerson.jmeno} ${editPerson.prijmeni}` : ''}
+        footer={<><Btn onClick={() => { setEditModal(false); setEditPerson(null); }}>Zrušit</Btn><Btn variant="primary" onClick={() => updateMut.mutate({ id: editPerson.id, ...editForm })} disabled={!editForm.jmeno||!editForm.prijmeni||updateMut.isPending}>{updateMut.isPending?'Ukládám…':'Uložit'}</Btn></>}>
+        <PersonForm f={editForm} onChange={setE}/>
       </Modal>
     </div>
   );
@@ -306,7 +459,7 @@ export function CenikPage() {
   const [form, setForm] = useState({ nazev:'', kategorie:'jidlo', jednotka:'os.', cena_nakup:0, cena_prodej:0, dph_sazba:12 });
   const [katForm, setKatForm] = useState({ nazev:'' });
 
-  const { data: katData, isLoading: katLoading } = useQuery({
+  const { data: katData } = useQuery({
     queryKey: ['cenik-kategorie'],
     queryFn: () => cenikApi.listKategorie(),
   });
@@ -350,6 +503,19 @@ export function CenikPage() {
       <PageHeader title="Ceníky a číselníky" subtitle={`${items.length} aktivních položek`}
         actions={
           <div className="flex gap-2">
+            <ExportMenu
+              data={items}
+              columns={[
+                { header: 'Název',          accessor: 'nazev' },
+                { header: 'Kategorie',       accessor: r => katLabel(r.kategorie) },
+                { header: 'Jednotka',        accessor: 'jednotka' },
+                { header: 'Nákupní cena',   accessor: r => Number(r.cena_nakup).toFixed(2) },
+                { header: 'Prodejní cena',  accessor: r => Number(r.cena_prodej).toFixed(2) },
+                { header: 'DPH %',          accessor: 'dph_sazba' },
+                { header: 'Marže %',        accessor: r => marze(r.cena_nakup, r.cena_prodej) },
+              ]}
+              filename="cenik"
+            />
             <Btn size="sm" onClick={() => setKatModal(true)}><Plus size={12}/> Přidat kategorii</Btn>
             <Btn variant="primary" size="sm" onClick={() => setModal(true)}><Plus size={12}/> Nová položka</Btn>
           </div>
@@ -472,7 +638,24 @@ export function NabidkyPage() {
   return (
     <div>
       <PageHeader title="Nabídky" subtitle={`${nabidky.length} nabídek`}
-        actions={<Btn variant="primary" size="sm" onClick={() => navigate('/nabidky/nova')}><Plus size={12}/> Nová nabídka</Btn>}/>
+        actions={
+          <div className="flex items-center gap-2">
+            <ExportMenu
+              data={nabidky}
+              columns={[
+                { header: 'Název',      accessor: 'nazev' },
+                { header: 'Verze',      accessor: r => `v${r.verze}` },
+                { header: 'Zakázka',    accessor: 'zakazka_cislo' },
+                { header: 'Klient',     accessor: r => r.klient_firma || `${r.klient_jmeno||''} ${r.klient_prijmeni||''}`.trim() },
+                { header: 'Stav',       accessor: r => STAV_LABELS_N[r.stav] || r.stav },
+                { header: 'Platnost do',accessor: r => r.platnost_do ? new Date(r.platnost_do).toLocaleDateString('cs-CZ') : '—' },
+                { header: 'Cena',       accessor: r => r.cena_celkem != null ? Number(r.cena_celkem).toFixed(0) : '—' },
+              ]}
+              filename="nabidky"
+            />
+            <Btn variant="primary" size="sm" onClick={() => navigate('/nabidky/nova')}><Plus size={12}/> Nová nabídka</Btn>
+          </div>
+        }/>
       <div className="p-6">
         {isLoading ? <div className="flex justify-center py-10"><Spinner/></div> :
          nabidky.length === 0 ? <EmptyState icon={FileText} title="Žádné nabídky" desc="Nabídky se vytvářejí z detailu zakázky."/> :
@@ -499,10 +682,16 @@ export function NabidkyPage() {
 }
 
 // ── NabidkaEditor.jsx ─────────────────────────────────────────
+import { Mail, Printer } from 'lucide-react';
+import { printNabidkuPdf } from '../utils/print';
+
 export function NabidkaEditor() {
   const { id } = useParams();
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const [emailModal, setEmailModal] = useState(false);
+  const [emailForm, setEmailForm] = useState({ to: '', poznamka: '' });
+
   const { data: nabData, isLoading } = useQuery({
     queryKey: ['nabidka', id],
     queryFn: () => nabidkyApi.get(id),
@@ -510,6 +699,17 @@ export function NabidkaEditor() {
   });
   const n = nabData?.data;
   const fmt = (v) => v == null ? '—' : new Intl.NumberFormat('cs-CZ',{style:'currency',currency:'CZK',maximumFractionDigits:0}).format(v);
+
+  const odeslatMut = useMutation({
+    mutationFn: (d) => nabidkyApi.odeslat(id, d),
+    onSuccess: () => {
+      qc.invalidateQueries(['nabidka', id]);
+      qc.invalidateQueries(['nabidky']);
+      toast.success('Nabídka odeslána emailem');
+      setEmailModal(false);
+    },
+    onError: (err) => toast.error(err?.response?.data?.error || 'Chyba při odesílání'),
+  });
 
   if (isLoading) return <div className="flex justify-center py-20"><Spinner/></div>;
 
@@ -543,7 +743,13 @@ export function NabidkaEditor() {
                 ))}</tbody>
               </table>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
+              <Btn variant="primary" onClick={() => { setEmailForm({ to: '', poznamka: '' }); setEmailModal(true); }}>
+                <Mail size={13}/> Odeslat emailem
+              </Btn>
+              <Btn onClick={() => printNabidkuPdf(n)}>
+                <Printer size={13}/> Export PDF
+              </Btn>
               {['odeslano','prijato','zamitnuto'].map(s => (
                 <Btn key={s} onClick={() => nabidkyApi.setStav(n.id,{stav:s}).then(()=>{ qc.invalidateQueries(['nabidka',id]); toast.success('Stav aktualizován'); })}>
                   → {STAV_LABELS_N[s]}
@@ -553,6 +759,30 @@ export function NabidkaEditor() {
           </div>
         )}
       </div>
+
+      <Modal open={emailModal} onClose={() => setEmailModal(false)} title="Odeslat nabídku emailem"
+        footer={<>
+          <Btn onClick={() => setEmailModal(false)}>Zrušit</Btn>
+          <Btn variant="primary" onClick={() => odeslatMut.mutate(emailForm)} disabled={!emailForm.to || odeslatMut.isPending}>
+            {odeslatMut.isPending ? 'Odesílám…' : 'Odeslat'}
+          </Btn>
+        </>}>
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs text-stone-500 block mb-1">E-mail příjemce *</label>
+            <input type="email" className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+              placeholder="klient@email.cz"
+              value={emailForm.to} onChange={e => setEmailForm(f => ({ ...f, to: e.target.value }))} autoFocus/>
+          </div>
+          <div>
+            <label className="text-xs text-stone-500 block mb-1">Osobní poznámka (volitelné)</label>
+            <textarea rows={3} className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none resize-none"
+              placeholder="Doplňující text, který se zobrazí v emailu před tabulkou nabídky…"
+              value={emailForm.poznamka} onChange={e => setEmailForm(f => ({ ...f, poznamka: e.target.value }))}/>
+          </div>
+          <p className="text-xs text-stone-400">Po odeslání se stav nabídky automaticky změní na „Odesláno".</p>
+        </div>
+      </Modal>
     </div>
   );
 }
@@ -793,7 +1023,7 @@ export function NastaveniPage() {
   const { data: nastavData } = useQuery({ queryKey:['nastaveni'], queryFn: nastaveniApi.get });
   const { data: uzivData }   = useQuery({ queryKey:['uzivatele'], queryFn: uzivateleApi.list, enabled: tab==='uziv' });
 
-  useState(() => { if (nastavData?.data) setForm(nastavData.data); }, [nastavData]);
+  useEffect(() => { if (nastavData?.data) setForm(nastavData.data); }, [nastavData]);
 
   const saveMut  = useMutation({ mutationFn: nastaveniApi.update, onSuccess: () => toast.success('Nastavení uloženo') });
   const userMut  = useMutation({ mutationFn: uzivateleApi.create, onSuccess: () => { qc.invalidateQueries(['uzivatele']); toast.success('Uživatel přidán'); setUserModal(false); } });

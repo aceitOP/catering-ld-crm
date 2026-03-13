@@ -39,6 +39,8 @@ export const zakazkyApi = {
   update:    (id, d)  => api.patch(`/zakazky/${id}`, d),
   setStav:   (id, d)  => api.patch(`/zakazky/${id}/stav`, d),
   delete:    (id)     => api.delete(`/zakazky/${id}`),
+  komando:   (id, d)  => api.post(`/zakazky/${id}/komando`, d),
+  dekujeme:  (id, d)  => api.post(`/zakazky/${id}/dekujeme`, d),
 };
 
 // ── Klienti ──────────────────────────────────────────────────
@@ -56,6 +58,7 @@ export const nabidkyApi = {
   get:     (id)     => api.get(`/nabidky/${id}`),
   create:  (data)   => api.post('/nabidky', data),
   setStav: (id, d)  => api.patch(`/nabidky/${id}/stav`, d),
+  odeslat: (id, d)  => api.post(`/nabidky/${id}/odeslat`, d),
 };
 
 // ── Kalkulace ────────────────────────────────────────────────
@@ -81,6 +84,7 @@ export const personalApi = {
   get:      (id)      => api.get(`/personal/${id}`),
   create:   (data)    => api.post('/personal', data),
   update:   (id, d)   => api.patch(`/personal/${id}`, d),
+  delete:   (id)      => api.delete(`/personal/${id}`),
   priradZakazku: (id, d) => api.post(`/personal/${id}/prirazeni`, d),
 };
 

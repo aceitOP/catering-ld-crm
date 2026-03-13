@@ -4,7 +4,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { zakazkyApi } from '../api';
 import { StavBadge, TypBadge, formatCena, formatDatum, Spinner, Btn, Modal } from '../components/ui';
 import toast from 'react-hot-toast';
-import { ArrowLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, ChevronRight, Send, Heart, Printer } from 'lucide-react';
+import { printKomandoPdf } from '../utils/print';
 
 const WORKFLOW = [
   { stav: 'nova_poptavka',      label: 'Nová poptávka' },
@@ -26,6 +27,10 @@ export default function ZakazkaDetail() {
   const [stavModal, setStavModal] = useState(false);
   const [novyStav, setNovyStav] = useState('');
   const [stavPozn, setStavPozn] = useState('');
+  const [komandoModal, setKomandoModal] = useState(false);
+  const [komandoPozn, setKomandoPozn] = useState('');
+  const [dekujemeModal, setDekujemeModal] = useState(false);
+  const [dekujemeForm, setDekujemeForm] = useState({ to: '', text: '' });
 
   const { data, isLoading } = useQuery({
     queryKey: ['zakazka', id],
@@ -40,6 +45,18 @@ export default function ZakazkaDetail() {
       setStavModal(false);
     },
     onError: () => toast.error('Nepodařilo se změnit stav'),
+  });
+
+  const komandoMut = useMutation({
+    mutationFn: (d) => zakazkyApi.komando(id, d),
+    onSuccess: (res) => { toast.success(res.data.message); setKomandoModal(false); setKomandoPozn(''); },
+    onError: (err) => toast.error(err?.response?.data?.error || 'Chyba při odesílání komanda'),
+  });
+
+  const dekujemeMut = useMutation({
+    mutationFn: (d) => zakazkyApi.dekujeme(id, d),
+    onSuccess: (res) => { toast.success(res.data.message); setDekujemeModal(false); },
+    onError: (err) => toast.error(err?.response?.data?.error || 'Chyba při odesílání emailu'),
   });
 
   if (isLoading) return <div className="flex justify-center py-20"><Spinner /></div>;
@@ -65,9 +82,18 @@ export default function ZakazkaDetail() {
             </div>
             <div className="text-xs text-stone-400">{z.cislo} · Vytvořeno {formatDatum(z.created_at)}</div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <Btn size="sm" onClick={() => { setNovyStav(z.stav); setStavModal(true); }}>
               Změnit stav
+            </Btn>
+            <Btn size="sm" onClick={() => { setKomandoPozn(''); setKomandoModal(true); }}>
+              <Send size={12}/> Komando e-mail
+            </Btn>
+            <Btn size="sm" onClick={() => printKomandoPdf(z)}>
+              <Printer size={12}/> Komando PDF
+            </Btn>
+            <Btn size="sm" onClick={() => { setDekujemeForm({ to: z.klient_email || '', text: '' }); setDekujemeModal(true); }}>
+              <Heart size={12}/> Děkovací email
             </Btn>
             <Btn size="sm" variant="primary" onClick={() => navigate(`/nabidky/${id}/edit`)}>
               Nabídka
@@ -292,6 +318,67 @@ export default function ZakazkaDetail() {
             <textarea className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none resize-none"
               rows={3} value={stavPozn} onChange={e => setStavPozn(e.target.value)} />
           </div>
+        </div>
+      </Modal>
+
+      {/* Modal: Komando */}
+      <Modal open={komandoModal} onClose={() => setKomandoModal(false)} title="Odeslat Komando"
+        footer={<>
+          <Btn onClick={() => setKomandoModal(false)}>Zrušit</Btn>
+          <Btn variant="primary" onClick={() => komandoMut.mutate({ poznamka: komandoPozn })} disabled={komandoMut.isPending}>
+            {komandoMut.isPending ? 'Odesílám…' : 'Odeslat komando'}
+          </Btn>
+        </>}>
+        <div className="space-y-3">
+          {z?.personal?.length > 0 ? (
+            <div>
+              <div className="text-xs text-stone-500 mb-2">Email bude odeslán personálu s vyplněným emailem:</div>
+              <div className="bg-stone-50 rounded-lg border border-stone-200 divide-y divide-stone-100">
+                {z.personal.map(p => (
+                  <div key={p.id} className="flex items-center justify-between px-3 py-2 text-sm">
+                    <span className="font-medium text-stone-800">{p.jmeno} {p.prijmeni}</span>
+                    <span className="text-xs text-stone-500">{p.email || <span className="text-red-400">bez emailu</span>}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
+              K zakázce není přiřazen žádný personál.
+            </p>
+          )}
+          <div>
+            <label className="text-xs text-stone-500 block mb-1">Doplňující poznámka (volitelné)</label>
+            <textarea rows={3} className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none resize-none"
+              placeholder="Speciální instrukce, parkování, dress code…"
+              value={komandoPozn} onChange={e => setKomandoPozn(e.target.value)}/>
+          </div>
+          <p className="text-xs text-stone-400">Email bude obsahovat detaily akce, harmonogram a tým. Každý člen dostane email s jeho konkrétními časy.</p>
+        </div>
+      </Modal>
+
+      {/* Modal: Děkovací email */}
+      <Modal open={dekujemeModal} onClose={() => setDekujemeModal(false)} title="Odeslat děkovací email"
+        footer={<>
+          <Btn onClick={() => setDekujemeModal(false)}>Zrušit</Btn>
+          <Btn variant="primary" onClick={() => dekujemeMut.mutate(dekujemeForm)} disabled={!dekujemeForm.to || dekujemeMut.isPending}>
+            {dekujemeMut.isPending ? 'Odesílám…' : 'Odeslat'}
+          </Btn>
+        </>}>
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs text-stone-500 block mb-1">E-mail příjemce *</label>
+            <input type="email" className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+              value={dekujemeForm.to} onChange={e => setDekujemeForm(f => ({ ...f, to: e.target.value }))}
+              placeholder="klient@email.cz" autoFocus/>
+          </div>
+          <div>
+            <label className="text-xs text-stone-500 block mb-1">Text emailu (volitelné)</label>
+            <textarea rows={5} className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none resize-none"
+              placeholder="Pokud nevyplníte, použije se výchozí děkovací text…"
+              value={dekujemeForm.text} onChange={e => setDekujemeForm(f => ({ ...f, text: e.target.value }))}/>
+          </div>
+          <p className="text-xs text-stone-400">Email bude obsahovat souhrn akce (datum, místo, počet hostů, cena).</p>
         </div>
       </Modal>
     </div>
