@@ -4,6 +4,7 @@ const cors    = require('cors');
 const helmet  = require('helmet');
 const morgan  = require('morgan');
 const path    = require('path');
+const { initDb } = require('./initDb');
 
 const app = express();
 
@@ -54,7 +55,10 @@ app.use((err, _req, res, _next) => {
 
 // ── Start ────────────────────────────────────────────────────
 const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => {
-  console.log(`✅  Catering LD API běží na portu ${PORT}`);
-  console.log(`   Prostředí: ${process.env.NODE_ENV || 'development'}`);
+
+initDb().then(() => {
+  app.listen(PORT, () => {
+    console.log(`✅  Catering LD API běží na portu ${PORT}`);
+    console.log(`   Prostředí: ${process.env.NODE_ENV || 'development'}`);
+  });
 });

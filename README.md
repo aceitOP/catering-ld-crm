@@ -213,4 +213,3 @@ GET    /api/kalendar         ?od, do
 - [ ] E-mail notifikace (Nodemailer)
 - [ ] Export do XLSX / CSV
 - [ ] Fakturoid API integrace
-"# catering-ld-crm" 
