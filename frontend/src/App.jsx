@@ -12,6 +12,7 @@ import NovaZakazka     from './pages/NovaZakazka';
 import KlientiPage     from './pages/KlientiPage';
 import NabidkyPage     from './pages/NabidkyPage';
 import NabidkaEditor   from './pages/NabidkaEditor';
+import NovaNabidka     from './pages/NovaNabidka';
 import KalendarPage    from './pages/KalendarPage';
 import PersonalPage    from './pages/PersonalPage';
 import DokumentyPage   from './pages/DokumentyPage';
@@ -51,6 +52,7 @@ function App() {
               <Route path="zakazky/:id"       element={<ZakazkaDetail />} />
               <Route path="klienti"           element={<KlientiPage />} />
               <Route path="nabidky"           element={<NabidkyPage />} />
+              <Route path="nabidky/nova"      element={<NovaNabidka />} />
               <Route path="nabidky/:id/edit"  element={<NabidkaEditor />} />
               <Route path="kalendar"          element={<KalendarPage />} />
               <Route path="personal"          element={<PersonalPage />} />
