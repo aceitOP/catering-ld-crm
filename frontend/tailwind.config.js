@@ -5,17 +5,17 @@ export default {
     extend: {
       colors: {
         brand: {
-          50:  '#eef0f9',
-          100: '#d5d9f1',
-          200: '#aab4e3',
-          300: '#7f8ed5',
-          400: '#5468c7',
-          500: '#2942b9',
-          600: '#2239a0',
-          700: '#1c3087',
-          800: '#1d2570',
-          900: '#262d64',
-          950: '#1a1f47',
+          50:  '#f0edff',
+          100: '#ddd6fe',
+          200: '#c4b5fd',
+          300: '#a78bfa',
+          400: '#8b5cf6',
+          500: '#7c3aed',
+          600: '#6d28d9',
+          700: '#5b21b6',
+          800: '#4c1d95',
+          900: '#2d1b69',
+          950: '#1b1142',
         },
         accent: {
           DEFAULT: '#EB5939',
@@ -30,9 +30,18 @@ export default {
           800: '#8c2814',
           900: '#6e2011',
         },
+        surface: '#f4f7fe',
       },
       fontFamily: {
-        sans: ['Syne', 'system-ui', '-apple-system', 'sans-serif'],
+        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+      },
+      borderRadius: {
+        '2xl': '1rem',
+        '3xl': '1.25rem',
+      },
+      boxShadow: {
+        card: '0 1px 3px 0 rgb(0 0 0 / 0.04), 0 6px 24px -4px rgb(0 0 0 / 0.06)',
+        'card-hover': '0 2px 8px 0 rgb(0 0 0 / 0.06), 0 8px 32px -4px rgb(0 0 0 / 0.1)',
       },
     },
   },

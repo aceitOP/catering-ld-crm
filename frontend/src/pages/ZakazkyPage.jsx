@@ -70,16 +70,16 @@ export default function ZakazkyPage() {
           <div className="flex items-center gap-2">
             <ExportMenu data={rows} columns={ZAKAZKY_COLS} filename="zakazky"/>
             <button onClick={() => navigate('/klienti')}
-              className="inline-flex items-center gap-1.5 bg-white border border-stone-200 text-stone-700 text-xs font-medium px-3 py-2 rounded-md hover:bg-stone-50 transition-colors">
+              className="inline-flex items-center gap-1.5 bg-white border border-stone-200 text-stone-600 text-xs font-semibold px-3 py-2 rounded-xl hover:bg-surface shadow-sm transition-all">
               <Plus size={13} /> Nový klient
             </button>
             <button onClick={() => navigate('/nabidky/nova')}
-              className="inline-flex items-center gap-1.5 bg-white border border-stone-200 text-stone-700 text-xs font-medium px-3 py-2 rounded-md hover:bg-stone-50 transition-colors">
+              className="inline-flex items-center gap-1.5 bg-white border border-stone-200 text-stone-600 text-xs font-semibold px-3 py-2 rounded-xl hover:bg-surface shadow-sm transition-all">
               <Plus size={13} /> Nová nabídka
             </button>
             <button
               onClick={() => navigate('/zakazky/nova')}
-              className="inline-flex items-center gap-1.5 bg-stone-900 text-white text-xs font-medium px-3 py-2 rounded-md hover:bg-stone-800 transition-colors"
+              className="inline-flex items-center gap-2 bg-brand-600 text-white text-xs font-semibold px-4 py-2 rounded-xl hover:bg-brand-700 shadow-md shadow-brand-600/20 transition-all"
             >
               <Plus size={13} /> Nová zakázka
             </button>
@@ -88,54 +88,54 @@ export default function ZakazkyPage() {
       />
 
       {/* Filtry */}
-      <div className="bg-stone-50 border-b border-stone-100 px-6 py-3 flex flex-wrap items-center gap-3">
+      <div className="px-8 pb-2 flex flex-wrap items-center gap-3">
         <div className="relative flex-1 min-w-[200px]">
-          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+          <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
           <input
-            className="w-full pl-8 pr-3 py-2 text-sm border border-stone-200 rounded-lg bg-white focus:outline-none focus:border-stone-400"
+            className="w-full pl-10 pr-3 py-2.5 text-sm border border-stone-200 rounded-xl bg-white focus:outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100 transition-all"
             placeholder="Hledat zakázku, číslo, klient…"
             value={filters.q}
             onChange={e => setF('q', e.target.value)}
           />
         </div>
-        <select className="text-sm border border-stone-200 rounded-lg px-2 py-2 bg-white focus:outline-none"
+        <select className="text-sm border border-stone-200 rounded-xl px-3 py-2.5 bg-white focus:outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
           value={filters.stav} onChange={e => setF('stav', e.target.value)}>
           <option value="">Všechny stavy</option>
           {STAVY.map(s => <option key={s} value={s}>{STAV_LABELS[s]}</option>)}
         </select>
-        <select className="text-sm border border-stone-200 rounded-lg px-2 py-2 bg-white focus:outline-none"
+        <select className="text-sm border border-stone-200 rounded-xl px-3 py-2.5 bg-white focus:outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
           value={filters.typ} onChange={e => setF('typ', e.target.value)}>
           <option value="">Všechny typy</option>
           {TYPY.map(t => <option key={t} value={t}>{TYP_LABELS[t]}</option>)}
         </select>
-        <input type="date" className="text-sm border border-stone-200 rounded-lg px-2 py-2 bg-white focus:outline-none"
+        <input type="date" className="text-sm border border-stone-200 rounded-xl px-3 py-2.5 bg-white focus:outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
           value={filters.od} onChange={e => setF('od', e.target.value)} />
-        <span className="text-stone-400 text-xs">–</span>
-        <input type="date" className="text-sm border border-stone-200 rounded-lg px-2 py-2 bg-white focus:outline-none"
+        <span className="text-stone-300 text-xs font-bold">–</span>
+        <input type="date" className="text-sm border border-stone-200 rounded-xl px-3 py-2.5 bg-white focus:outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
           value={filters.do} onChange={e => setF('do', e.target.value)} />
       </div>
 
       {/* Souhrn */}
       {rows.length > 0 && (
-        <div className="bg-white border-b border-stone-100 px-6 py-2 flex items-center gap-6 text-xs text-stone-500">
-          <span>{rows.length} z {meta.total} zakázek</span>
-          <span className="text-green-700">✓ Potvrzeno: {potvrzene}</span>
-          <span className="text-amber-700">⟳ Čeká na akci: {cekaNa}</span>
-          <span className="text-blue-700">Obrat: {formatCena(obrat)}</span>
+        <div className="px-8 py-3 flex items-center gap-5 text-xs font-semibold">
+          <span className="text-stone-400">{rows.length} z {meta.total} zakázek</span>
+          <span className="text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-lg">Potvrzeno: {potvrzene}</span>
+          <span className="text-amber-600 bg-amber-50 px-2.5 py-1 rounded-lg">Čeká: {cekaNa}</span>
+          <span className="text-blue-600 bg-blue-50 px-2.5 py-1 rounded-lg">Obrat: {formatCena(obrat)}</span>
         </div>
       )}
 
       {/* Tabulka */}
-      <div className="px-6 py-4">
+      <div className="px-8 pb-8">
         {isLoading ? (
           <div className="flex justify-center py-16"><Spinner /></div>
         ) : rows.length === 0 ? (
           <EmptyState icon={ClipboardList} title="Žádné zakázky" desc="Vytvořte první zakázku tlačítkem nahoře." />
         ) : (
-          <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
+          <div className="bg-white rounded-2xl shadow-card overflow-hidden">
             <table className="w-full">
               <thead>
-                <tr className="bg-stone-50 border-b border-stone-100">
+                <tr className="border-b border-stone-100">
                   <th className="pl-4 pr-2 py-3 w-8">
                     <input type="checkbox" checked={allChecked} onChange={toggleAll} className="rounded cursor-pointer"/>
                   </th>
@@ -150,7 +150,7 @@ export default function ZakazkyPage() {
                   <tr
                     key={z.id}
                     onClick={() => navigate(`/zakazky/${z.id}`)}
-                    className={`cursor-pointer hover:bg-stone-50 transition-colors ${sel.has(z.id) ? 'bg-stone-50' : ''} ${i < rows.length-1 ? 'border-b border-stone-50' : ''}`}
+                    className={`cursor-pointer hover:bg-surface/70 transition-colors ${sel.has(z.id) ? 'bg-surface' : ''} ${i < rows.length-1 ? 'border-b border-stone-50' : ''}`}
                   >
                     <td className="pl-4 pr-2 w-8" onClick={e => toggleSel(z.id, e)}>
                       <input type="checkbox" checked={sel.has(z.id)} onChange={() => {}} className="rounded cursor-pointer"/>
@@ -169,7 +169,7 @@ export default function ZakazkyPage() {
                     <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                       <button
                         onClick={() => zakazkyApi.get(z.id).then(res => printKomandoPdf(res.data))}
-                        className="p-1.5 text-stone-400 hover:text-brand-900 hover:bg-brand-50 rounded transition-colors"
+                        className="p-1.5 text-stone-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors"
                         title="Komando PDF"
                       >
                         <Printer size={13}/>
@@ -182,18 +182,18 @@ export default function ZakazkyPage() {
 
             {/* Stránkování */}
             {meta.pages > 1 && (
-              <div className="flex items-center justify-between px-4 py-3 border-t border-stone-100 text-xs text-stone-500">
+              <div className="flex items-center justify-between px-5 py-3 border-t border-stone-100 text-xs text-stone-500 font-medium">
                 <span>Strana {meta.page} z {meta.pages}</span>
                 <div className="flex gap-2">
                   <button
                     disabled={meta.page <= 1}
                     onClick={() => setFilters(f => ({ ...f, page: f.page - 1 }))}
-                    className="px-3 py-1.5 border border-stone-200 rounded-md hover:bg-stone-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="px-4 py-2 border border-stone-200 rounded-xl hover:bg-surface disabled:opacity-40 disabled:cursor-not-allowed transition-all font-semibold"
                   >← Předchozí</button>
                   <button
                     disabled={meta.page >= meta.pages}
                     onClick={() => setFilters(f => ({ ...f, page: f.page + 1 }))}
-                    className="px-3 py-1.5 border border-stone-200 rounded-md hover:bg-stone-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="px-4 py-2 border border-stone-200 rounded-xl hover:bg-surface disabled:opacity-40 disabled:cursor-not-allowed transition-all font-semibold"
                   >Další →</button>
                 </div>
               </div>
@@ -203,10 +203,10 @@ export default function ZakazkyPage() {
       </div>
 
       {sel.size > 0 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-stone-900 text-white rounded-xl px-5 py-3 shadow-2xl z-30">
-          <span className="text-sm font-medium">{sel.size} vybráno</span>
-          <button onClick={exportSelCsv} className="text-xs bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg transition-colors">Export CSV</button>
-          <button onClick={() => setSel(new Set())} className="text-xs text-stone-400 hover:text-white ml-1 transition-colors">✕</button>
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-brand-800 text-white rounded-2xl px-6 py-3.5 shadow-2xl shadow-brand-800/30 z-30">
+          <span className="text-sm font-semibold">{sel.size} vybráno</span>
+          <button onClick={exportSelCsv} className="text-xs bg-white/15 hover:bg-white/25 px-4 py-2 rounded-xl transition-colors font-semibold">Export CSV</button>
+          <button onClick={() => setSel(new Set())} className="text-xs text-brand-300 hover:text-white ml-1 transition-colors">✕</button>
         </div>
       )}
     </div>

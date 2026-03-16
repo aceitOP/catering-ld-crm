@@ -1,9 +1,21 @@
 // Changelog – Catering LD CRM
 // Typy změn: 'new' | 'improvement' | 'fix' | 'security'
 
-export const APP_VERSION = '1.9.1';
+export const APP_VERSION = '2.0.0';
 
 export const CHANGELOG = [
+  {
+    version: '2.0.0',
+    date: '2026-03-16',
+    changes: [
+      { type: 'improvement', text: 'Kompletní redesign UI – moderní vzhled s fialovým barevným schématem' },
+      { type: 'improvement', text: 'Nový sidebar – světlý, prostornější, s gradientovými ikonami' },
+      { type: 'improvement', text: 'Dashboard – přepracované statistické karty s ikonami a stíny' },
+      { type: 'improvement', text: 'Zakulacené prvky (rounded-2xl/3xl), měkké stíny, moderní typografie Inter' },
+      { type: 'improvement', text: 'Přepracované tabulky, modaly, filtry, badges a tlačítka' },
+      { type: 'improvement', text: 'Nová přihlašovací stránka s gradientovým logem' },
+    ],
+  },
   {
     version: '1.9.1',
     date: '2026-03-16',

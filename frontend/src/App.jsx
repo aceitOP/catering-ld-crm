@@ -45,7 +45,7 @@ function App() {
       <AuthProvider>
         <BrowserRouter>
           <Toaster position="bottom-right" toastOptions={{
-            style: { fontSize: '13px', background: '#1c1917', color: '#fafaf9' },
+            style: { fontSize: '13px', background: '#2d1b69', color: '#fafaf9', borderRadius: '12px' },
           }} />
           <Routes>
             <Route path="/login" element={<LoginPage />} />

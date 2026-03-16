@@ -102,55 +102,60 @@ export default function Layout() {
   };
 
   return (
-    <div className="flex h-screen bg-stone-50 overflow-hidden">
+    <div className="flex h-screen bg-surface overflow-hidden">
       {/* ── Sidebar ── */}
-      <aside className="w-56 bg-brand-900 flex flex-col flex-shrink-0 shadow-xl z-30">
+      <aside className="w-[280px] bg-white flex flex-col flex-shrink-0 border-r border-stone-200/60 z-30">
 
-        {/* Logo + Bell */}
-        <div className="px-4 py-4 border-b border-white/10 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <BrandLogo size={26} />
+        {/* Logo */}
+        <div className="px-6 py-5 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-800 flex items-center justify-center shadow-md shadow-brand-500/20">
+              <BrandLogo size={22} />
+            </div>
             <div>
-              <div className="text-white font-semibold text-sm tracking-wide leading-tight">
-                Catering <span className="text-accent-400 font-bold">LD</span>
+              <div className="text-stone-900 font-bold text-[15px] tracking-tight leading-tight">
+                Catering <span className="text-brand-600">LD</span>
               </div>
-              <div className="text-brand-300 text-xs mt-0.5 font-normal">CRM systém</div>
+              <div className="text-stone-400 text-xs mt-0.5 font-medium">CRM systém</div>
             </div>
           </div>
 
           {/* Notification bell */}
           <button
             onClick={() => setNotifOpen(o => !o)}
-            className="relative p-1.5 rounded-lg hover:bg-white/10 transition-colors text-brand-300 hover:text-white"
+            className="relative p-2 rounded-xl hover:bg-surface transition-colors text-stone-400 hover:text-brand-600"
             title="Notifikace"
           >
-            <Bell size={16} />
+            <Bell size={18} />
             {unread > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-0.5 leading-none">
+              <span className="absolute top-1 right-1 min-w-[16px] h-4 bg-accent text-white text-[10px] font-bold rounded-full flex items-center justify-center px-0.5 leading-none">
                 {unread > 99 ? '99+' : unread}
               </span>
             )}
           </button>
         </div>
 
+        {/* Divider */}
+        <div className="mx-4 border-b border-stone-100" />
+
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto py-3 px-2">
+        <nav className="flex-1 overflow-y-auto py-4 px-3">
           {NAV.map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
               to={to}
               className={({ isActive }) =>
-                `flex items-center gap-2.5 px-3 py-2 rounded-md text-sm mb-0.5 transition-colors ${
+                `flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] mb-1 transition-all duration-200 ${
                   isActive
-                    ? 'bg-white/15 text-white font-semibold border-l-2 border-accent-DEFAULT pl-[10px]'
-                    : 'text-brand-200 hover:text-white hover:bg-white/10'
+                    ? 'bg-brand-600 text-white font-semibold shadow-md shadow-brand-600/25'
+                    : 'text-stone-500 hover:text-stone-800 hover:bg-surface font-medium'
                 }`
               }
             >
-              <Icon size={15} className="flex-shrink-0" />
+              <Icon size={18} className="flex-shrink-0" />
               <span className="flex-1">{label}</span>
               {to === '/poptavky' && poptavkyCount > 0 && (
-                <span className="min-w-[18px] h-[18px] bg-orange-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1 leading-none">
+                <span className="min-w-[20px] h-5 bg-accent text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1.5 leading-none">
                   {poptavkyCount}
                 </span>
               )}
@@ -159,28 +164,28 @@ export default function Layout() {
         </nav>
 
         {/* User footer */}
-        <div className="px-3 py-3 border-t border-white/10">
-          <div className="flex items-center gap-2.5 px-2 py-1.5 rounded-md">
-            <div className="w-7 h-7 rounded-full bg-accent-DEFAULT flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
+        <div className="px-4 py-4 border-t border-stone-100">
+          <div className="flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-surface transition-colors">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-400 to-brand-700 flex items-center justify-center text-xs font-bold text-white flex-shrink-0 shadow-sm">
               {user?.jmeno?.[0]}{user?.prijmeni?.[0]}
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-white text-xs font-medium truncate">{user?.jmeno} {user?.prijmeni}</div>
-              <div className="text-brand-300 text-xs capitalize">{user?.role}</div>
+              <div className="text-stone-800 text-sm font-semibold truncate">{user?.jmeno} {user?.prijmeni}</div>
+              <div className="text-stone-400 text-xs capitalize">{user?.role}</div>
             </div>
-            <button onClick={handleLogout} className="text-brand-300 hover:text-white transition-colors" title="Odhlásit se">
-              <LogOut size={14} />
+            <button onClick={handleLogout} className="text-stone-400 hover:text-accent transition-colors p-1.5 rounded-lg hover:bg-stone-100" title="Odhlásit se">
+              <LogOut size={16} />
             </button>
           </div>
 
           {/* Version badge */}
           <button
             onClick={() => setChangelogOpen(true)}
-            className="w-full mt-1 px-2 py-1 flex items-center justify-center gap-1.5 rounded-md hover:bg-white/10 transition-colors group"
+            className="w-full mt-2 px-3 py-2 flex items-center justify-center gap-1.5 rounded-xl hover:bg-surface transition-colors group"
             title="Zobrazit historii změn"
           >
-            <span className="text-brand-400 text-xs group-hover:text-brand-200 transition-colors">v{APP_VERSION}</span>
-            <span className="text-brand-500 text-xs group-hover:text-brand-300 transition-colors">· Co je nového?</span>
+            <span className="text-stone-400 text-xs font-medium group-hover:text-brand-600 transition-colors">v{APP_VERSION}</span>
+            <span className="text-stone-300 text-xs group-hover:text-stone-500 transition-colors">· Co je nového?</span>
           </button>
         </div>
       </aside>
@@ -188,50 +193,49 @@ export default function Layout() {
       {/* ── Notification panel ── */}
       {notifOpen && (
         <>
-          {/* Backdrop */}
           <div className="fixed inset-0 z-20" onClick={() => setNotifOpen(false)} />
-
-          {/* Panel */}
-          <div className="fixed top-0 left-56 h-full w-[360px] bg-white shadow-2xl z-30 flex flex-col border-r border-stone-200">
-            {/* Panel header */}
-            <div className="flex items-center justify-between px-4 py-3.5 border-b border-stone-100">
-              <div className="flex items-center gap-2">
-                <Bell size={15} className="text-stone-600" />
-                <span className="text-sm font-semibold text-stone-800">Notifikace</span>
+          <div className="fixed top-0 left-[280px] h-full w-[380px] bg-white shadow-2xl z-30 flex flex-col rounded-r-3xl">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-stone-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-brand-50 flex items-center justify-center">
+                  <Bell size={15} className="text-brand-600" />
+                </div>
+                <span className="text-sm font-bold text-stone-800">Notifikace</span>
                 {unread > 0 && (
-                  <span className="text-xs bg-red-100 text-red-600 font-semibold px-1.5 py-0.5 rounded-full">{unread} nových</span>
+                  <span className="text-xs bg-accent/10 text-accent font-bold px-2 py-0.5 rounded-full">{unread} nových</span>
                 )}
               </div>
               <div className="flex items-center gap-1">
                 {unread > 0 && (
                   <button onClick={() => readAllMut.mutate()} title="Označit vše jako přečtené"
-                    className="p-1.5 hover:bg-stone-100 rounded-lg text-stone-400 hover:text-stone-600 transition-colors">
-                    <CheckCheck size={14} />
+                    className="p-2 hover:bg-surface rounded-xl text-stone-400 hover:text-brand-600 transition-colors">
+                    <CheckCheck size={15} />
                   </button>
                 )}
                 {notifications.some(n => n.procitana) && (
                   <button onClick={() => deleteReadMut.mutate()} title="Smazat přečtené"
-                    className="p-1.5 hover:bg-stone-100 rounded-lg text-stone-400 hover:text-red-500 transition-colors">
-                    <Trash2 size={14} />
+                    className="p-2 hover:bg-surface rounded-xl text-stone-400 hover:text-accent transition-colors">
+                    <Trash2 size={15} />
                   </button>
                 )}
                 <button onClick={() => setNotifOpen(false)}
-                  className="p-1.5 hover:bg-stone-100 rounded-lg text-stone-400 hover:text-stone-600 transition-colors">
-                  <X size={14} />
+                  className="p-2 hover:bg-surface rounded-xl text-stone-400 hover:text-stone-600 transition-colors">
+                  <X size={15} />
                 </button>
               </div>
             </div>
 
-            {/* Notification list */}
             <div className="flex-1 overflow-y-auto">
               {notifications.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-center px-6 py-16">
-                  <Bell size={32} className="text-stone-200 mb-3" />
-                  <p className="text-sm font-medium text-stone-400">Žádné notifikace</p>
-                  <p className="text-xs text-stone-300 mt-1">Nové zakázky, nabídky a poptávky se zobrazí zde</p>
+                  <div className="w-16 h-16 rounded-2xl bg-surface flex items-center justify-center mb-4">
+                    <Bell size={28} className="text-stone-300" />
+                  </div>
+                  <p className="text-sm font-semibold text-stone-400">Žádné notifikace</p>
+                  <p className="text-xs text-stone-300 mt-1.5">Nové zakázky, nabídky a poptávky se zobrazí zde</p>
                 </div>
               ) : (
-                <div className="divide-y divide-stone-50">
+                <div className="p-2 space-y-1">
                   {notifications.map(n => {
                     const cfg = NOTIF_TYPE[n.typ] || NOTIF_TYPE.system;
                     const Icon = cfg.icon;
@@ -239,33 +243,23 @@ export default function Layout() {
                       <div
                         key={n.id}
                         onClick={() => handleNotifClick(n)}
-                        className={`flex gap-3 px-4 py-3.5 cursor-pointer hover:bg-stone-50 transition-colors group relative ${!n.procitana ? 'bg-blue-50/40' : ''}`}
+                        className={`flex gap-3 px-3 py-3 cursor-pointer rounded-xl hover:bg-surface transition-all group relative ${!n.procitana ? 'bg-brand-50/50' : ''}`}
                       >
-                        {/* Unread dot */}
-                        {!n.procitana && (
-                          <span className="absolute left-2 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-blue-500" />
-                        )}
-
-                        {/* Type icon */}
-                        <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center ${cfg.bg}`}>
-                          <Icon size={15} className={cfg.color} />
+                        <div className={`w-9 h-9 rounded-xl flex-shrink-0 flex items-center justify-center ${cfg.bg}`}>
+                          <Icon size={16} className={cfg.color} />
                         </div>
-
-                        {/* Content */}
                         <div className="flex-1 min-w-0 pr-6">
-                          <p className={`text-sm leading-snug ${!n.procitana ? 'font-semibold text-stone-800' : 'font-medium text-stone-700'}`}>
+                          <p className={`text-sm leading-snug ${!n.procitana ? 'font-semibold text-stone-800' : 'font-medium text-stone-600'}`}>
                             {n.titulek}
                           </p>
                           {n.zprava && (
-                            <p className="text-xs text-stone-400 mt-0.5 line-clamp-2 whitespace-pre-line">{n.zprava}</p>
+                            <p className="text-xs text-stone-400 mt-0.5 line-clamp-2">{n.zprava}</p>
                           )}
                           <p className="text-xs text-stone-300 mt-1">{timeAgo(n.created_at)}</p>
                         </div>
-
-                        {/* Delete button */}
                         <button
                           onClick={e => { e.stopPropagation(); deleteMut.mutate(n.id); }}
-                          className="absolute right-3 top-3 opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-stone-200 text-stone-400 hover:text-stone-600 transition-all"
+                          className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 p-1.5 rounded-lg hover:bg-stone-100 text-stone-400 hover:text-stone-600 transition-all"
                           title="Smazat"
                         >
                           <X size={12} />
@@ -284,36 +278,36 @@ export default function Layout() {
       {changelogOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setChangelogOpen(false)} />
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-stone-100">
+          <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-stone-100">
               <div>
-                <h2 className="text-base font-semibold text-stone-800">Historie změn</h2>
+                <h2 className="text-base font-bold text-stone-800">Historie změn</h2>
                 <p className="text-xs text-stone-400 mt-0.5">Catering LD CRM · aktuální verze {APP_VERSION}</p>
               </div>
-              <button onClick={() => setChangelogOpen(false)} className="p-1.5 hover:bg-stone-100 rounded-lg text-stone-400 hover:text-stone-600 transition-colors">
+              <button onClick={() => setChangelogOpen(false)} className="p-2 hover:bg-surface rounded-xl text-stone-400 hover:text-stone-600 transition-colors">
                 <X size={16} />
               </button>
             </div>
-            <div className="overflow-y-auto px-6 py-4 space-y-6">
+            <div className="overflow-y-auto px-6 py-5 space-y-6">
               {CHANGELOG.map((ver, vi) => (
                 <div key={ver.version}>
-                  <div className="flex items-baseline gap-3 mb-2.5">
-                    <span className={`text-sm font-bold ${vi === 0 ? 'text-brand-900' : 'text-stone-700'}`}>v{ver.version}</span>
-                    {vi === 0 && <span className="text-xs bg-accent-DEFAULT text-white font-semibold px-1.5 py-0.5 rounded-full">aktuální</span>}
+                  <div className="flex items-baseline gap-3 mb-3">
+                    <span className={`text-sm font-bold ${vi === 0 ? 'text-brand-600' : 'text-stone-700'}`}>v{ver.version}</span>
+                    {vi === 0 && <span className="text-xs bg-brand-600 text-white font-semibold px-2 py-0.5 rounded-full">aktuální</span>}
                     <span className="text-xs text-stone-400 ml-auto">{ver.date}</span>
                   </div>
-                  <ul className="space-y-1.5">
+                  <ul className="space-y-2">
                     {ver.changes.map((ch, ci) => {
                       const t = TYPE_STYLE[ch.type] || TYPE_STYLE.improvement;
                       return (
                         <li key={ci} className="flex items-start gap-2">
-                          <span className={`text-xs font-semibold px-1.5 py-0.5 rounded flex-shrink-0 mt-0.5 ${t.cls}`}>{t.label}</span>
+                          <span className={`text-xs font-semibold px-1.5 py-0.5 rounded-md flex-shrink-0 mt-0.5 ${t.cls}`}>{t.label}</span>
                           <span className="text-sm text-stone-600 leading-snug">{ch.text}</span>
                         </li>
                       );
                     })}
                   </ul>
-                  {vi < CHANGELOG.length - 1 && <div className="mt-4 border-b border-stone-100" />}
+                  {vi < CHANGELOG.length - 1 && <div className="mt-5 border-b border-stone-100" />}
                 </div>
               ))}
             </div>

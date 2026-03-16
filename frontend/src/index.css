@@ -4,7 +4,10 @@
 
 @layer base {
   * { box-sizing: border-box; }
-  body { @apply text-stone-900 bg-stone-50; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+  body {
+    @apply text-stone-900 bg-surface antialiased;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
   ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-track { @apply bg-transparent; }
   ::-webkit-scrollbar-thumb { @apply bg-stone-200 rounded-full; }
