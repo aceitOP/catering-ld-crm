@@ -1,9 +1,17 @@
 // Changelog – Catering LD CRM
 // Typy změn: 'new' | 'improvement' | 'fix' | 'security'
 
-export const APP_VERSION = '1.6.0';
+export const APP_VERSION = '1.7.0';
 
 export const CHANGELOG = [
+  {
+    version: '1.7.0',
+    date: '2026-03-16',
+    changes: [
+      { type: 'new',         text: 'Tally.so integrace – poptávky z webového formuláře se automaticky ukládají jako zakázka (stav: Nová poptávka)' },
+      { type: 'new',         text: 'Nastavení – záložka „Integrace" s návodem a webhookem URL pro Tally.so' },
+    ],
+  },
   {
     version: '1.6.0',
     date: '2026-03-16',

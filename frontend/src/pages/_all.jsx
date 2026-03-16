@@ -1550,7 +1550,7 @@ export function NastaveniPage() {
     onError: (e) => toast.error(e?.response?.data?.error || 'Chyba při změně hesla'),
   });
 
-  const TABS = [['firma','Profil firmy'],['uziv','Uživatelé'],['heslo','Změna hesla'],['notif','Notifikace']];
+  const TABS = [['firma','Profil firmy'],['uziv','Uživatelé'],['heslo','Změna hesla'],['notif','Notifikace'],['integrace','Integrace']];
   const uzivatele = uzivData?.data?.data || [];
   const setU = (k,v) => setUserForm(f=>({...f,[k]:v}));
   const ROLES = {admin:'Administrátor', obchodnik:'Obchodník / koordinátor', provoz:'Provoz / realizace'};
@@ -1644,6 +1644,66 @@ export function NastaveniPage() {
         {tab === 'notif' && (
           <div className="bg-white rounded-xl border border-stone-200 p-5">
             <p className="text-sm text-stone-500">Nastavení notifikací bude dostupné po propojení s e-mailovým systémem.</p>
+          </div>
+        )}
+
+        {tab === 'integrace' && (
+          <div className="space-y-4">
+            {/* Tally.so */}
+            <div className="bg-white rounded-xl border border-stone-200 p-5 space-y-4">
+              <div>
+                <div className="text-sm font-semibold text-stone-800 mb-0.5">Tally.so – Poptávkový formulář</div>
+                <div className="text-xs text-stone-500">Poptávky odeslané přes Tally.so formulář se automaticky uloží jako nová zakázka (stav: Nová poptávka) a vytvoří nebo doplní klienta.</div>
+              </div>
+              <div>
+                <div className="text-xs text-stone-500 mb-1">Webhook URL (vložte do Tally → Integrations → Webhooks)</div>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 bg-stone-50 border border-stone-200 rounded-lg px-3 py-2 text-xs text-stone-700 break-all select-all">
+                    {window.location.origin}/api/tally/webhook
+                  </code>
+                  <button
+                    onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/api/tally/webhook`); toast.success('URL zkopírováno'); }}
+                    className="shrink-0 px-3 py-2 text-xs border border-stone-200 rounded-lg hover:bg-stone-50 text-stone-600"
+                  >Kopírovat</button>
+                </div>
+              </div>
+              <div className="border-t border-stone-100 pt-4 space-y-2">
+                <div className="text-xs font-medium text-stone-700">Jak nastavit:</div>
+                <ol className="text-xs text-stone-500 space-y-1 list-decimal pl-4">
+                  <li>V Tally otevřete svůj formulář → <strong>Integrate</strong> → <strong>Webhooks</strong></li>
+                  <li>Klikněte <strong>Add webhook</strong> a vložte URL výše</li>
+                  <li>Jako trigger zvolte <strong>New submission</strong></li>
+                  <li>Uložte a otestujte testovacím odesláním formuláře</li>
+                </ol>
+              </div>
+              <div className="border-t border-stone-100 pt-4 space-y-2">
+                <div className="text-xs font-medium text-stone-700">Mapování polí formuláře:</div>
+                <div className="text-xs text-stone-500">CRM rozpozná pole podle jejich <em>popisku (label)</em>. Doporučené názvy:</div>
+                <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-xs mt-1">
+                  {[
+                    ['Jméno','jmeno / Křestní jméno'],
+                    ['Příjmení','prijmeni / Příjmení'],
+                    ['E-mail','email / E-mailová adresa'],
+                    ['Telefon','telefon / Telefonní číslo'],
+                    ['Firma','firma / Společnost / Company'],
+                    ['Typ akce','typ akce / Druh akce'],
+                    ['Datum','datum / Datum akce'],
+                    ['Počet hostů','počet hostů / Hosté'],
+                    ['Místo','místo / Venue / Location'],
+                    ['Rozpočet','rozpočet / Budget'],
+                    ['Zpráva','zpráva / Vzkaz / Poznámka'],
+                  ].map(([crm, tally]) => (
+                    <div key={crm} className="flex gap-1">
+                      <span className="text-stone-400 w-20 shrink-0">{crm}:</span>
+                      <span className="text-stone-600">{tally}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs text-amber-700">
+                <strong>Volitelné zabezpečení:</strong> Nastavte proměnnou prostředí <code className="bg-amber-100 px-1 rounded">TALLY_KEY</code> a stejný klíč zadejte v Tally jako <em>Secret key</em> (hlavička <code className="bg-amber-100 px-1 rounded">x-api-key</code>).
+              </div>
+            </div>
           </div>
         )}
       </div>

@@ -35,6 +35,7 @@ app.use('/api/nastaveni',  require('./routes/nastaveni'));
 app.use('/api/kalendar',    require('./routes/kalendar'));
 app.use('/api/reporty',    require('./routes/reporty'));
 app.use('/api/notifikace', require('./routes/notifikace'));
+app.use('/api/tally',     require('./routes/tally'));
 
 // ── Health check ─────────────────────────────────────────────
 app.get('/api/health', (_req, res) => {
