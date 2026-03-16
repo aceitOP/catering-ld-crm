@@ -108,6 +108,22 @@ export function KalendarPage() {
     .map(s => ({ stav: s, label: STAV_LABEL[s], items: events.filter(e => e.stav === s) }))
     .filter(g => g.items.length > 0);
 
+  // ── Day-based timeline ──────────────────────────────────────
+  const timeToMin = (t) => { if (!t) return null; const p = t.split(':'); return parseInt(p[0]) * 60 + parseInt(p[1]); };
+  const TL_MIN_START = 6 * 60;    // 6:00 = 360 min
+  const TL_MIN_RANGE = 18 * 60;   // 6:00–24:00 = 1080 min
+  const HOUR_MARKS   = [6, 8, 10, 12, 14, 16, 18, 20, 22];
+  const CZ_DAYS_SHORT = ['Ne', 'Po', 'Út', 'St', 'Čt', 'Pá', 'So'];
+  const tlDateGroups = Object.entries(
+    events.reduce((acc, e) => { (acc[e.datum_akce] = acc[e.datum_akce] || []).push(e); return acc; }, {})
+  ).sort(([a], [b]) => a.localeCompare(b))
+   .map(([date, evts]) => ({
+     date,
+     evts: [...evts].sort((a, b) => (timeToMin(a.cas_zacatek) ?? 0) - (timeToMin(b.cas_zacatek) ?? 0)),
+   }));
+  const todayStr = now.toISOString().slice(0, 10);
+  const nowPct   = ((now.getHours() * 60 + now.getMinutes() - TL_MIN_START) / TL_MIN_RANGE) * 100;
+
   return (
     <div>
       {/* ── Header ── */}
@@ -255,95 +271,108 @@ export function KalendarPage() {
       {/* ── TIMELINE VIEW ── */}
       {view === 'timeline' && (
         <div className="p-6">
-          <div className="bg-white rounded-xl border border-stone-200 overflow-x-auto">
-            <div style={{ minWidth: `${200 + WEEKS_SHOWN * 80}px` }}>
+          <div className="bg-white rounded-xl border border-stone-200 overflow-hidden overflow-x-auto">
+            <div style={{ minWidth: '640px' }}>
 
-              {/* Month header row */}
-              <div className="flex border-b border-stone-100">
-                <div className="w-[200px] flex-shrink-0 px-4 py-2.5 text-xs font-semibold text-stone-400 uppercase tracking-wide border-r border-stone-100">Zakázka</div>
-                <div className="flex">
-                  {monthSpans.map((ms, i) => (
-                    <div key={i} style={{ width: `${ms.count * 80}px`, flexShrink: 0 }}
-                      className={`px-3 py-2.5 text-xs font-semibold text-stone-600 capitalize ${i < monthSpans.length - 1 ? 'border-r border-stone-100' : ''}`}>
-                      {ms.lbl}
+              {/* Time scale header */}
+              <div className="flex border-b border-stone-200 bg-stone-50">
+                <div className="w-[152px] flex-shrink-0 border-r border-stone-200 px-4 py-2.5">
+                  <span className="text-xs font-semibold text-stone-400 uppercase tracking-wide">Datum</span>
+                </div>
+                <div className="flex-1 relative" style={{ height: '36px' }}>
+                  {HOUR_MARKS.map(h => (
+                    <div key={h}
+                      style={{ left: `${((h * 60 - TL_MIN_START) / TL_MIN_RANGE) * 100}%` }}
+                      className="absolute top-0 h-full border-l border-stone-200">
+                      <span className="text-xs text-stone-400 pl-1.5 pt-2 inline-block leading-none">{h}:00</span>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Week number header row */}
-              <div className="flex border-b border-stone-200">
-                <div className="w-[200px] flex-shrink-0 border-r border-stone-100 bg-stone-50" />
-                {tlWeeks.map((w, i) => {
-                  const isCurrent = i === todayWeekIdx;
-                  return (
-                    <div key={i} style={{ width: '80px', flexShrink: 0 }}
-                      className={`px-1 py-2 text-center border-r border-stone-100 last:border-r-0 ${isCurrent ? 'bg-blue-50' : 'bg-stone-50'}`}>
-                      <div className={`text-xs font-bold ${isCurrent ? 'text-blue-600' : 'text-stone-500'}`}>T{w.wn}</div>
-                      <div className={`text-xs mt-0.5 ${isCurrent ? 'text-blue-400' : 'text-stone-400'}`}>{w.mon.getDate()}. – {w.sun.getDate()}.</div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Event groups */}
-              {tlGroups.length === 0 && (
+              {/* Empty state */}
+              {tlDateGroups.length === 0 && (
                 <div className="py-16 text-center text-sm text-stone-400">Žádné akce v tomto období</div>
               )}
-              {tlGroups.map(group => (
-                <div key={group.stav}>
-                  {/* Group header row */}
-                  <button
-                    onClick={() => setCollapsed(s => { const n = new Set(s); n.has(group.stav) ? n.delete(group.stav) : n.add(group.stav); return n; })}
-                    className="flex items-center w-full border-b border-stone-100 bg-stone-50/80 hover:bg-stone-100/80 transition-colors"
-                  >
-                    <div className="w-[200px] flex-shrink-0 flex items-center gap-2 px-4 py-2.5 border-r border-stone-100">
-                      <ChevronDown size={13} className={`text-stone-400 flex-shrink-0 transition-transform duration-150 ${collapsed.has(group.stav) ? '-rotate-90' : ''}`} />
-                      <span className="text-xs font-semibold text-stone-600 truncate">{group.label}</span>
-                      <span className="ml-auto text-xs text-stone-400 flex-shrink-0 bg-stone-200 rounded-full px-1.5">{group.items.length}</span>
-                    </div>
-                    <div className="flex">
-                      {tlWeeks.map((_, i) => (
-                        <div key={i} style={{ width: '80px', flexShrink: 0 }}
-                          className={`border-r border-stone-100 last:border-r-0 py-2.5 ${i === todayWeekIdx ? 'bg-blue-50/40' : ''}`} />
-                      ))}
-                    </div>
-                  </button>
 
-                  {/* Event rows */}
-                  {!collapsed.has(group.stav) && group.items
-                    .sort((a, b) => a.datum_akce.localeCompare(b.datum_akce))
-                    .map(e => {
-                      const wi = getEventWeekIdx(e.datum_akce);
+              {/* Date rows */}
+              {tlDateGroups.map(({ date, evts }, gi) => {
+                const d = new Date(date + 'T00:00:00');
+                const isToday = date === todayStr;
+                return (
+                  <div key={date} className={`border-b border-stone-100 last:border-b-0 ${isToday ? 'bg-blue-50/25' : gi % 2 === 1 ? 'bg-stone-50/50' : ''}`}>
+                    {evts.map((e, ei) => {
+                      const sMin     = timeToMin(e.cas_zacatek);
+                      const eMin     = timeToMin(e.cas_konec);
+                      const hasTimes = sMin !== null && eMin !== null && eMin > sMin;
+                      const barS     = hasTimes ? Math.max(sMin, TL_MIN_START) : TL_MIN_START;
+                      const barE     = hasTimes ? Math.min(eMin, TL_MIN_START + TL_MIN_RANGE) : TL_MIN_START + TL_MIN_RANGE;
+                      const leftPct  = ((barS - TL_MIN_START) / TL_MIN_RANGE) * 100;
+                      const widthPct = Math.max(((barE - barS) / TL_MIN_RANGE) * 100, 0.8);
                       return (
                         <div key={e.id} onClick={() => navigate(`/zakazky/${e.id}`)}
-                          className="flex items-stretch border-b border-stone-50 hover:bg-stone-50 transition-colors cursor-pointer group">
-                          <div className="w-[200px] flex-shrink-0 flex items-center gap-2 px-4 py-2 border-r border-stone-100">
-                            <span className={`w-2 h-2 rounded-full flex-shrink-0 ${TYP_DOT[e.typ] || 'bg-stone-400'}`} />
-                            <div className="min-w-0">
-                              <div className="text-xs font-medium text-stone-800 truncate group-hover:text-stone-900">{e.nazev}</div>
-                              <div className="text-xs text-stone-400">{formatDatum(e.datum_akce)}</div>
-                            </div>
-                          </div>
-                          <div className="flex">
-                            {tlWeeks.map((_, i) => (
-                              <div key={i} style={{ width: '80px', flexShrink: 0 }}
-                                className={`border-r border-stone-50 last:border-r-0 py-1.5 px-1 flex items-center ${i === todayWeekIdx ? 'bg-blue-50/20' : ''}`}>
-                                {i === wi && (
-                                  <div title={e.nazev}
-                                    className={`flex items-center gap-1 w-full text-xs px-1.5 py-0.5 rounded ${TYP_CHIP[e.typ] || 'bg-stone-100 text-stone-700 border border-stone-200'}`}>
-                                    <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${TYP_DOT[e.typ] || 'bg-stone-400'}`} />
-                                    <span className="truncate">{e.cas_zacatek ? e.cas_zacatek.slice(0, 5) : ''}</span>
-                                  </div>
-                                )}
+                          className="flex items-center min-h-[48px] hover:bg-white/70 transition-colors cursor-pointer group">
+
+                          {/* Date label — only on first sub-row */}
+                          <div className="w-[152px] flex-shrink-0 border-r border-stone-100 px-4 py-2 self-stretch flex items-center">
+                            {ei === 0 && (
+                              <div>
+                                <div className={`text-xs font-bold leading-tight ${isToday ? 'text-blue-600' : 'text-stone-700'}`}>
+                                  {CZ_DAYS_SHORT[d.getDay()]} {d.getDate()}. {d.toLocaleString('cs-CZ', { month: 'short' })}
+                                </div>
+                                <div className="flex items-center gap-1 mt-0.5">
+                                  {evts.length > 1 && (
+                                    <span className="text-xs text-stone-400">{evts.length}×</span>
+                                  )}
+                                  <StavBadge stav={e.stav} />
+                                </div>
                               </div>
+                            )}
+                            {ei > 0 && (
+                              <div className="ml-auto">
+                                <StavBadge stav={e.stav} />
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Bar area */}
+                          <div className="flex-1 relative" style={{ height: '48px' }}>
+                            {/* Hour grid lines */}
+                            {HOUR_MARKS.map(h => (
+                              <div key={h}
+                                style={{ left: `${((h * 60 - TL_MIN_START) / TL_MIN_RANGE) * 100}%` }}
+                                className="absolute top-0 h-full border-l border-stone-100 pointer-events-none" />
                             ))}
+
+                            {/* "Now" indicator on today's rows */}
+                            {isToday && nowPct >= 0 && nowPct <= 100 && (
+                              <div style={{ left: `${nowPct}%` }}
+                                className="absolute top-0 h-full border-l-2 border-red-400/70 z-10 pointer-events-none" />
+                            )}
+
+                            {/* Colored event bar */}
+                            <div
+                              style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
+                              title={`${e.nazev}${hasTimes ? ` · ${e.cas_zacatek?.slice(0,5)}–${e.cas_konec?.slice(0,5)}` : ''}`}
+                              className={`absolute top-1/2 -translate-y-1/2 rounded flex items-center px-2 overflow-hidden transition-all group-hover:opacity-85 group-hover:shadow-md
+                                ${hasTimes ? 'h-7 shadow-sm' : 'h-2.5 opacity-40 rounded-full'}
+                                ${TYP_CHIP[e.typ] || 'bg-stone-100 text-stone-700 border border-stone-200'}`}>
+                              {hasTimes && (
+                                <>
+                                  <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 mr-1.5 ${TYP_DOT[e.typ] || 'bg-stone-400'}`} />
+                                  <span className="text-xs font-medium truncate whitespace-nowrap">
+                                    {e.cas_zacatek?.slice(0,5)}–{e.cas_konec?.slice(0,5)}&nbsp;·&nbsp;{e.nazev}
+                                  </span>
+                                </>
+                              )}
+                            </div>
                           </div>
                         </div>
                       );
                     })}
-                </div>
-              ))}
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
