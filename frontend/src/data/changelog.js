@@ -1,9 +1,28 @@
 // Changelog – Catering LD CRM
 // Typy změn: 'new' | 'improvement' | 'fix' | 'security'
 
-export const APP_VERSION = '1.7.0';
+export const APP_VERSION = '1.8.1';
 
 export const CHANGELOG = [
+  {
+    version: '1.8.1',
+    date: '2026-03-16',
+    changes: [
+      { type: 'fix', text: 'Poptávky – opravena chyba „formatCena is not defined" při zobrazení rozpočtu klienta' },
+      { type: 'fix', text: 'Tally integrace – ověřena kompletní funkčnost: webhook → nova_poptavka → notifikace → badge v menu' },
+    ],
+  },
+  {
+    version: '1.8.0',
+    date: '2026-03-16',
+    changes: [
+      { type: 'improvement', text: 'Poptávky – tlačítko „Převést na zakázku" přesměruje přímo na detail zakázky' },
+      { type: 'new',         text: 'Google Kalendář – integrace přes Service Account, potvrzené zakázky se automaticky propisují do sdíleného firemního kalendáře' },
+      { type: 'new',         text: 'Google Kalendář – stornované zakázky se automaticky odstraní z Google Kalendáře' },
+      { type: 'new',         text: 'Kalendář – Google Calendar eventy zobrazeny v měsíčním i timeline pohledu (modrou barvou)' },
+      { type: 'new',         text: 'Nastavení – nová záložka „Google Kalendář" s návodem a nastavením Calendar ID' },
+    ],
+  },
   {
     version: '1.7.0',
     date: '2026-03-16',

@@ -2,8 +2,8 @@
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { kalendarApi } from '../api';
-import { TypBadge, StavBadge, formatDatum } from '../components/ui';
+import { kalendarApi, googleCalendarApi } from '../api';
+import { TypBadge, StavBadge, formatDatum, formatCena } from '../components/ui';
 import { ChevronDown } from 'lucide-react';
 
 export function KalendarPage() {
@@ -62,6 +62,14 @@ export function KalendarPage() {
   });
   const events = data?.data?.data || [];
 
+  const { data: gcData } = useQuery({
+    queryKey: ['google-calendar-events', od, doo],
+    queryFn: () => googleCalendarApi.events({ od, do: doo }),
+    retry: false,
+    select: (r) => r.data?.data || [],
+  });
+  const gcEvents = gcData || [];
+
   // Build calendar grid (always full weeks)
   const firstDay    = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -72,11 +80,15 @@ export function KalendarPage() {
   for (let d = 1; d <= daysInMonth; d++) days.push(d);
   while (days.length < totalCells) days.push(null);
 
+  const gcDateStr = (start) => start ? String(start).slice(0, 10) : null;
+  const gcTimeStr = (dt) => dt && dt.includes('T') ? dt.slice(11, 16) : null;
+
   const eventsForDay = (d) => {
     if (!d) return [];
     const ds = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
     return events.filter(e => e.datum_akce === ds);
   };
+  const gcEventsForDay = (ds) => gcEvents.filter(e => gcDateStr(e.start) === ds);
 
   const prevMonth = () => { if (month === 0) { setMonth(11); setYear(y => y - 1); } else setMonth(m => m - 1); };
   const nextMonth = () => { if (month === 11) { setMonth(0); setYear(y => y + 1); } else setMonth(m => m + 1); };
@@ -110,11 +122,12 @@ export function KalendarPage() {
     const d = new Date(tlWinStart + 'T00:00:00');
     d.setDate(d.getDate() + i);
     const iso = d.toISOString().slice(0, 10);
-    return {
-      date: iso, d,
-      evts: [...events.filter(e => e.datum_akce === iso)]
-        .sort((a, b) => (timeToMin(a.cas_zacatek) ?? 0) - (timeToMin(b.cas_zacatek) ?? 0)),
-    };
+    const crmEvts = events.filter(e => e.datum_akce === iso)
+      .sort((a, b) => (timeToMin(a.cas_zacatek) ?? 0) - (timeToMin(b.cas_zacatek) ?? 0));
+    const gcEvts = gcEvents.filter(e => gcDateStr(e.start) === iso)
+      .map(e => ({ ...e, _google: true, cas_zacatek: gcTimeStr(e.start), cas_konec: gcTimeStr(e.end) }))
+      .sort((a, b) => (timeToMin(a.cas_zacatek) ?? 0) - (timeToMin(b.cas_zacatek) ?? 0));
+    return { date: iso, d, evts: [...crmEvts, ...gcEvts] };
   });
 
   // Den: vertical day-planner view
@@ -129,6 +142,12 @@ export function KalendarPage() {
     const s = timeToMin(e.cas_zacatek); const en = timeToMin(e.cas_konec);
     return s !== null && en !== null && en > s;
   });
+  // Google events for day view
+  const gcDenEvts = gcEvents
+    .filter(e => gcDateStr(e.start) === tlWinStart)
+    .map(e => ({ ...e, _google: true, cas_zacatek: gcTimeStr(e.start), cas_konec: gcTimeStr(e.end) }));
+  const gcDenAllDay = gcDenEvts.filter(e => !e.cas_zacatek || !e.cas_konec || timeToMin(e.cas_zacatek) === null);
+  const gcDenTimed  = gcDenEvts.filter(e => e.cas_zacatek && e.cas_konec && timeToMin(e.cas_zacatek) !== null);
 
   return (
     <div>
@@ -224,6 +243,8 @@ export function KalendarPage() {
             <div className="grid grid-cols-7 divide-x divide-y divide-stone-100">
               {days.map((d, i) => {
                 const evs       = eventsForDay(d);
+                const ds        = d ? `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}` : null;
+                const gcEvs     = ds ? gcEventsForDay(ds) : [];
                 const isToday   = d && year === now.getFullYear() && month === now.getMonth() && d === now.getDate();
                 const isWeekend = i % 7 >= 5;
                 return (
@@ -232,11 +253,12 @@ export function KalendarPage() {
                       <>
                         <div className="mb-1 px-0.5">
                           <span className={`text-xs font-semibold inline-flex items-center justify-center w-7 h-7 rounded-full select-none ${isToday ? 'bg-brand-900 text-white' : evs.length > 0 ? 'text-stone-800 ring-2 ring-accent-DEFAULT/25' : isWeekend ? 'text-stone-400' : 'text-stone-600'}`}>{d}</span>
-                          {evs.length > 0 && (
+                          {(evs.length > 0 || gcEvs.length > 0) && (
                             <div className="flex gap-0.5 mt-0.5 ml-0.5">
-                              {evs.slice(0, 4).map((e, i) => (
+                              {evs.slice(0, 3).map((e, i) => (
                                 <span key={i} className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${TYP_DOT[e.typ] || 'bg-stone-400'}`} />
                               ))}
+                              {gcEvs.length > 0 && <span className="w-1.5 h-1.5 rounded-full flex-shrink-0 bg-blue-500" />}
                             </div>
                           )}
                         </div>
@@ -246,6 +268,13 @@ export function KalendarPage() {
                               className={`flex items-center gap-1 text-xs px-1.5 py-0.5 rounded cursor-pointer hover:opacity-75 transition-opacity ${TYP_CHIP[e.typ] || 'bg-stone-100 text-stone-700 border border-stone-200'}`}>
                               <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${TYP_DOT[e.typ] || 'bg-stone-400'}`} />
                               <span className="truncate">{e.cas_zacatek ? e.cas_zacatek.slice(0, 5) + ' ' : ''}{e.nazev}</span>
+                            </div>
+                          ))}
+                          {gcEvs.map(e => (
+                            <div key={'gc-' + e.id} title={e.summary}
+                              className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">
+                              <span className="w-1.5 h-1.5 rounded-full flex-shrink-0 bg-blue-500" />
+                              <span className="truncate">{gcTimeStr(e.start) ? gcTimeStr(e.start) + ' ' : ''}{e.summary}</span>
                             </div>
                           ))}
                         </div>
@@ -285,7 +314,7 @@ export function KalendarPage() {
         <div className="p-6">
           <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
             {/* All-day strip */}
-            {denAllDay.length > 0 && (
+            {(denAllDay.length > 0 || gcDenAllDay.length > 0) && (
               <div className="flex border-b border-stone-200 bg-stone-50/60">
                 <div className="w-16 flex-shrink-0 border-r border-stone-100 px-3 py-2.5 flex items-center justify-end">
                   <span className="text-xs text-stone-400 leading-tight text-right">celý<br/>den</span>
@@ -296,6 +325,13 @@ export function KalendarPage() {
                       className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded cursor-pointer hover:opacity-75 transition-opacity ${TYP_CHIP[e.typ] || 'bg-stone-100 text-stone-700 border border-stone-200'}`}>
                       <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${TYP_DOT[e.typ] || 'bg-stone-400'}`} />
                       {e.nazev}
+                    </div>
+                  ))}
+                  {gcDenAllDay.map(e => (
+                    <div key={'gc-' + e.id}
+                      className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded bg-blue-50 text-blue-700 border border-blue-200">
+                      <span className="w-1.5 h-1.5 rounded-full flex-shrink-0 bg-blue-500" />
+                      {e.summary}
                     </div>
                   ))}
                 </div>
@@ -349,8 +385,25 @@ export function KalendarPage() {
                   );
                 })}
 
+                {/* Google timed event blocks */}
+                {gcDenTimed.map(e => {
+                  const sMin     = timeToMin(e.cas_zacatek);
+                  const eMin     = timeToMin(e.cas_konec);
+                  const topPx    = Math.max((sMin - TL_MIN_START) / 60 * SLOT_H, 0);
+                  const heightPx = Math.max((eMin - sMin) / 60 * SLOT_H, 32);
+                  return (
+                    <div key={'gc-' + e.id}
+                      style={{ top: `${topPx}px`, height: `${heightPx}px`, left: '10px', right: '10px' }}
+                      className="absolute rounded-lg border bg-blue-50 text-blue-700 border-blue-200 px-3 py-1.5 overflow-hidden z-10">
+                      <div className="text-xs font-semibold leading-tight truncate">{e.summary}</div>
+                      <div className="text-xs opacity-70 mt-0.5">{e.cas_zacatek?.slice(0,5)} – {e.cas_konec?.slice(0,5)}</div>
+                      {e.location && heightPx > 60 && <div className="text-xs opacity-60 truncate mt-0.5">{e.location}</div>}
+                    </div>
+                  );
+                })}
+
                 {/* Empty state */}
-                {events.length === 0 && (
+                {events.length === 0 && gcDenTimed.length === 0 && gcDenAllDay.length === 0 && (
                   <div className="absolute inset-0 flex items-center justify-center">
                     <span className="text-sm text-stone-400">Žádné akce</span>
                   </div>
@@ -419,6 +472,7 @@ export function KalendarPage() {
                 return (
                   <div key={date} className={`border-b border-stone-100 last:border-b-0 ${isToday ? 'bg-blue-50/20' : isWeekend ? 'bg-stone-50/40' : ''}`}>
                     {evts.map((e, ei) => {
+                      const isGc     = !!e._google;
                       const sMin     = timeToMin(e.cas_zacatek);
                       const eMin     = timeToMin(e.cas_konec);
                       const hasTimes = sMin !== null && eMin !== null && eMin > sMin;
@@ -426,35 +480,43 @@ export function KalendarPage() {
                       const barE     = hasTimes ? Math.min(eMin, TL_MIN_START + TL_MIN_RANGE) : TL_MIN_START + TL_MIN_RANGE;
                       const leftPct  = ((barS - TL_MIN_START) / TL_MIN_RANGE) * 100;
                       const widthPct = Math.max(((barE - barS) / TL_MIN_RANGE) * 100, 0.8);
+                      const chipCls  = isGc ? 'bg-blue-50 text-blue-700 border border-blue-200' : (TYP_CHIP[e.typ] || 'bg-stone-100 text-stone-700 border border-stone-200');
+                      const dotCls   = isGc ? 'bg-blue-500' : (TYP_DOT[e.typ] || 'bg-stone-400');
+                      const label    = isGc ? e.summary : e.nazev;
                       return (
-                        <div key={e.id} onClick={() => navigate(`/zakazky/${e.id}`)}
-                          className="flex items-center min-h-[48px] hover:bg-white/60 transition-colors cursor-pointer group">
+                        <div key={(isGc ? 'gc-' : '') + e.id}
+                          onClick={isGc ? undefined : () => navigate(`/zakazky/${e.id}`)}
+                          className={`flex items-center min-h-[48px] transition-colors group ${isGc ? '' : 'cursor-pointer hover:bg-white/60'}`}>
                           <div className="w-[152px] flex-shrink-0 border-r border-stone-100 px-4 py-2 self-stretch flex items-center">
                             {ei === 0 ? (
                               <div>
                                 {dateLbl}
                                 <div className="flex items-center gap-1 mt-0.5">
                                   {evts.length > 1 && <span className="text-xs text-stone-400">{evts.length}×</span>}
-                                  <StavBadge stav={e.stav} />
+                                  {!isGc && <StavBadge stav={e.stav} />}
+                                  {isGc && <span className="text-xs text-blue-500 font-medium">Google</span>}
                                 </div>
                               </div>
                             ) : (
-                              <div className="ml-auto"><StavBadge stav={e.stav} /></div>
+                              <div className="ml-auto">
+                                {!isGc && <StavBadge stav={e.stav} />}
+                                {isGc && <span className="text-xs text-blue-500 font-medium">Google</span>}
+                              </div>
                             )}
                           </div>
                           <div className="flex-1 relative" style={{ height: '48px' }}>
                             {gridLines}{nowLine}
                             <div
                               style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
-                              title={`${e.nazev}${hasTimes ? ` · ${e.cas_zacatek?.slice(0,5)}–${e.cas_konec?.slice(0,5)}` : ''}`}
+                              title={`${label}${hasTimes ? ` · ${e.cas_zacatek?.slice(0,5)}–${e.cas_konec?.slice(0,5)}` : ''}`}
                               className={`absolute top-1/2 -translate-y-1/2 rounded flex items-center px-2 overflow-hidden transition-all group-hover:opacity-85 group-hover:shadow-md
                                 ${hasTimes ? 'h-7 shadow-sm' : 'h-2.5 opacity-40 rounded-full'}
-                                ${TYP_CHIP[e.typ] || 'bg-stone-100 text-stone-700 border border-stone-200'}`}>
+                                ${chipCls}`}>
                               {hasTimes && (
                                 <>
-                                  <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 mr-1.5 ${TYP_DOT[e.typ] || 'bg-stone-400'}`} />
+                                  <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 mr-1.5 ${dotCls}`} />
                                   <span className="text-xs font-medium truncate whitespace-nowrap">
-                                    {e.cas_zacatek?.slice(0,5)}–{e.cas_konec?.slice(0,5)}&nbsp;·&nbsp;{e.nazev}
+                                    {e.cas_zacatek?.slice(0,5)}–{e.cas_konec?.slice(0,5)}&nbsp;·&nbsp;{label}
                                   </span>
                                 </>
                               )}
@@ -1525,7 +1587,7 @@ export function NovaNabidka() {
 }
 
 // ── NastaveniPage.jsx ─────────────────────────────────────────
-import { nastaveniApi, uzivateleApi, authApi } from '../api';
+import { nastaveniApi, uzivateleApi, authApi, googleCalendarApi } from '../api';
 import { Settings } from 'lucide-react';
 
 export function NastaveniPage() {
@@ -1550,7 +1612,15 @@ export function NastaveniPage() {
     onError: (e) => toast.error(e?.response?.data?.error || 'Chyba při změně hesla'),
   });
 
-  const TABS = [['firma','Profil firmy'],['uziv','Uživatelé'],['heslo','Změna hesla'],['notif','Notifikace'],['integrace','Integrace']];
+  const TABS = [['firma','Profil firmy'],['uziv','Uživatelé'],['heslo','Změna hesla'],['notif','Notifikace'],['integrace','Integrace'],['google','Google Kalendář']];
+
+  const { data: gcStatus, refetch: refetchGcStatus } = useQuery({
+    queryKey: ['google-calendar-status'],
+    queryFn: googleCalendarApi.status,
+    enabled: tab === 'google',
+    retry: false,
+    select: (r) => r.data,
+  });
   const uzivatele = uzivData?.data?.data || [];
   const setU = (k,v) => setUserForm(f=>({...f,[k]:v}));
   const ROLES = {admin:'Administrátor', obchodnik:'Obchodník / koordinátor', provoz:'Provoz / realizace'};
@@ -1644,6 +1714,64 @@ export function NastaveniPage() {
         {tab === 'notif' && (
           <div className="bg-white rounded-xl border border-stone-200 p-5">
             <p className="text-sm text-stone-500">Nastavení notifikací bude dostupné po propojení s e-mailovým systémem.</p>
+          </div>
+        )}
+
+        {tab === 'google' && (
+          <div className="space-y-4">
+            <div className="bg-white rounded-xl border border-stone-200 p-5 space-y-4">
+              <div className="flex items-start justify-between">
+                <div>
+                  <div className="text-sm font-semibold text-stone-800 mb-0.5">Google Kalendář</div>
+                  <div className="text-xs text-stone-500">Potvrzené zakázky se automaticky propisují do sdíleného firemního Google Kalendáře. Stornované zakázky se z kalendáře odstraní.</div>
+                </div>
+                {gcStatus && (
+                  <span className={`text-xs font-semibold px-2 py-1 rounded-full flex-shrink-0 ml-4 ${gcStatus.connected ? 'bg-green-50 text-green-700' : 'bg-stone-100 text-stone-500'}`}>
+                    {gcStatus.connected ? '✓ Připojeno' : 'Nepřipojeno'}
+                  </span>
+                )}
+              </div>
+
+              {gcStatus && !gcStatus.connected && gcStatus.reason && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs text-amber-700">{gcStatus.reason}</div>
+              )}
+
+              <div>
+                <label className="text-xs text-stone-500 block mb-1">Google Calendar ID</label>
+                <div className="flex gap-2">
+                  <input
+                    className="flex-1 border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                    placeholder="např. abc123@group.calendar.google.com nebo primární: vasuzemail@gmail.com"
+                    defaultValue={nastavData?.data?.google_calendar_id || ''}
+                    onChange={e => setForm(f => ({ ...f, google_calendar_id: e.target.value }))}
+                  />
+                  <Btn variant="primary" onClick={() => { saveMut.mutate(form); setTimeout(() => refetchGcStatus(), 1000); }} disabled={saveMut.isPending}>
+                    {saveMut.isPending ? 'Ukládám…' : 'Uložit'}
+                  </Btn>
+                </div>
+                <div className="text-xs text-stone-400 mt-1">Kalendář ID najdete v Google Calendar → Nastavení kalendáře → ID kalendáře</div>
+              </div>
+
+              <div className="border-t border-stone-100 pt-4 space-y-2">
+                <div className="text-xs font-medium text-stone-700">Jak nastavit:</div>
+                <ol className="text-xs text-stone-500 space-y-1 list-decimal pl-4">
+                  <li>V Google Cloud Console vytvořte <strong>Service Account</strong> a stáhněte JSON klíč</li>
+                  <li>Nastavte proměnnou prostředí <code className="bg-stone-100 px-1 rounded">GOOGLE_SERVICE_ACCOUNT_JSON</code> v <code className="bg-stone-100 px-1 rounded">backend/.env</code> (obsah celého JSON souboru)</li>
+                  <li>V Google Calendar sdílejte váš kalendář s emailem service accountu (role: <strong>Správa událostí</strong>)</li>
+                  <li>Zkopírujte Calendar ID (viz nastavení kalendáře) a vložte ho výše</li>
+                  <li>Klikněte <strong>Uložit</strong> a ověřte stav připojení</li>
+                </ol>
+              </div>
+
+              <div className="border-t border-stone-100 pt-4">
+                <div className="text-xs font-medium text-stone-700 mb-2">Co se synchronizuje:</div>
+                <div className="text-xs text-stone-500 space-y-1">
+                  <div>• Zakázka změněna na stav <strong>Potvrzeno</strong> → event vytvořen/aktualizován v Google Kalendáři</div>
+                  <div>• Zakázka změněna na stav <strong>Stornováno</strong> → event smazán z Google Kalendáře</div>
+                  <div>• Editace potvrzené zakázky (datum, místo) → event automaticky aktualizován</div>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
@@ -1748,7 +1876,7 @@ export function PoptavkyPage() {
 
   const prijmutMut = useMutation({
     mutationFn: (id) => zakazkyApi.setStav(id, { stav: 'rozpracovano' }),
-    onSuccess: () => { qc.invalidateQueries(['poptavky']); qc.invalidateQueries(['zakazky']); toast.success('Poptávka přijata → Zakázky'); },
+    onSuccess: (_, id) => { qc.invalidateQueries(['poptavky']); qc.invalidateQueries(['zakazky']); navigate(`/zakazky/${id}`); },
   });
   const stornMut = useMutation({
     mutationFn: (id) => zakazkyApi.setStav(id, { stav: 'stornovano' }),
@@ -1819,7 +1947,7 @@ export function PoptavkyPage() {
                         onClick={() => prijmutMut.mutate(r.id)}
                         disabled={prijmutMut.isPending}
                         className="flex items-center gap-1 px-3 py-1.5 text-xs bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 whitespace-nowrap"
-                      ><Check size={12}/>Přijmout</button>
+                      ><Check size={12}/>Převést na zakázku</button>
                       <button
                         onClick={() => stornMut.mutate(r.id)}
                         disabled={stornMut.isPending}

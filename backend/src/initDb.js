@@ -13,6 +13,9 @@ async function initDb() {
 
     if (parseInt(rows[0].cnt) > 0) {
       console.log('✅  Databáze již inicializována, přeskakuji schema.');
+      // Migrace: přidat nové sloupce pokud chybí
+      await pool.query(`ALTER TABLE zakazky ADD COLUMN IF NOT EXISTS google_event_id VARCHAR(255)`);
+      console.log('✅  Migrace OK (google_event_id).');
       return;
     }
 

@@ -21,7 +21,10 @@
       "Bash(tail -20 \"/e/Dropbox/Work/catering Landa&Dvořák/CRM/catering-ld-crm/catering-ld-crm/backend/.env.example\")",
       "Bash(git -C \"/e/Dropbox/Work/catering Landa&Dvořák/CRM/catering-ld-crm/catering-ld-crm\" diff frontend/src/pages/_all.jsx)",
       "Bash(tail -3 \"e:/Dropbox/Work/catering Landa&Dvořák/CRM/catering-ld-crm/catering-ld-crm/frontend/src/pages/_all.jsx\")",
-      "Bash(cat \"e:/Dropbox/Work/catering Landa&Dvořák/CRM/catering-ld-crm/catering-ld-crm/backend/package.json\")"
+      "Bash(cat \"e:/Dropbox/Work/catering Landa&Dvořák/CRM/catering-ld-crm/catering-ld-crm/backend/package.json\")",
+      "Bash(find \"/Users/op/Library/CloudStorage/Dropbox/Work/catering Landa&Dvořák/CRM/catering-ld-crm/catering-ld-crm\" -type f -name *.sql -o -name schema* -o -name *migration*)",
+      "Bash(ls \"/Users/op/Library/CloudStorage/Dropbox/Work/catering Landa&Dvořák/CRM/catering-ld-crm/catering-ld-crm/backend/src/routes/\")",
+      "Bash(ls \"/Users/op/Library/CloudStorage/Dropbox/Work/catering Landa&Dvořák/CRM/catering-ld-crm/catering-ld-crm/backend/src/\")"
     ]
   }
 }

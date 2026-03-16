@@ -3,6 +3,7 @@ const { query, withTransaction } = require('../db');
 const { auth, requireRole } = require('../middleware/auth');
 const { sendKomando, sendDekujeme } = require('../emailService');
 const { createNotif } = require('../notifHelper');
+const { upsertEvent, deleteEvent } = require('../googleCalendar');
 
 // Generátor čísla zakázky
 async function genCislo() {
@@ -169,6 +170,15 @@ router.patch('/:id', auth, async (req, res, next) => {
       [req.params.id, ...vals]);
 
     if (!rows[0]) return res.status(404).json({ error: 'Zakázka nenalezena' });
+
+    // Google Calendar sync: update event if zakázka is confirmed and has an event
+    if (rows[0].google_event_id && rows[0].stav === 'potvrzeno') {
+      const { rows: full } = await query(`
+        SELECT z.*, k.jmeno AS klient_jmeno, k.prijmeni AS klient_prijmeni, k.firma AS klient_firma
+        FROM zakazky z LEFT JOIN klienti k ON k.id = z.klient_id WHERE z.id = $1`, [req.params.id]);
+      upsertEvent(full[0]).catch(() => {});
+    }
+
     res.json(rows[0]);
   } catch (err) { next(err); }
 });
@@ -183,9 +193,17 @@ router.patch('/:id/stav', auth, async (req, res, next) => {
       return res.status(400).json({ error: 'Neplatný stav zakázky' });
     }
 
+    let zakazkaRow = null;
     await withTransaction(async (client) => {
-      const old = await client.query('SELECT stav FROM zakazky WHERE id = $1', [req.params.id]);
+      const old = await client.query(`
+        SELECT z.stav, z.google_event_id, z.datum_akce, z.cas_zacatek, z.cas_konec,
+               z.misto, z.pocet_hostu, z.cena_celkem, z.nazev, z.cislo, z.typ, z.id,
+               z.poznamka_interni,
+               k.jmeno AS klient_jmeno, k.prijmeni AS klient_prijmeni, k.firma AS klient_firma
+        FROM zakazky z LEFT JOIN klienti k ON k.id = z.klient_id
+        WHERE z.id = $1`, [req.params.id]);
       if (!old.rows[0]) throw Object.assign(new Error('Zakázka nenalezena'), { status: 404 });
+      zakazkaRow = old.rows[0];
 
       await client.query('UPDATE zakazky SET stav = $1 WHERE id = $2', [stav, req.params.id]);
       await client.query(
@@ -193,6 +211,13 @@ router.patch('/:id/stav', auth, async (req, res, next) => {
          VALUES ($1, $2, $3, $4, $5)`,
         [req.params.id, old.rows[0].stav, stav, req.user.id, poznamka || null]);
     });
+
+    // Google Calendar sync (fire-and-forget, errors non-fatal)
+    if (stav === 'potvrzeno') {
+      upsertEvent(zakazkaRow).catch(() => {});
+    } else if (stav === 'stornovano' && zakazkaRow?.google_event_id) {
+      deleteEvent(zakazkaRow.google_event_id).catch(() => {});
+    }
 
     res.json({ message: 'Stav zakázky aktualizován', stav });
   } catch (err) { next(err); }

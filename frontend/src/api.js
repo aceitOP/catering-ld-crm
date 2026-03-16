@@ -122,6 +122,12 @@ export const reportyApi = {
   get: (params) => api.get('/reporty', { params }),
 };
 
+// ── Google Calendar ───────────────────────────────────────────
+export const googleCalendarApi = {
+  events: (params) => api.get('/google-calendar/events', { params }),
+  status: ()       => api.get('/google-calendar/status'),
+};
+
 // ── Notifikace ───────────────────────────────────────────────
 export const notifikaceApi = {
   list:       ()   => api.get('/notifikace'),
