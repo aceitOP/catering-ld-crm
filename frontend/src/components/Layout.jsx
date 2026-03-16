@@ -1,9 +1,18 @@
+import { useState } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   LayoutDashboard, ClipboardList, Users, FileText,
-  Calendar, UserCheck, FolderOpen, Tag, Settings, LogOut, BarChart2,
+  Calendar, UserCheck, FolderOpen, Tag, Settings, LogOut, BarChart2, X,
 } from 'lucide-react';
+import { APP_VERSION, CHANGELOG } from '../data/changelog';
+
+const TYPE_STYLE = {
+  new:         { label: 'Nové',        cls: 'bg-emerald-100 text-emerald-700' },
+  improvement: { label: 'Vylepšení',   cls: 'bg-blue-100 text-blue-700' },
+  fix:         { label: 'Oprava',      cls: 'bg-orange-100 text-orange-700' },
+  security:    { label: 'Bezpečnost',  cls: 'bg-red-100 text-red-700' },
+};
 
 const NAV = [
   { to: '/dashboard',  label: 'Dashboard',   icon: LayoutDashboard },
@@ -30,6 +39,7 @@ function BrandLogo({ size = 28 }) {
 export default function Layout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [changelogOpen, setChangelogOpen] = useState(false);
 
   const handleLogout = () => { logout(); navigate('/login'); };
 
@@ -90,8 +100,66 @@ export default function Layout() {
               <LogOut size={14} />
             </button>
           </div>
+
+          {/* Version badge */}
+          <button
+            onClick={() => setChangelogOpen(true)}
+            className="w-full mt-1 px-2 py-1 flex items-center justify-center gap-1.5 rounded-md hover:bg-white/10 transition-colors group"
+            title="Zobrazit historii změn"
+          >
+            <span className="text-brand-400 text-xs group-hover:text-brand-200 transition-colors">v{APP_VERSION}</span>
+            <span className="text-brand-500 text-xs group-hover:text-brand-300 transition-colors">· Co je nového?</span>
+          </button>
         </div>
       </aside>
+
+      {/* Changelog modal */}
+      {changelogOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setChangelogOpen(false)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col">
+            {/* Modal header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-stone-100">
+              <div>
+                <h2 className="text-base font-semibold text-stone-800">Historie změn</h2>
+                <p className="text-xs text-stone-400 mt-0.5">Catering LD CRM · aktuální verze {APP_VERSION}</p>
+              </div>
+              <button onClick={() => setChangelogOpen(false)} className="p-1.5 hover:bg-stone-100 rounded-lg text-stone-400 hover:text-stone-600 transition-colors">
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Changelog entries */}
+            <div className="overflow-y-auto px-6 py-4 space-y-6">
+              {CHANGELOG.map((ver, vi) => (
+                <div key={ver.version}>
+                  <div className="flex items-baseline gap-3 mb-2.5">
+                    <span className={`text-sm font-bold ${vi === 0 ? 'text-brand-900' : 'text-stone-700'}`}>
+                      v{ver.version}
+                    </span>
+                    {vi === 0 && (
+                      <span className="text-xs bg-accent-DEFAULT text-white font-semibold px-1.5 py-0.5 rounded-full">aktuální</span>
+                    )}
+                    <span className="text-xs text-stone-400 ml-auto">{ver.date}</span>
+                  </div>
+                  <ul className="space-y-1.5">
+                    {ver.changes.map((ch, ci) => {
+                      const t = TYPE_STYLE[ch.type] || TYPE_STYLE.improvement;
+                      return (
+                        <li key={ci} className="flex items-start gap-2">
+                          <span className={`text-xs font-semibold px-1.5 py-0.5 rounded flex-shrink-0 mt-0.5 ${t.cls}`}>{t.label}</span>
+                          <span className="text-sm text-stone-600 leading-snug">{ch.text}</span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                  {vi < CHANGELOG.length - 1 && <div className="mt-4 border-b border-stone-100" />}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main content */}
       <main className="flex-1 overflow-y-auto">

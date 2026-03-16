@@ -13,9 +13,25 @@ export function KalendarPage() {
   const [month, setMonth]       = useState(now.getMonth());
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerYear, setPickerYear] = useState(now.getFullYear());
+  const [view, setView]             = useState('mesic');
+  const [collapsed, setCollapsed]   = useState(new Set());
 
-  const od  = new Date(year, month, 1).toISOString().slice(0, 10);
-  const doo = new Date(year, month + 1, 0).toISOString().slice(0, 10);
+  const getMondayISO = (d = new Date()) => {
+    const tmp = new Date(d); const dow = tmp.getDay();
+    tmp.setDate(tmp.getDate() + (dow === 0 ? -6 : 1 - dow));
+    return tmp.toISOString().slice(0, 10);
+  };
+  const [tlStartISO, setTlStartISO] = useState(() => getMondayISO());
+  const WEEKS_SHOWN = 12;
+
+  const tlEnd = new Date(tlStartISO + 'T00:00:00');
+  tlEnd.setDate(tlEnd.getDate() + WEEKS_SHOWN * 7 - 1);
+  const od  = view === 'timeline'
+    ? tlStartISO
+    : new Date(year, month, 1).toISOString().slice(0, 10);
+  const doo = view === 'timeline'
+    ? tlEnd.toISOString().slice(0, 10)
+    : new Date(year, month + 1, 0).toISOString().slice(0, 10);
 
   const { data } = useQuery({
     queryKey: ['kalendar', od, doo],
@@ -57,133 +73,281 @@ export function KalendarPage() {
     firemni_akce: 'bg-emerald-500', zavoz: 'bg-violet-500', bistro: 'bg-amber-500',
   };
 
+  // ── Timeline helpers ──
+  const getISOWeek = (d) => {
+    const tmp = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    tmp.setUTCDate(tmp.getUTCDate() + 4 - (tmp.getUTCDay() || 7));
+    const y1 = new Date(Date.UTC(tmp.getUTCFullYear(), 0, 1));
+    return Math.ceil(((tmp - y1) / 86400000 + 1) / 7);
+  };
+  const tlWeeks = Array.from({ length: WEEKS_SHOWN }, (_, i) => {
+    const mon = new Date(tlStartISO + 'T00:00:00');
+    mon.setDate(mon.getDate() + i * 7);
+    const sun = new Date(mon); sun.setDate(sun.getDate() + 6);
+    return { mon, sun, wn: getISOWeek(mon) };
+  });
+  const monthSpans = [];
+  tlWeeks.forEach(w => {
+    const lbl = w.mon.toLocaleString('cs-CZ', { month: 'long', year: 'numeric' });
+    if (!monthSpans.length || monthSpans[monthSpans.length - 1].lbl !== lbl)
+      monthSpans.push({ lbl, count: 1 });
+    else monthSpans[monthSpans.length - 1].count++;
+  });
+  const getEventWeekIdx = (dateStr) => {
+    const d = new Date(dateStr + 'T00:00:00');
+    return tlWeeks.findIndex(w => d >= w.mon && d <= w.sun);
+  };
+  const todayWeekIdx = getEventWeekIdx(now.toISOString().slice(0, 10));
+  const STAV_ORDER = ['potvrzeno','nabidka_odeslana','ceka_na_vyjadreni','nabidka_pripravena','probehlo','storno'];
+  const STAV_LABEL = {
+    potvrzeno: 'Potvrzeno', nabidka_odeslana: 'Nabídka odeslána',
+    ceka_na_vyjadreni: 'Čeká na vyjádření', nabidka_pripravena: 'Nabídka – připravena',
+    probehlo: 'Proběhlo', storno: 'Storno',
+  };
+  const tlGroups = STAV_ORDER
+    .map(s => ({ stav: s, label: STAV_LABEL[s], items: events.filter(e => e.stav === s) }))
+    .filter(g => g.items.length > 0);
+
   return (
     <div>
       {/* ── Header ── */}
       <div className="flex items-center justify-between px-6 py-4 border-b border-stone-100">
+        <div className="flex items-center gap-4">
+          {/* View toggle */}
+          <div className="flex items-center gap-0.5 bg-stone-100 rounded-lg p-0.5">
+            <button onClick={() => setView('mesic')}
+              className={`px-3 py-1.5 text-xs rounded-md font-medium transition-colors ${view === 'mesic' ? 'bg-white shadow-sm text-stone-800' : 'text-stone-500 hover:text-stone-700'}`}>
+              Měsíc
+            </button>
+            <button onClick={() => setView('timeline')}
+              className={`px-3 py-1.5 text-xs rounded-md font-medium transition-colors ${view === 'timeline' ? 'bg-white shadow-sm text-stone-800' : 'text-stone-500 hover:text-stone-700'}`}>
+              Timeline
+            </button>
+          </div>
 
-        {/* Klikatelný nadpis → month/year picker */}
-        <div className="relative">
-          <button
-            onClick={() => { setPickerYear(year); setPickerOpen(p => !p); }}
-            className="flex items-center gap-1.5 text-xl font-semibold text-stone-800 hover:text-stone-600 transition-colors"
-          >
-            {MONTHS[month]} {year}
-            <ChevronDown size={18} className={`transition-transform duration-200 ${pickerOpen ? 'rotate-180' : ''}`} />
-          </button>
+          {/* Month picker (only in month view) */}
+          {view === 'mesic' && (
+            <div className="relative">
+              <button
+                onClick={() => { setPickerYear(year); setPickerOpen(p => !p); }}
+                className="flex items-center gap-1.5 text-xl font-semibold text-stone-800 hover:text-stone-600 transition-colors"
+              >
+                {MONTHS[month]} {year}
+                <ChevronDown size={18} className={`transition-transform duration-200 ${pickerOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {pickerOpen && (
+                <div className="absolute top-full left-0 mt-2 bg-white border border-stone-200 rounded-xl shadow-xl z-20 p-4 w-72">
+                  <div className="flex items-center justify-between mb-3">
+                    <button onClick={() => setPickerYear(y => y - 1)} className="p-1.5 hover:bg-stone-100 rounded-lg text-stone-600 text-sm">←</button>
+                    <span className="font-semibold text-stone-700">{pickerYear}</span>
+                    <button onClick={() => setPickerYear(y => y + 1)} className="p-1.5 hover:bg-stone-100 rounded-lg text-stone-600 text-sm">→</button>
+                  </div>
+                  <div className="grid grid-cols-4 gap-1">
+                    {MONTHS.map((m, i) => (
+                      <button key={i}
+                        onClick={() => { setYear(pickerYear); setMonth(i); setPickerOpen(false); }}
+                        className={`py-2 text-xs rounded-lg transition-colors ${i === month && pickerYear === year ? 'bg-stone-900 text-white font-semibold' : 'hover:bg-stone-100 text-stone-600'}`}>
+                        {m.slice(0, 3)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
-          {pickerOpen && (
-            <div className="absolute top-full left-0 mt-2 bg-white border border-stone-200 rounded-xl shadow-xl z-20 p-4 w-72">
-              {/* Rok navigace */}
-              <div className="flex items-center justify-between mb-3">
-                <button onClick={() => setPickerYear(y => y - 1)}
-                  className="p-1.5 hover:bg-stone-100 rounded-lg text-stone-600 text-sm">←</button>
-                <span className="font-semibold text-stone-700">{pickerYear}</span>
-                <button onClick={() => setPickerYear(y => y + 1)}
-                  className="p-1.5 hover:bg-stone-100 rounded-lg text-stone-600 text-sm">→</button>
-              </div>
-              {/* 4×3 mřížka měsíců */}
-              <div className="grid grid-cols-4 gap-1">
-                {MONTHS.map((m, i) => (
-                  <button key={i}
-                    onClick={() => { setYear(pickerYear); setMonth(i); setPickerOpen(false); }}
-                    className={`py-2 text-xs rounded-lg transition-colors ${
-                      i === month && pickerYear === year
-                        ? 'bg-stone-900 text-white font-semibold'
-                        : 'hover:bg-stone-100 text-stone-600'
-                    }`}
-                  >
-                    {m.slice(0, 3)}
-                  </button>
+          {/* Timeline date range label */}
+          {view === 'timeline' && tlWeeks.length > 0 && (
+            <span className="text-sm font-semibold text-stone-700">
+              {tlWeeks[0].mon.toLocaleDateString('cs-CZ', { month: 'short', year: 'numeric' })}
+              {' – '}
+              {tlWeeks[WEEKS_SHOWN - 1].sun.toLocaleDateString('cs-CZ', { month: 'short', year: 'numeric' })}
+            </span>
+          )}
+        </div>
+
+        {/* Navigation */}
+        <div className="flex items-center gap-1">
+          {view === 'mesic' ? (
+            <>
+              <button onClick={prevMonth} className="p-2 hover:bg-stone-100 rounded-lg text-stone-600 text-sm transition-colors">←</button>
+              <button onClick={() => { setMonth(now.getMonth()); setYear(now.getFullYear()); }} className="px-3 py-1.5 text-xs border border-stone-200 rounded-lg hover:bg-stone-50 transition-colors">Dnes</button>
+              <button onClick={nextMonth} className="p-2 hover:bg-stone-100 rounded-lg text-stone-600 text-sm transition-colors">→</button>
+            </>
+          ) : (
+            <>
+              <button onClick={() => { const d = new Date(tlStartISO + 'T00:00:00'); d.setDate(d.getDate() - 28); setTlStartISO(d.toISOString().slice(0, 10)); }} className="p-2 hover:bg-stone-100 rounded-lg text-stone-600 text-sm transition-colors">←</button>
+              <button onClick={() => setTlStartISO(getMondayISO())} className="px-3 py-1.5 text-xs border border-stone-200 rounded-lg hover:bg-stone-50 transition-colors">Dnes</button>
+              <button onClick={() => { const d = new Date(tlStartISO + 'T00:00:00'); d.setDate(d.getDate() + 28); setTlStartISO(d.toISOString().slice(0, 10)); }} className="p-2 hover:bg-stone-100 rounded-lg text-stone-600 text-sm transition-colors">→</button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* ── MONTH VIEW ── */}
+      {view === 'mesic' && (
+        <div className="p-6">
+          <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
+            <div className="grid grid-cols-7 border-b border-stone-100">
+              {DAYS.map((d, i) => (
+                <div key={d} className={`py-3 text-center text-xs font-semibold uppercase tracking-wide ${i >= 5 ? 'text-stone-400' : 'text-stone-500'}`}>{d}</div>
+              ))}
+            </div>
+            <div className="grid grid-cols-7 divide-x divide-y divide-stone-100">
+              {days.map((d, i) => {
+                const evs       = eventsForDay(d);
+                const isToday   = d && year === now.getFullYear() && month === now.getMonth() && d === now.getDate();
+                const isWeekend = i % 7 >= 5;
+                return (
+                  <div key={i} className={`min-h-[120px] p-1.5 ${!d ? 'bg-stone-50/50' : isWeekend ? 'bg-stone-50/40' : 'bg-white'}`}>
+                    {d && (
+                      <>
+                        <div className="mb-1 px-0.5">
+                          <span className={`text-xs font-semibold inline-flex items-center justify-center w-7 h-7 rounded-full select-none ${isToday ? 'bg-brand-900 text-white' : evs.length > 0 ? 'text-stone-800 ring-2 ring-accent-DEFAULT/25' : isWeekend ? 'text-stone-400' : 'text-stone-600'}`}>{d}</span>
+                          {evs.length > 0 && (
+                            <div className="flex gap-0.5 mt-0.5 ml-0.5">
+                              {evs.slice(0, 4).map((e, i) => (
+                                <span key={i} className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${TYP_DOT[e.typ] || 'bg-stone-400'}`} />
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <div className="space-y-0.5">
+                          {evs.map(e => (
+                            <div key={e.id} onClick={() => navigate(`/zakazky/${e.id}`)} title={e.nazev}
+                              className={`flex items-center gap-1 text-xs px-1.5 py-0.5 rounded cursor-pointer hover:opacity-75 transition-opacity ${TYP_CHIP[e.typ] || 'bg-stone-100 text-stone-700 border border-stone-200'}`}>
+                              <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${TYP_DOT[e.typ] || 'bg-stone-400'}`} />
+                              <span className="truncate">{e.cas_zacatek ? e.cas_zacatek.slice(0, 5) + ' ' : ''}{e.nazev}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {events.length > 0 && (
+            <div className="mt-6">
+              <h3 className="text-sm font-semibold text-stone-700 mb-3">Akce v {MONTHS[month].toLowerCase()}</h3>
+              <div className="space-y-2">
+                {[...events].sort((a, b) => a.datum_akce.localeCompare(b.datum_akce)).map(e => (
+                  <div key={e.id} onClick={() => navigate(`/zakazky/${e.id}`)}
+                    className="flex items-center gap-3 bg-white rounded-lg border border-stone-200 px-4 py-3 cursor-pointer hover:bg-stone-50 transition-colors">
+                    <div className={`w-1 self-stretch rounded-full flex-shrink-0 ${TYP_DOT[e.typ] || 'bg-stone-400'}`} />
+                    <div className="text-sm font-medium text-stone-500 w-24 flex-shrink-0">{formatDatum(e.datum_akce)}</div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium text-stone-800 truncate">{e.nazev}</div>
+                      <div className="text-xs text-stone-400">{e.misto || '—'} · {e.pocet_hostu ? e.pocet_hostu + ' hostů' : ''}</div>
+                    </div>
+                    <TypBadge typ={e.typ} />
+                    <StavBadge stav={e.stav} />
+                  </div>
                 ))}
               </div>
             </div>
           )}
         </div>
+      )}
 
-        {/* Prev / Dnes / Next */}
-        <div className="flex items-center gap-1">
-          <button onClick={prevMonth}
-            className="p-2 hover:bg-stone-100 rounded-lg text-stone-600 text-sm transition-colors">←</button>
-          <button onClick={() => { setMonth(now.getMonth()); setYear(now.getFullYear()); }}
-            className="px-3 py-1.5 text-xs border border-stone-200 rounded-lg hover:bg-stone-50 transition-colors">Dnes</button>
-          <button onClick={nextMonth}
-            className="p-2 hover:bg-stone-100 rounded-lg text-stone-600 text-sm transition-colors">→</button>
-        </div>
-      </div>
+      {/* ── TIMELINE VIEW ── */}
+      {view === 'timeline' && (
+        <div className="p-6">
+          <div className="bg-white rounded-xl border border-stone-200 overflow-x-auto">
+            <div style={{ minWidth: `${200 + WEEKS_SHOWN * 80}px` }}>
 
-      <div className="p-6">
-        <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
-          {/* Záhlaví dnů */}
-          <div className="grid grid-cols-7 border-b border-stone-100">
-            {DAYS.map((d, i) => (
-              <div key={d} className={`py-3 text-center text-xs font-semibold uppercase tracking-wide ${i >= 5 ? 'text-stone-400' : 'text-stone-500'}`}>
-                {d}
-              </div>
-            ))}
-          </div>
-
-          {/* Buňky */}
-          <div className="grid grid-cols-7 divide-x divide-y divide-stone-100">
-            {days.map((d, i) => {
-              const evs     = eventsForDay(d);
-              const isToday = d && year === now.getFullYear() && month === now.getMonth() && d === now.getDate();
-              const isWeekend = i % 7 >= 5;
-              return (
-                <div key={i} className={`min-h-[120px] p-1.5 ${!d ? 'bg-stone-50/50' : isWeekend ? 'bg-stone-50/40' : 'bg-white'}`}>
-                  {d && (
-                    <>
-                      <div className="mb-1 px-0.5">
-                        <span className={`text-xs font-semibold inline-flex items-center justify-center w-7 h-7 rounded-full select-none
-                          ${isToday ? 'bg-brand-900 text-white' : isWeekend ? 'text-stone-400' : 'text-stone-600'}`}>
-                          {d}
-                        </span>
-                      </div>
-                      <div className="space-y-0.5">
-                        {evs.map(e => (
-                          <div key={e.id}
-                            onClick={() => navigate(`/zakazky/${e.id}`)}
-                            title={e.nazev}
-                            className={`flex items-center gap-1 text-xs px-1.5 py-0.5 rounded cursor-pointer hover:opacity-75 transition-opacity
-                              ${TYP_CHIP[e.typ] || 'bg-stone-100 text-stone-700 border border-stone-200'}`}
-                          >
-                            <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${TYP_DOT[e.typ] || 'bg-stone-400'}`} />
-                            <span className="truncate">
-                              {e.cas_zacatek ? e.cas_zacatek.slice(0, 5) + ' ' : ''}{e.nazev}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </>
-                  )}
+              {/* Month header row */}
+              <div className="flex border-b border-stone-100">
+                <div className="w-[200px] flex-shrink-0 px-4 py-2.5 text-xs font-semibold text-stone-400 uppercase tracking-wide border-r border-stone-100">Zakázka</div>
+                <div className="flex">
+                  {monthSpans.map((ms, i) => (
+                    <div key={i} style={{ width: `${ms.count * 80}px`, flexShrink: 0 }}
+                      className={`px-3 py-2.5 text-xs font-semibold text-stone-600 capitalize ${i < monthSpans.length - 1 ? 'border-r border-stone-100' : ''}`}>
+                      {ms.lbl}
+                    </div>
+                  ))}
                 </div>
-              );
-            })}
-          </div>
-        </div>
+              </div>
 
-        {/* Seznam akcí v měsíci */}
-        {events.length > 0 && (
-          <div className="mt-6">
-            <h3 className="text-sm font-semibold text-stone-700 mb-3">Akce v {MONTHS[month].toLowerCase()}</h3>
-            <div className="space-y-2">
-              {[...events].sort((a, b) => a.datum_akce.localeCompare(b.datum_akce)).map(e => (
-                <div key={e.id} onClick={() => navigate(`/zakazky/${e.id}`)}
-                  className="flex items-center gap-3 bg-white rounded-lg border border-stone-200 px-4 py-3 cursor-pointer hover:bg-stone-50 transition-colors">
-                  <div className={`w-1 self-stretch rounded-full flex-shrink-0 ${TYP_DOT[e.typ] || 'bg-stone-400'}`} />
-                  <div className="text-sm font-medium text-stone-500 w-24 flex-shrink-0">{formatDatum(e.datum_akce)}</div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-stone-800 truncate">{e.nazev}</div>
-                    <div className="text-xs text-stone-400">{e.misto || '—'} · {e.pocet_hostu ? e.pocet_hostu + ' hostů' : ''}</div>
-                  </div>
-                  <TypBadge typ={e.typ} />
-                  <StavBadge stav={e.stav} />
+              {/* Week number header row */}
+              <div className="flex border-b border-stone-200">
+                <div className="w-[200px] flex-shrink-0 border-r border-stone-100 bg-stone-50" />
+                {tlWeeks.map((w, i) => {
+                  const isCurrent = i === todayWeekIdx;
+                  return (
+                    <div key={i} style={{ width: '80px', flexShrink: 0 }}
+                      className={`px-1 py-2 text-center border-r border-stone-100 last:border-r-0 ${isCurrent ? 'bg-blue-50' : 'bg-stone-50'}`}>
+                      <div className={`text-xs font-bold ${isCurrent ? 'text-blue-600' : 'text-stone-500'}`}>T{w.wn}</div>
+                      <div className={`text-xs mt-0.5 ${isCurrent ? 'text-blue-400' : 'text-stone-400'}`}>{w.mon.getDate()}. – {w.sun.getDate()}.</div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Event groups */}
+              {tlGroups.length === 0 && (
+                <div className="py-16 text-center text-sm text-stone-400">Žádné akce v tomto období</div>
+              )}
+              {tlGroups.map(group => (
+                <div key={group.stav}>
+                  {/* Group header row */}
+                  <button
+                    onClick={() => setCollapsed(s => { const n = new Set(s); n.has(group.stav) ? n.delete(group.stav) : n.add(group.stav); return n; })}
+                    className="flex items-center w-full border-b border-stone-100 bg-stone-50/80 hover:bg-stone-100/80 transition-colors"
+                  >
+                    <div className="w-[200px] flex-shrink-0 flex items-center gap-2 px-4 py-2.5 border-r border-stone-100">
+                      <ChevronDown size={13} className={`text-stone-400 flex-shrink-0 transition-transform duration-150 ${collapsed.has(group.stav) ? '-rotate-90' : ''}`} />
+                      <span className="text-xs font-semibold text-stone-600 truncate">{group.label}</span>
+                      <span className="ml-auto text-xs text-stone-400 flex-shrink-0 bg-stone-200 rounded-full px-1.5">{group.items.length}</span>
+                    </div>
+                    <div className="flex">
+                      {tlWeeks.map((_, i) => (
+                        <div key={i} style={{ width: '80px', flexShrink: 0 }}
+                          className={`border-r border-stone-100 last:border-r-0 py-2.5 ${i === todayWeekIdx ? 'bg-blue-50/40' : ''}`} />
+                      ))}
+                    </div>
+                  </button>
+
+                  {/* Event rows */}
+                  {!collapsed.has(group.stav) && group.items
+                    .sort((a, b) => a.datum_akce.localeCompare(b.datum_akce))
+                    .map(e => {
+                      const wi = getEventWeekIdx(e.datum_akce);
+                      return (
+                        <div key={e.id} onClick={() => navigate(`/zakazky/${e.id}`)}
+                          className="flex items-stretch border-b border-stone-50 hover:bg-stone-50 transition-colors cursor-pointer group">
+                          <div className="w-[200px] flex-shrink-0 flex items-center gap-2 px-4 py-2 border-r border-stone-100">
+                            <span className={`w-2 h-2 rounded-full flex-shrink-0 ${TYP_DOT[e.typ] || 'bg-stone-400'}`} />
+                            <div className="min-w-0">
+                              <div className="text-xs font-medium text-stone-800 truncate group-hover:text-stone-900">{e.nazev}</div>
+                              <div className="text-xs text-stone-400">{formatDatum(e.datum_akce)}</div>
+                            </div>
+                          </div>
+                          <div className="flex">
+                            {tlWeeks.map((_, i) => (
+                              <div key={i} style={{ width: '80px', flexShrink: 0 }}
+                                className={`border-r border-stone-50 last:border-r-0 py-1.5 px-1 flex items-center ${i === todayWeekIdx ? 'bg-blue-50/20' : ''}`}>
+                                {i === wi && (
+                                  <div title={e.nazev}
+                                    className={`flex items-center gap-1 w-full text-xs px-1.5 py-0.5 rounded ${TYP_CHIP[e.typ] || 'bg-stone-100 text-stone-700 border border-stone-200'}`}>
+                                    <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${TYP_DOT[e.typ] || 'bg-stone-400'}`} />
+                                    <span className="truncate">{e.cas_zacatek ? e.cas_zacatek.slice(0, 5) : ''}</span>
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
                 </div>
               ))}
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1239,7 +1403,7 @@ export function NovaNabidka() {
 }
 
 // ── NastaveniPage.jsx ─────────────────────────────────────────
-import { nastaveniApi, uzivateleApi } from '../api';
+import { nastaveniApi, uzivateleApi, authApi } from '../api';
 import { Settings } from 'lucide-react';
 
 export function NastaveniPage() {
@@ -1248,6 +1412,7 @@ export function NastaveniPage() {
   const [form, setForm] = useState({});
   const [userModal, setUserModal] = useState(false);
   const [userForm, setUserForm] = useState({ jmeno:'', prijmeni:'', email:'', heslo:'', role:'obchodnik', telefon:'' });
+  const [passForm, setPassForm] = useState({ stare_heslo:'', nove_heslo:'', nove_heslo2:'' });
 
   const { data: nastavData } = useQuery({ queryKey:['nastaveni'], queryFn: nastaveniApi.get });
   const { data: uzivData }   = useQuery({ queryKey:['uzivatele'], queryFn: uzivateleApi.list, enabled: tab==='uziv' });
@@ -1257,8 +1422,13 @@ export function NastaveniPage() {
   const saveMut  = useMutation({ mutationFn: nastaveniApi.update, onSuccess: () => toast.success('Nastavení uloženo') });
   const userMut  = useMutation({ mutationFn: uzivateleApi.create, onSuccess: () => { qc.invalidateQueries(['uzivatele']); toast.success('Uživatel přidán'); setUserModal(false); } });
   const toggleMut = useMutation({ mutationFn: ({id,aktivni}) => uzivateleApi.update(id,{aktivni}), onSuccess: () => qc.invalidateQueries(['uzivatele']) });
+  const passMut  = useMutation({
+    mutationFn: (d) => authApi.changePassword({ stare_heslo: d.stare_heslo, nove_heslo: d.nove_heslo }),
+    onSuccess: () => { toast.success('Heslo bylo úspěšně změněno'); setPassForm({ stare_heslo:'', nove_heslo:'', nove_heslo2:'' }); },
+    onError: (e) => toast.error(e?.response?.data?.error || 'Chyba při změně hesla'),
+  });
 
-  const TABS = [['firma','Profil firmy'],['uziv','Uživatelé'],['notif','Notifikace']];
+  const TABS = [['firma','Profil firmy'],['uziv','Uživatelé'],['heslo','Změna hesla'],['notif','Notifikace']];
   const uzivatele = uzivData?.data?.data || [];
   const setU = (k,v) => setUserForm(f=>({...f,[k]:v}));
   const ROLES = {admin:'Administrátor', obchodnik:'Obchodník / koordinátor', provoz:'Provoz / realizace'};
@@ -1307,6 +1477,37 @@ export function NastaveniPage() {
                   <button onClick={() => toggleMut.mutate({id:u.id,aktivni:!u.aktivni})} className="text-xs text-stone-400 hover:text-stone-700">{u.aktivni?'Deaktivovat':'Aktivovat'}</button>
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {tab === 'heslo' && (
+          <div className="bg-white rounded-xl border border-stone-200 p-5 space-y-4">
+            <p className="text-sm text-stone-500 mb-2">Změna platí pouze pro váš účet. Nové heslo musí mít alespoň 8 znaků.</p>
+            <div>
+              <label className="text-xs text-stone-500 block mb-1">Stávající heslo</label>
+              <input type="password" className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
+                value={passForm.stare_heslo} onChange={e => setPassForm(f=>({...f, stare_heslo:e.target.value}))} autoComplete="current-password" />
+            </div>
+            <div>
+              <label className="text-xs text-stone-500 block mb-1">Nové heslo</label>
+              <input type="password" className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
+                placeholder="min. 8 znaků" value={passForm.nove_heslo} onChange={e => setPassForm(f=>({...f, nove_heslo:e.target.value}))} autoComplete="new-password" />
+            </div>
+            <div>
+              <label className="text-xs text-stone-500 block mb-1">Nové heslo (potvrzení)</label>
+              <input type="password" className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
+                value={passForm.nove_heslo2} onChange={e => setPassForm(f=>({...f, nove_heslo2:e.target.value}))} autoComplete="new-password" />
+              {passForm.nove_heslo && passForm.nove_heslo2 && passForm.nove_heslo !== passForm.nove_heslo2 && (
+                <p className="text-xs text-red-500 mt-1">Hesla se neshodují</p>
+              )}
+            </div>
+            <div className="flex justify-end pt-1">
+              <Btn variant="primary"
+                onClick={() => passMut.mutate(passForm)}
+                disabled={!passForm.stare_heslo || !passForm.nove_heslo || passForm.nove_heslo.length < 8 || passForm.nove_heslo !== passForm.nove_heslo2 || passMut.isPending}>
+                {passMut.isPending ? 'Měním…' : 'Změnit heslo'}
+              </Btn>
             </div>
           </div>
         )}
