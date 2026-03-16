@@ -100,11 +100,10 @@ export default function KlientiPage() {
                   <div className="text-sm font-medium text-stone-800 truncate">
                     {k.firma || `${k.jmeno} ${k.prijmeni||''}`}
                   </div>
-                  <div className="text-xs text-stone-400">{k.email || k.telefon}</div>
                 </div>
-                <div className="flex flex-col items-end gap-1">
-                  <KlientTypBadge typ={k.typ}/>
-                  {k.pocet_zakazek > 0 && <span className="text-xs text-stone-400">{k.pocet_zakazek}×</span>}
+                <KlientTypBadge typ={k.typ}/>
+                <div className="text-xs font-medium text-stone-500 w-8 text-right flex-shrink-0">
+                  {k.pocet_realizovano > 0 ? `${k.pocet_realizovano}×` : '—'}
                 </div>
               </div>
             ))}

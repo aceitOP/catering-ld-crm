@@ -246,6 +246,21 @@ export function printKomandoPdf(z) {
       <tbody>${personalRows}</tbody>
     </table>` : '<p style="color:#888;font-size:11px;padding:10px 0">K zakázce nebyl přiřazen žádný personál.</p>'}
 
+    ${z.nabidka && (z.nabidka.polozky||[]).length > 0 ? `
+    <h2 style="margin-bottom:10px;margin-top:22px">Obsah nabídky (${(z.nabidka.polozky||[]).length} položek)</h2>
+    <table>
+      <thead><tr>
+        <th>Položka</th><th style="text-align:center">Množství</th><th>Jednotka</th>
+      </tr></thead>
+      <tbody>${(z.nabidka.polozky||[]).map(p => `
+        <tr>
+          <td>${p.nazev || '—'}</td>
+          <td style="text-align:center">${p.mnozstvi}</td>
+          <td>${p.jednotka}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>` : ''}
+
     ${z.poznamka_interni ? `
     <div class="notes">
       <strong style="display:block;margin-bottom:5px;color:${BRAND_BLUE}">Interní poznámky / instrukce:</strong>

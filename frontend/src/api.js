@@ -57,6 +57,7 @@ export const nabidkyApi = {
   list:    (params) => api.get('/nabidky', { params }),
   get:     (id)     => api.get(`/nabidky/${id}`),
   create:  (data)   => api.post('/nabidky', data),
+  update:  (id, d)  => api.patch(`/nabidky/${id}`, d),
   setStav: (id, d)  => api.patch(`/nabidky/${id}/stav`, d),
   odeslat: (id, d)  => api.post(`/nabidky/${id}/odeslat`, d),
 };
@@ -113,6 +114,11 @@ export const nastaveniApi = {
 // ── Kalendář ─────────────────────────────────────────────────
 export const kalendarApi = {
   list: (params) => api.get('/kalendar', { params }),
+};
+
+// ── Reporty ──────────────────────────────────────────────────
+export const reportyApi = {
+  get: (params) => api.get('/reporty', { params }),
 };
 
 export default api;

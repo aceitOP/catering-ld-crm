@@ -1,0 +1,30 @@
+vytvoreni poptavky z weboveho formulare
+
+
+V modulu dokumenty - přidej možnost vytvořit složky a možnost stáhnout všechny dokumenty v ZIP
+
+V detailu zakázky na kartě dokumenty - přidat možnost nahrát dokumenty přímo k zakázce. 
+
+V detailu zakázky na kartě personál - přidat možnost přidat personál
+
+Modul zakázky - přidat možnost editovat zakázku
+V detailu zakázky  - přidat možnost editovat zakázku
+
+Vytvoř napojeni na Google Kalendar a pridej do nastaveni.
+
+Připrav nový design pro přihlašovací stránku na základě vzhledu webu www.cateringld.cz
+
+vymysli API: chci aby poptavky, ktere prijdou z webu byly automaticky byly propsany do CRM do noveho modulu poptavky. 
+
+Modul poptavky: vypis poptavek bude vyhazez vzhledove a funkce z modulu Nabídky. V detailu poptávky bude moznost odpovedet primo na poptavku pomoci emailu. Take tam bude funkce prepnout z poptavky na zakázku.
+
+přidej možnost editovat zákazníka.
+
+Přidej do nastavení: nastavení poštovního serveru, případně vymysli lehkou metodu jak si nastavit poštovní server, který bdue posílat emaily.
+
+Texty v PDF KOmando udělej podstatně větší.
+
+Modul ceníky - přidej možnost vymazat položku i kategorii. Přidej speciální kategorii skryté kde budou všechny skryte položky a pujdou zase odkrýt.
+
+
+Plošně přidej multiselect do všech modulů kde má význam.

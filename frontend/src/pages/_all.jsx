@@ -691,6 +691,10 @@ export function NabidkaEditor() {
   const qc = useQueryClient();
   const [emailModal, setEmailModal] = useState(false);
   const [emailForm, setEmailForm] = useState({ to: '', poznamka: '' });
+  const [editMode, setEditMode] = useState(false);
+  const [editForm, setEditForm] = useState({ nazev:'', uvodni_text:'', zaverecny_text:'', platnost_do:'', sleva_procent:0 });
+  const [editPolozky, setEditPolozky] = useState([]);
+  const [editCenikFilter, setEditCenikFilter] = useState('');
 
   const { data: nabData, isLoading } = useQuery({
     queryKey: ['nabidka', id],
@@ -698,67 +702,233 @@ export function NabidkaEditor() {
     enabled: !!id && id !== 'nova',
   });
   const n = nabData?.data;
+
+  const { data: cenikEditData } = useQuery({
+    queryKey: ['cenik-edit'],
+    queryFn: () => cenikApi.list({ aktivni: 'true' }),
+    enabled: editMode,
+  });
+  const cenikItems = cenikEditData?.data?.data || [];
+  const filteredCenikEdit = editCenikFilter
+    ? cenikItems.filter(c => c.nazev.toLowerCase().includes(editCenikFilter.toLowerCase()))
+    : cenikItems;
+
   const fmt = (v) => v == null ? '—' : new Intl.NumberFormat('cs-CZ',{style:'currency',currency:'CZK',maximumFractionDigits:0}).format(v);
+  const fmtN = (v) => new Intl.NumberFormat('cs-CZ',{style:'currency',currency:'CZK',maximumFractionDigits:0}).format(v || 0);
 
   const odeslatMut = useMutation({
     mutationFn: (d) => nabidkyApi.odeslat(id, d),
-    onSuccess: () => {
-      qc.invalidateQueries(['nabidka', id]);
-      qc.invalidateQueries(['nabidky']);
-      toast.success('Nabídka odeslána emailem');
-      setEmailModal(false);
-    },
+    onSuccess: () => { qc.invalidateQueries(['nabidka', id]); qc.invalidateQueries(['nabidky']); toast.success('Nabídka odeslána emailem'); setEmailModal(false); },
     onError: (err) => toast.error(err?.response?.data?.error || 'Chyba při odesílání'),
   });
+
+  const updateMut = useMutation({
+    mutationFn: (d) => nabidkyApi.update(id, d),
+    onSuccess: () => { qc.invalidateQueries(['nabidka', id]); qc.invalidateQueries(['nabidky']); toast.success('Nabídka uložena'); setEditMode(false); },
+    onError: (err) => toast.error(err?.response?.data?.error || 'Chyba při ukládání'),
+  });
+
+  const startEdit = () => {
+    setEditForm({
+      nazev: n.nazev || '',
+      uvodni_text: n.uvodni_text || '',
+      zaverecny_text: n.zaverecny_text || '',
+      platnost_do: n.platnost_do ? n.platnost_do.slice(0,10) : '',
+      sleva_procent: n.sleva_procent || 0,
+    });
+    setEditPolozky((n.polozky||[]).map(p => ({
+      kategorie: p.kategorie || 'jidlo',
+      nazev: p.nazev || '',
+      jednotka: p.jednotka || 'os.',
+      mnozstvi: parseFloat(p.mnozstvi) || 1,
+      cena_jednotka: parseFloat(p.cena_jednotka) || 0,
+    })));
+    setEditCenikFilter('');
+    setEditMode(true);
+  };
+
+  const setEF = (k,v) => setEditForm(f => ({ ...f, [k]: v }));
+  const addFromCenikEdit = (item) => {
+    setEditPolozky(ps => [...ps, { kategorie: item.kategorie, nazev: item.nazev, jednotka: item.jednotka, mnozstvi: 1, cena_jednotka: parseFloat(item.cena_prodej) }]);
+    setEditCenikFilter('');
+  };
+  const addBlankEdit = () => setEditPolozky(ps => [...ps, { kategorie:'jidlo', nazev:'', jednotka:'os.', mnozstvi:1, cena_jednotka:0 }]);
+  const updateEP = (i,k,v) => setEditPolozky(ps => ps.map((p,idx) => idx===i ? { ...p, [k]:v } : p));
+  const removeEP = (i) => setEditPolozky(ps => ps.filter((_,idx) => idx!==i));
+
+  const editTotal = editPolozky.reduce((s,p) => s + (parseFloat(p.mnozstvi)||0)*(parseFloat(p.cena_jednotka)||0), 0);
+  const editSleva = editTotal * ((parseFloat(editForm.sleva_procent)||0)/100);
+  const editDph   = (editTotal - editSleva) * 0.12;
+  const editCelkem = editTotal - editSleva + editDph;
+
+  const handleSave = () => {
+    if (!editForm.nazev) return toast.error('Zadejte název nabídky');
+    if (editPolozky.length === 0) return toast.error('Přidejte alespoň jednu položku');
+    updateMut.mutate({ ...editForm, polozky: editPolozky });
+  };
 
   if (isLoading) return <div className="flex justify-center py-20"><Spinner/></div>;
 
   return (
     <div>
-      <PageHeader title={n?.nazev || 'Nabídka'} subtitle={`v${n?.verze || 1} · ${n?.stav || ''}`}
-        actions={<button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-sm text-stone-500 hover:text-stone-800"><ArrowLeft size={13}/> Zpět</button>}/>
-      <div className="p-6 max-w-3xl">
-        {n && (
-          <div className="space-y-4">
-            <div className="bg-white rounded-xl border border-stone-200 p-5">
-              <h3 className="text-sm font-semibold text-stone-700 mb-3">Přehled nabídky</h3>
-              <div className="grid grid-cols-3 gap-4 text-sm">
-                <div><div className="text-xs text-stone-400">Cena bez DPH</div><div className="font-semibold text-stone-800">{fmt(n.cena_bez_dph)}</div></div>
-                <div><div className="text-xs text-stone-400">DPH</div><div className="font-semibold text-stone-800">{fmt(n.dph)}</div></div>
-                <div><div className="text-xs text-stone-400">Celkem s DPH</div><div className="font-semibold text-lg text-stone-900">{fmt(n.cena_celkem)}</div></div>
+      <PageHeader
+        title={editMode ? 'Upravit nabídku' : (n?.nazev || 'Nabídka')}
+        subtitle={editMode ? '' : `v${n?.verze || 1} · ${n?.stav || ''}`}
+        actions={<button onClick={() => editMode ? setEditMode(false) : navigate(-1)} className="flex items-center gap-1.5 text-sm text-stone-500 hover:text-stone-800"><ArrowLeft size={13}/> {editMode ? 'Zrušit úpravy' : 'Zpět'}</button>}/>
+
+      {editMode ? (
+        <div className="p-6 max-w-4xl space-y-5">
+          <div className="bg-white rounded-xl border border-stone-200 p-5">
+            <h3 className="text-sm font-semibold text-stone-700 mb-4">Základní informace</h3>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs text-stone-500 block mb-1">Název nabídky *</label>
+                <input className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                  value={editForm.nazev} onChange={e => setEF('nazev', e.target.value)}/>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-stone-500 block mb-1">Platnost do</label>
+                  <input type="date" className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                    value={editForm.platnost_do} onChange={e => setEF('platnost_do', e.target.value)}/>
+                </div>
+                <div>
+                  <label className="text-xs text-stone-500 block mb-1">Sleva %</label>
+                  <input type="number" min="0" max="100" className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                    value={editForm.sleva_procent} onChange={e => setEF('sleva_procent', e.target.value)}/>
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-stone-500 block mb-1">Úvodní text</label>
+                <textarea rows={3} className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none resize-none"
+                  value={editForm.uvodni_text} onChange={e => setEF('uvodni_text', e.target.value)}/>
+              </div>
+              <div>
+                <label className="text-xs text-stone-500 block mb-1">Závěrečný text</label>
+                <textarea rows={2} className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none resize-none"
+                  value={editForm.zaverecny_text} onChange={e => setEF('zaverecny_text', e.target.value)}/>
               </div>
             </div>
-            <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
-              <div className="px-5 py-3.5 border-b border-stone-100"><span className="text-sm font-semibold text-stone-700">Položky nabídky</span></div>
+          </div>
+
+          <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
+            <div className="px-5 py-3.5 border-b border-stone-100 flex items-center justify-between">
+              <span className="text-sm font-semibold text-stone-700">Položky nabídky</span>
+              <button onClick={addBlankEdit} className="text-xs text-stone-500 hover:text-stone-800 flex items-center gap-1">
+                <PlusCircle size={13}/> Vlastní položka
+              </button>
+            </div>
+            <div className="px-5 py-3 bg-stone-50 border-b border-stone-100">
+              <input className="w-full border border-stone-200 rounded-md px-3 py-1.5 text-xs focus:outline-none bg-white"
+                placeholder="Hledat v ceníku a přidat…"
+                value={editCenikFilter} onChange={e => setEditCenikFilter(e.target.value)}/>
+              {editCenikFilter && filteredCenikEdit.length > 0 && (
+                <div className="mt-2 max-h-48 overflow-y-auto rounded-md border border-stone-200 bg-white divide-y divide-stone-50">
+                  {filteredCenikEdit.slice(0,10).map(c => (
+                    <button key={c.id} onClick={() => addFromCenikEdit(c)}
+                      className="w-full text-left px-3 py-2 text-xs hover:bg-stone-50 flex items-center justify-between">
+                      <span className="text-stone-700">{c.nazev} <span className="text-stone-400">({c.jednotka})</span></span>
+                      <span className="text-stone-500 font-medium">{Number(c.cena_prodej).toLocaleString('cs-CZ')} Kč</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            {editPolozky.length === 0 ? (
+              <div className="px-5 py-8 text-center text-sm text-stone-400">Vyhledejte položku v ceníku nebo klikněte na „Vlastní položka".</div>
+            ) : (
               <table className="w-full">
-                <thead><tr className="bg-stone-50 border-b border-stone-100">{['Název','Mn.','Jedn.','Cena/jedn.','Celkem'].map(h=><th key={h} className="px-4 py-2.5 text-left text-xs font-medium text-stone-400">{h}</th>)}</tr></thead>
-                <tbody>{(n.polozky||[]).map((p,i)=>(
-                  <tr key={p.id} className={`${i<n.polozky.length-1?'border-b border-stone-50':''}`}>
-                    <td className="px-4 py-2.5 text-sm text-stone-800">{p.nazev}</td>
-                    <td className="px-4 py-2.5 text-sm text-stone-600">{p.mnozstvi}</td>
-                    <td className="px-4 py-2.5 text-sm text-stone-500">{p.jednotka}</td>
-                    <td className="px-4 py-2.5 text-sm text-stone-700">{Number(p.cena_jednotka).toLocaleString('cs-CZ')} Kč</td>
-                    <td className="px-4 py-2.5 text-sm font-medium text-stone-800">{Number(p.cena_celkem).toLocaleString('cs-CZ')} Kč</td>
+                <thead><tr className="bg-stone-50 border-b border-stone-100">
+                  {['Název','Množství','Jednotka','Cena/jedn.','Celkem',''].map(h =>
+                    <th key={h} className="px-3 py-2.5 text-left text-xs font-medium text-stone-400">{h}</th>)}
+                </tr></thead>
+                <tbody>{editPolozky.map((p,i) => (
+                  <tr key={i} className={i < editPolozky.length-1 ? 'border-b border-stone-50' : ''}>
+                    <td className="px-3 py-2"><input className="w-full border border-stone-200 rounded px-2 py-1 text-xs focus:outline-none"
+                      value={p.nazev} onChange={e => updateEP(i,'nazev',e.target.value)} placeholder="Název…"/></td>
+                    <td className="px-3 py-2 w-24"><input type="number" min="0" step="0.1" className="w-full border border-stone-200 rounded px-2 py-1 text-xs focus:outline-none"
+                      value={p.mnozstvi} onChange={e => updateEP(i,'mnozstvi',e.target.value)}/></td>
+                    <td className="px-3 py-2 w-24"><input className="w-full border border-stone-200 rounded px-2 py-1 text-xs focus:outline-none"
+                      value={p.jednotka} onChange={e => updateEP(i,'jednotka',e.target.value)}/></td>
+                    <td className="px-3 py-2 w-32"><input type="number" min="0" className="w-full border border-stone-200 rounded px-2 py-1 text-xs focus:outline-none"
+                      value={p.cena_jednotka} onChange={e => updateEP(i,'cena_jednotka',e.target.value)}/></td>
+                    <td className="px-3 py-2 w-32 text-xs font-medium text-stone-700">
+                      {((parseFloat(p.mnozstvi)||0)*(parseFloat(p.cena_jednotka)||0)).toLocaleString('cs-CZ')} Kč
+                    </td>
+                    <td className="px-3 py-2 w-8"><button onClick={() => removeEP(i)} className="text-stone-300 hover:text-red-500"><Trash2 size={13}/></button></td>
                   </tr>
                 ))}</tbody>
               </table>
-            </div>
-            <div className="flex gap-2 flex-wrap">
-              <Btn variant="primary" onClick={() => { setEmailForm({ to: '', poznamka: '' }); setEmailModal(true); }}>
-                <Mail size={13}/> Odeslat emailem
-              </Btn>
-              <Btn onClick={() => printNabidkuPdf(n)}>
-                <Printer size={13}/> Export PDF
-              </Btn>
-              {['odeslano','prijato','zamitnuto'].map(s => (
-                <Btn key={s} onClick={() => nabidkyApi.setStav(n.id,{stav:s}).then(()=>{ qc.invalidateQueries(['nabidka',id]); toast.success('Stav aktualizován'); })}>
-                  → {STAV_LABELS_N[s]}
-                </Btn>
-              ))}
-            </div>
+            )}
           </div>
-        )}
-      </div>
+
+          {editPolozky.length > 0 && (
+            <div className="bg-white rounded-xl border border-stone-200 p-5">
+              <div className="flex justify-end">
+                <div className="space-y-1.5 text-sm min-w-[260px]">
+                  <div className="flex justify-between text-stone-600"><span>Cena bez DPH</span><span>{fmtN(editTotal)}</span></div>
+                  {parseFloat(editForm.sleva_procent) > 0 && (
+                    <div className="flex justify-between text-green-600"><span>Sleva {editForm.sleva_procent} %</span><span>− {fmtN(editSleva)}</span></div>
+                  )}
+                  <div className="flex justify-between text-stone-600"><span>DPH 12 %</span><span>{fmtN(editDph)}</span></div>
+                  <div className="flex justify-between font-semibold text-stone-900 text-base border-t border-stone-100 pt-2 mt-2"><span>Celkem s DPH</span><span>{fmtN(editCelkem)}</span></div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2">
+            <Btn onClick={() => setEditMode(false)}>Zrušit</Btn>
+            <Btn variant="primary" onClick={handleSave} disabled={updateMut.isPending}>
+              {updateMut.isPending ? 'Ukládám…' : 'Uložit změny'}
+            </Btn>
+          </div>
+        </div>
+      ) : (
+        <div className="p-6 max-w-3xl">
+          {n && (
+            <div className="space-y-4">
+              <div className="bg-white rounded-xl border border-stone-200 p-5">
+                <h3 className="text-sm font-semibold text-stone-700 mb-3">Přehled nabídky</h3>
+                <div className="grid grid-cols-3 gap-4 text-sm">
+                  <div><div className="text-xs text-stone-400">Cena bez DPH</div><div className="font-semibold text-stone-800">{fmt(n.cena_bez_dph)}</div></div>
+                  <div><div className="text-xs text-stone-400">DPH</div><div className="font-semibold text-stone-800">{fmt(n.dph)}</div></div>
+                  <div><div className="text-xs text-stone-400">Celkem s DPH</div><div className="font-semibold text-lg text-stone-900">{fmt(n.cena_celkem)}</div></div>
+                </div>
+              </div>
+              <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
+                <div className="px-5 py-3.5 border-b border-stone-100"><span className="text-sm font-semibold text-stone-700">Položky nabídky</span></div>
+                <table className="w-full">
+                  <thead><tr className="bg-stone-50 border-b border-stone-100">{['Název','Mn.','Jedn.','Cena/jedn.','Celkem'].map(h=><th key={h} className="px-4 py-2.5 text-left text-xs font-medium text-stone-400">{h}</th>)}</tr></thead>
+                  <tbody>{(n.polozky||[]).map((p,i)=>(
+                    <tr key={p.id} className={`${i<n.polozky.length-1?'border-b border-stone-50':''}`}>
+                      <td className="px-4 py-2.5 text-sm text-stone-800">{p.nazev}</td>
+                      <td className="px-4 py-2.5 text-sm text-stone-600">{p.mnozstvi}</td>
+                      <td className="px-4 py-2.5 text-sm text-stone-500">{p.jednotka}</td>
+                      <td className="px-4 py-2.5 text-sm text-stone-700">{Number(p.cena_jednotka).toLocaleString('cs-CZ')} Kč</td>
+                      <td className="px-4 py-2.5 text-sm font-medium text-stone-800">{Number(p.cena_celkem).toLocaleString('cs-CZ')} Kč</td>
+                    </tr>
+                  ))}</tbody>
+                </table>
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                <Btn onClick={startEdit}>Upravit nabídku</Btn>
+                <Btn variant="primary" onClick={() => { setEmailForm({ to: '', poznamka: '' }); setEmailModal(true); }}>
+                  <Mail size={13}/> Odeslat emailem
+                </Btn>
+                <Btn onClick={() => printNabidkuPdf(n)}>
+                  <Printer size={13}/> Export PDF
+                </Btn>
+                {['odeslano','prijato','zamitnuto'].map(s => (
+                  <Btn key={s} onClick={() => nabidkyApi.setStav(n.id,{stav:s}).then(()=>{ qc.invalidateQueries(['nabidka',id]); toast.success('Stav aktualizován'); })}>
+                    → {STAV_LABELS_N[s]}
+                  </Btn>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       <Modal open={emailModal} onClose={() => setEmailModal(false)} title="Odeslat nabídku emailem"
         footer={<>
@@ -1104,6 +1274,145 @@ export function NastaveniPage() {
           <div><label className="text-xs text-stone-500 block mb-1">Heslo (výchozí)</label><input type="password" className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" placeholder="min. 8 znaků" value={userForm.heslo} onChange={e=>setU('heslo',e.target.value)}/></div>
         </div>
       </Modal>
+    </div>
+  );
+}
+
+// ── ReportPage.jsx ─────────────────────────────────────────────
+import { reportyApi } from '../api';
+import { BarChart2 } from 'lucide-react';
+
+const TYP_LABELS_R = { svatba:'Svatba', soukroma_akce:'Soukromá akce', firemni_akce:'Firemní akce', zavoz:'Závoz', bistro:'Bistro' };
+
+export function ReportPage() {
+  const navigate = useNavigate();
+  const [filters, setFilters] = useState({ od: '', do: '' });
+  const [applied, setApplied] = useState({ od: '', do: '' });
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['reporty', applied],
+    queryFn: () => reportyApi.get(applied),
+  });
+
+  const report  = data?.data;
+  const souhrn  = report?.souhrn || {};
+  const zakazky = report?.zakazky || [];
+
+  const fmtC = (n) => n == null ? '—' : new Intl.NumberFormat('cs-CZ',{style:'currency',currency:'CZK',maximumFractionDigits:0}).format(n);
+  const fmtD = (d) => d ? new Date(d).toLocaleDateString('cs-CZ') : '—';
+
+  const ZAKAZKY_COLS = [
+    { header: 'Číslo',   accessor: 'cislo' },
+    { header: 'Název',   accessor: 'nazev' },
+    { header: 'Typ',     accessor: r => TYP_LABELS_R[r.typ] || r.typ },
+    { header: 'Datum',   accessor: r => fmtD(r.datum_akce) },
+    { header: 'Klient',  accessor: r => r.klient_firma || `${r.klient_jmeno||''} ${r.klient_prijmeni||''}`.trim() },
+    { header: 'Cena',    accessor: r => r.cena_celkem != null ? Number(r.cena_celkem).toFixed(0) : '—' },
+    { header: 'Náklady', accessor: r => r.cena_naklady != null ? Number(r.cena_naklady).toFixed(0) : '—' },
+    { header: 'Zisk',    accessor: r => (r.cena_celkem != null && r.cena_naklady != null) ? (r.cena_celkem - r.cena_naklady).toFixed(0) : '—' },
+  ];
+
+  return (
+    <div>
+      <PageHeader title="Reporty" subtitle="Přehled realizovaných akcí a obratu"
+        actions={zakazky.length > 0 ? <ExportMenu data={zakazky} columns={ZAKAZKY_COLS} filename="report"/> : null}/>
+
+      {/* Filtry */}
+      <div className="bg-stone-50 border-b border-stone-100 px-6 py-3 flex flex-wrap items-center gap-3">
+        <span className="text-xs text-stone-500 font-medium">Období:</span>
+        <input type="date" className="text-sm border border-stone-200 rounded-lg px-2 py-2 bg-white focus:outline-none"
+          value={filters.od} onChange={e => setFilters(f => ({ ...f, od: e.target.value }))}/>
+        <span className="text-stone-400 text-xs">–</span>
+        <input type="date" className="text-sm border border-stone-200 rounded-lg px-2 py-2 bg-white focus:outline-none"
+          value={filters.do} onChange={e => setFilters(f => ({ ...f, do: e.target.value }))}/>
+        <Btn size="sm" variant="primary" onClick={() => setApplied({ ...filters })}>Zobrazit</Btn>
+        {(applied.od || applied.do) && (
+          <Btn size="sm" onClick={() => { setFilters({ od:'', do:'' }); setApplied({ od:'', do:'' }); }}>Vše</Btn>
+        )}
+      </div>
+
+      {isLoading ? (
+        <div className="flex justify-center py-16"><Spinner/></div>
+      ) : (
+        <div className="p-6 space-y-5">
+          {/* Souhrnné karty */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {[
+              { label: 'Celkem zakázek', value: souhrn.total_zakazek || 0, color: '' },
+              { label: 'Realizovaných',  value: souhrn.realizovano || 0,   color: 'text-green-700' },
+              { label: 'Obrat',          value: fmtC(souhrn.obrat),        color: 'text-blue-700' },
+              { label: 'Náklady',        value: fmtC(souhrn.naklady),      color: 'text-amber-700' },
+            ].map(s => (
+              <div key={s.label} className="bg-white rounded-xl border border-stone-200 p-4">
+                <div className="text-xs text-stone-500 mb-1">{s.label}</div>
+                <div className={`text-xl font-semibold ${s.color || 'text-stone-900'}`}>{s.value}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Obrat podle typu */}
+          {(report?.podle_typu||[]).length > 0 && (
+            <div className="bg-white rounded-xl border border-stone-200 p-5">
+              <h3 className="text-sm font-semibold text-stone-700 mb-4">Obrat podle typu akce</h3>
+              <div className="space-y-3">
+                {report.podle_typu.map(t => {
+                  const total = report.podle_typu.reduce((s,r) => s + parseFloat(r.obrat||0), 0);
+                  const pct = total > 0 ? Math.round(parseFloat(t.obrat||0) / total * 100) : 0;
+                  return (
+                    <div key={t.typ} className="flex items-center gap-3">
+                      <div className="w-36 text-xs text-stone-600 flex-shrink-0">{TYP_LABELS_R[t.typ] || t.typ}</div>
+                      <div className="flex-1 bg-stone-100 rounded-full h-2">
+                        <div className="bg-brand-700 h-2 rounded-full" style={{ width: `${pct}%` }}/>
+                      </div>
+                      <div className="text-xs font-medium text-stone-700 w-28 text-right">{fmtC(t.obrat)}</div>
+                      <div className="text-xs text-stone-400 w-8 text-right">{t.pocet}×</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Tabulka realizovaných zakázek */}
+          {zakazky.length > 0 ? (
+            <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
+              <div className="px-5 py-3.5 border-b border-stone-100">
+                <span className="text-sm font-semibold text-stone-700">Realizované akce ({zakazky.length})</span>
+              </div>
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-stone-50 border-b border-stone-100">
+                    {['Datum','Zakázka','Klient','Typ','Cena','Náklady','Zisk'].map(h =>
+                      <th key={h} className="px-4 py-3 text-left text-xs font-medium text-stone-500">{h}</th>)}
+                  </tr>
+                </thead>
+                <tbody>
+                  {zakazky.map((z,i) => {
+                    const zisk = (parseFloat(z.cena_celkem)||0) - (parseFloat(z.cena_naklady)||0);
+                    return (
+                      <tr key={z.id} onClick={() => navigate(`/zakazky/${z.id}`)}
+                        className={`cursor-pointer hover:bg-stone-50 transition-colors ${i<zakazky.length-1?'border-b border-stone-50':''}`}>
+                        <td className="px-4 py-3 text-sm text-stone-500 whitespace-nowrap">{fmtD(z.datum_akce)}</td>
+                        <td className="px-4 py-3">
+                          <div className="text-sm font-medium text-stone-900">{z.nazev}</div>
+                          <div className="text-xs text-stone-400">{z.cislo}</div>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-stone-600">{z.klient_firma || `${z.klient_jmeno||''} ${z.klient_prijmeni||''}`.trim() || '—'}</td>
+                        <td className="px-4 py-3"><TypBadge typ={z.typ}/></td>
+                        <td className="px-4 py-3 text-sm font-medium text-stone-700">{fmtC(z.cena_celkem)}</td>
+                        <td className="px-4 py-3 text-sm text-stone-500">{z.cena_naklady != null ? fmtC(z.cena_naklady) : '—'}</td>
+                        <td className="px-4 py-3 text-sm font-semibold text-green-700">{z.cena_naklady != null ? fmtC(zisk) : '—'}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <EmptyState icon={BarChart2} title="Žádné realizované akce" desc="Vyberte období nebo označte zakázky jako realizované."/>
+          )}
+        </div>
+      )}
     </div>
   );
 }

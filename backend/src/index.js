@@ -32,6 +32,7 @@ app.use('/api/cenik',      require('./routes/cenik'));
 app.use('/api/uzivatele',  require('./routes/uzivatele'));
 app.use('/api/nastaveni',  require('./routes/nastaveni'));
 app.use('/api/kalendar',   require('./routes/kalendar'));
+app.use('/api/reporty',   require('./routes/reporty'));
 
 // ── Health check ─────────────────────────────────────────────
 app.get('/api/health', (_req, res) => {

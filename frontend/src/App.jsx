@@ -18,6 +18,7 @@ import PersonalPage    from './pages/PersonalPage';
 import DokumentyPage   from './pages/DokumentyPage';
 import CenikPage       from './pages/CenikPage';
 import NastaveniPage   from './pages/NastaveniPage';
+import ReportPage      from './pages/ReportPage';
 import Layout          from './components/Layout';
 
 const qc = new QueryClient({
@@ -58,6 +59,7 @@ function App() {
               <Route path="personal"          element={<PersonalPage />} />
               <Route path="dokumenty"         element={<DokumentyPage />} />
               <Route path="cenik"             element={<CenikPage />} />
+              <Route path="reporty"           element={<ReportPage />} />
               <Route path="nastaveni"         element={<NastaveniPage />} />
             </Route>
             <Route path="*" element={<Navigate to="/dashboard" replace />} />

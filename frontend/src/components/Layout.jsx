@@ -2,7 +2,7 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   LayoutDashboard, ClipboardList, Users, FileText,
-  Calendar, UserCheck, FolderOpen, Tag, Settings, LogOut,
+  Calendar, UserCheck, FolderOpen, Tag, Settings, LogOut, BarChart2,
 } from 'lucide-react';
 
 const NAV = [
@@ -14,6 +14,7 @@ const NAV = [
   { to: '/personal',   label: 'Personál',     icon: UserCheck },
   { to: '/dokumenty',  label: 'Dokumenty',    icon: FolderOpen },
   { to: '/cenik',      label: 'Ceníky',       icon: Tag },
+  { to: '/reporty',    label: 'Reporty',      icon: BarChart2 },
   { to: '/nastaveni',  label: 'Nastavení',    icon: Settings },
 ];
 

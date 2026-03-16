@@ -19,6 +19,7 @@ klientiRouter.get('/', auth, async (req, res, next) => {
     const { rows } = await query(
       `SELECT k.*, u.jmeno AS obchodnik_jmeno, u.prijmeni AS obchodnik_prijmeni,
               COUNT(z.id) AS pocet_zakazek,
+              COUNT(CASE WHEN z.stav IN ('realizovano','uzavreno') THEN 1 END) AS pocet_realizovano,
               COALESCE(SUM(z.cena_celkem),0) AS obrat_celkem
        FROM klienti k
        LEFT JOIN uzivatele u ON u.id = k.obchodnik_id
@@ -290,6 +291,30 @@ nabidkyRouter.post('/', auth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+nabidkyRouter.patch('/:id', auth, async (req, res, next) => {
+  try {
+    const { nazev, uvodni_text, zaverecny_text, platnost_do, sleva_procent, polozky } = req.body;
+    const totalBezDph = (polozky||[]).reduce((s,p) => s + (parseFloat(p.mnozstvi)||0)*(parseFloat(p.cena_jednotka)||0), 0);
+    const sleva = totalBezDph * ((parseFloat(sleva_procent)||0)/100);
+    const dph = (totalBezDph - sleva) * 0.12;
+    const celkem = totalBezDph - sleva + dph;
+    const { rows } = await query(
+      `UPDATE nabidky SET nazev=$1,uvodni_text=$2,zaverecny_text=$3,platnost_do=$4,sleva_procent=$5,cena_bez_dph=$6,dph=$7,cena_celkem=$8 WHERE id=$9 RETURNING *`,
+      [nazev, uvodni_text||null, zaverecny_text||null, platnost_do||null, sleva_procent||0, totalBezDph, dph, celkem, req.params.id]);
+    if (!rows[0]) return res.status(404).json({ error: 'Nabídka nenalezena' });
+    if (polozky) {
+      await query('DELETE FROM nabidky_polozky WHERE nabidka_id = $1', [req.params.id]);
+      for (const [i,pol] of polozky.entries()) {
+        await query(
+          `INSERT INTO nabidky_polozky (nabidka_id,kategorie,nazev,jednotka,mnozstvi,cena_jednotka,poradi) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+          [req.params.id, pol.kategorie||'jidlo', pol.nazev, pol.jednotka, pol.mnozstvi, pol.cena_jednotka, i]);
+      }
+    }
+    const newPol = await query('SELECT * FROM nabidky_polozky WHERE nabidka_id=$1 ORDER BY poradi,id', [req.params.id]);
+    res.json({ ...rows[0], polozky: newPol.rows });
+  } catch (err) { next(err); }
+});
+
 // POST /api/nabidky/:id/odeslat – odešle nabídku emailem klientovi + změní stav na 'odeslano'
 nabidkyRouter.post('/:id/odeslat', auth, async (req, res, next) => {
   try {
@@ -516,6 +541,44 @@ kalkulaceRouter.post('/', auth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// ── routes/reporty.js ─────────────────────────────────────────
+const reportyRouter = express.Router();
+
+reportyRouter.get('/', auth, async (req, res, next) => {
+  try {
+    const { od, do: doo } = req.query;
+    const where = []; const params = []; let p = 1;
+    if (od)  { where.push(`z.datum_akce >= $${p++}`); params.push(od); }
+    if (doo) { where.push(`z.datum_akce <= $${p++}`); params.push(doo); }
+    const wc = where.length ? 'WHERE ' + where.join(' AND ') : '';
+
+    const { rows: [souhrn] } = await query(`
+      SELECT COUNT(*) AS total_zakazek,
+        COUNT(CASE WHEN z.stav IN ('realizovano','uzavreno') THEN 1 END) AS realizovano,
+        COALESCE(SUM(CASE WHEN z.stav NOT IN ('stornovano') THEN z.cena_celkem END), 0) AS obrat,
+        COALESCE(SUM(CASE WHEN z.stav NOT IN ('stornovano') THEN z.cena_naklady END), 0) AS naklady
+      FROM zakazky z ${wc}`, params);
+
+    const { rows: podle_typu } = await query(`
+      SELECT z.typ, COUNT(*) AS pocet, COALESCE(SUM(z.cena_celkem),0) AS obrat
+      FROM zakazky z ${wc} GROUP BY z.typ ORDER BY obrat DESC`, params);
+
+    const whereReal = where.length
+      ? wc + ` AND z.stav IN ('realizovano','uzavreno')`
+      : `WHERE z.stav IN ('realizovano','uzavreno')`;
+
+    const { rows: zakazky } = await query(`
+      SELECT z.id, z.cislo, z.nazev, z.typ, z.stav, z.datum_akce,
+             z.cena_celkem, z.cena_naklady,
+             k.jmeno AS klient_jmeno, k.prijmeni AS klient_prijmeni, k.firma AS klient_firma
+      FROM zakazky z
+      LEFT JOIN klienti k ON k.id = z.klient_id
+      ${whereReal} ORDER BY z.datum_akce DESC`, params);
+
+    res.json({ souhrn, podle_typu, zakazky });
+  } catch (err) { next(err); }
+});
+
 // ── Export všech routerů ──────────────────────────────────────
 module.exports = {
   klientiRouter,
@@ -527,4 +590,5 @@ module.exports = {
   nastaveniRouter,
   kalendarRouter,
   kalkulaceRouter,
+  reportyRouter,
 };

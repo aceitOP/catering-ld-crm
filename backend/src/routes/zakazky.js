@@ -96,7 +96,21 @@ router.get('/:id', auth, async (req, res, next) => {
       'SELECT * FROM dokumenty WHERE zakazka_id = $1 ORDER BY created_at DESC',
       [req.params.id]);
 
-    res.json({ ...rows[0], history: history.rows, personal: personal.rows, dokumenty: dokumenty.rows });
+    // Nabídka (aktivní) s položkami pro Komando
+    const nabidkaRes = await query(`
+      SELECT n.*,
+        COALESCE(
+          json_agg(json_build_object('nazev', p.nazev, 'mnozstvi', p.mnozstvi, 'jednotka', p.jednotka) ORDER BY p.poradi, p.id)
+          FILTER (WHERE p.id IS NOT NULL), '[]'
+        ) AS polozky
+      FROM nabidky n
+      LEFT JOIN nabidky_polozky p ON p.nabidka_id = n.id
+      WHERE n.zakazka_id = $1 AND n.aktivni = true
+      GROUP BY n.id
+      LIMIT 1`, [req.params.id]);
+    const nabidka = nabidkaRes.rows[0] || null;
+
+    res.json({ ...rows[0], history: history.rows, personal: personal.rows, dokumenty: dokumenty.rows, nabidka });
   } catch (err) { next(err); }
 });
 
