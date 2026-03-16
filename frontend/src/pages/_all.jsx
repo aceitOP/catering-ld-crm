@@ -1445,6 +1445,13 @@ export function NastaveniPage() {
         {tab === 'firma' && nastavData && (
           <div className="space-y-4">
             <div className="bg-white rounded-xl border border-stone-200 p-5 space-y-4">
+              <div className="flex items-center justify-between pb-3 mb-1 border-b border-stone-100">
+                <div>
+                  <div className="text-xs font-semibold text-stone-700">Cache aplikace</div>
+                  <div className="text-xs text-stone-400 mt-0.5">Zobrazují se zastaralá data? Vymažte cache a načtěte vše znovu.</div>
+                </div>
+                <Btn size="sm" onClick={() => { qc.clear(); window.location.reload(); }}>Vymazat cache</Btn>
+              </div>
               {[['firma_nazev','Název firmy'],['firma_ico','IČO'],['firma_dic','DIČ'],['firma_adresa','Adresa'],['firma_email','E-mail'],['firma_telefon','Telefon'],['firma_web','Web'],['firma_iban','Bankovní účet (IBAN)']].map(([k,l])=>(
                 <div key={k}><label className="text-xs text-stone-500 block mb-1">{l}</label>
                   <input className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
