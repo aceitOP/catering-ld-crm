@@ -33,6 +33,7 @@ router.get('/', auth, async (req, res, next) => {
     let p = 1;
 
     if (stav)         { where.push(`z.stav = $${p++}`);                  params.push(stav); }
+    else              { where.push(`z.stav != 'nova_poptavka'`); }
     if (typ)          { where.push(`z.typ = $${p++}`);                   params.push(typ); }
     if (obchodnik_id) { where.push(`z.obchodnik_id = $${p++}`);          params.push(obchodnik_id); }
     if (klient_id)    { where.push(`z.klient_id = $${p++}`);             params.push(klient_id); }

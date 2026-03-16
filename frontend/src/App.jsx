@@ -20,6 +20,9 @@ import CenikPage       from './pages/CenikPage';
 import NastaveniPage   from './pages/NastaveniPage';
 import ReportPage      from './pages/ReportPage';
 import PoptavkyPage    from './pages/PoptavkyPage';
+import FakturyPage     from './pages/FakturyPage';
+import FakturaDetail   from './pages/FakturaDetail';
+import NovaFakturaPage from './pages/NovaFakturaPage';
 import Layout          from './components/Layout';
 
 const qc = new QueryClient({
@@ -62,6 +65,9 @@ function App() {
               <Route path="dokumenty"         element={<DokumentyPage />} />
               <Route path="cenik"             element={<CenikPage />} />
               <Route path="reporty"           element={<ReportPage />} />
+              <Route path="faktury"           element={<FakturyPage />} />
+              <Route path="faktury/nova"      element={<NovaFakturaPage />} />
+              <Route path="faktury/:id"       element={<FakturaDetail />} />
               <Route path="nastaveni"         element={<NastaveniPage />} />
             </Route>
             <Route path="*" element={<Navigate to="/dashboard" replace />} />

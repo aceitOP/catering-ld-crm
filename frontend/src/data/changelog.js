@@ -1,9 +1,21 @@
 // Changelog – Catering LD CRM
 // Typy změn: 'new' | 'improvement' | 'fix' | 'security'
 
-export const APP_VERSION = '1.8.1';
+export const APP_VERSION = '1.9.0';
 
 export const CHANGELOG = [
+  {
+    version: '1.9.0',
+    date: '2026-03-16',
+    changes: [
+      { type: 'new', text: 'Fakturace – nový modul pro vydávání faktur (seznam, detail, vystavení, PDF tisk)' },
+      { type: 'new', text: 'Fakturace – workflow stavů: Vystavena → Odeslána → Zaplacena | Storno' },
+      { type: 'new', text: 'Fakturace – PDF export faktury s hlavičkou dodavatele/odběratele a položkami' },
+      { type: 'new', text: 'Fakturace – položky s DPH sazbou (0 %, 12 %, 21 %), vyhledávání z ceníku' },
+      { type: 'new', text: 'Zakázky – tlačítko „Vystavit fakturu" v detailu zakázky' },
+      { type: 'improvement', text: 'Přehledové statistiky: objem Vystaveno / Odesláno / Zaplaceno na hlavní stránce Fakturace' },
+    ],
+  },
   {
     version: '1.8.1',
     date: '2026-03-16',

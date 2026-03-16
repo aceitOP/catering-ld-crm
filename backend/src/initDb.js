@@ -15,7 +15,46 @@ async function initDb() {
       console.log('✅  Databáze již inicializována, přeskakuji schema.');
       // Migrace: přidat nové sloupce pokud chybí
       await pool.query(`ALTER TABLE zakazky ADD COLUMN IF NOT EXISTS google_event_id VARCHAR(255)`);
-      console.log('✅  Migrace OK (google_event_id).');
+      // Faktury – migrace pro existující DB
+      await pool.query(`
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'faktura_stav') THEN
+            CREATE TYPE faktura_stav AS ENUM ('vystavena','odeslana','zaplacena','storno');
+          END IF;
+        END $$;
+      `);
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS faktury (
+          id SERIAL PRIMARY KEY, cislo VARCHAR(30) NOT NULL UNIQUE,
+          zakazka_id INTEGER REFERENCES zakazky(id) ON DELETE SET NULL,
+          klient_id INTEGER REFERENCES klienti(id) ON DELETE SET NULL,
+          stav faktura_stav NOT NULL DEFAULT 'vystavena',
+          datum_vystaveni DATE NOT NULL DEFAULT CURRENT_DATE,
+          datum_splatnosti DATE NOT NULL,
+          datum_zaplaceni DATE, zpusob_platby VARCHAR(50) NOT NULL DEFAULT 'převod',
+          variabilni_symbol VARCHAR(20), poznamka TEXT,
+          cena_bez_dph NUMERIC(12,2) NOT NULL DEFAULT 0,
+          dph NUMERIC(12,2) NOT NULL DEFAULT 0,
+          cena_celkem NUMERIC(12,2) NOT NULL DEFAULT 0,
+          dodavatel_json JSONB,
+          vystavil_id INTEGER REFERENCES uzivatele(id) ON DELETE SET NULL,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+      `);
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS faktury_polozky (
+          id SERIAL PRIMARY KEY,
+          faktura_id INTEGER NOT NULL REFERENCES faktury(id) ON DELETE CASCADE,
+          nazev VARCHAR(300) NOT NULL, jednotka VARCHAR(30) NOT NULL DEFAULT 'os.',
+          mnozstvi NUMERIC(10,2) NOT NULL DEFAULT 1,
+          cena_jednotka NUMERIC(10,2) NOT NULL DEFAULT 0,
+          dph_sazba SMALLINT NOT NULL DEFAULT 12,
+          cena_celkem NUMERIC(10,2) GENERATED ALWAYS AS (mnozstvi * cena_jednotka) STORED,
+          poradi SMALLINT DEFAULT 0
+        )
+      `);
+      console.log('✅  Migrace OK (google_event_id, faktury).');
       return;
     }
 

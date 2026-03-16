@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import {
   LayoutDashboard, ClipboardList, Users, FileText,
   Calendar, UserCheck, FolderOpen, Tag, Settings, LogOut, BarChart2,
-  Bell, X, Globe, Info, Trash2, CheckCheck, Inbox,
+  Bell, X, Globe, Info, Trash2, CheckCheck, Inbox, Receipt,
 } from 'lucide-react';
 import { APP_VERSION, CHANGELOG } from '../data/changelog';
 import { notifikaceApi, zakazkyApi } from '../api';
@@ -48,6 +48,7 @@ const NAV = [
   { to: '/personal',   label: 'Personál',     icon: UserCheck },
   { to: '/dokumenty',  label: 'Dokumenty',    icon: FolderOpen },
   { to: '/cenik',      label: 'Ceníky',       icon: Tag },
+  { to: '/faktury',    label: 'Fakturace',    icon: Receipt },
   { to: '/reporty',    label: 'Reporty',      icon: BarChart2 },
   { to: '/nastaveni',  label: 'Nastavení',    icon: Settings },
 ];
@@ -90,10 +91,10 @@ export default function Layout() {
   const notifications = notifData?.data    || [];
   const unread        = notifData?.unread  ?? 0;
 
-  const readMut      = useMutation({ mutationFn: notifikaceApi.read,       onSuccess: () => qc.invalidateQueries(['notifikace']) });
-  const readAllMut   = useMutation({ mutationFn: notifikaceApi.readAll,    onSuccess: () => qc.invalidateQueries(['notifikace']) });
-  const deleteMut    = useMutation({ mutationFn: notifikaceApi.delete,     onSuccess: () => qc.invalidateQueries(['notifikace']) });
-  const deleteReadMut= useMutation({ mutationFn: notifikaceApi.deleteRead, onSuccess: () => qc.invalidateQueries(['notifikace']) });
+  const readMut      = useMutation({ mutationFn: notifikaceApi.read,       onSuccess: () => qc.invalidateQueries({ queryKey: ['notifikace'] }) });
+  const readAllMut   = useMutation({ mutationFn: notifikaceApi.readAll,    onSuccess: () => qc.invalidateQueries({ queryKey: ['notifikace'] }) });
+  const deleteMut    = useMutation({ mutationFn: notifikaceApi.delete,     onSuccess: () => qc.invalidateQueries({ queryKey: ['notifikace'] }) });
+  const deleteReadMut= useMutation({ mutationFn: notifikaceApi.deleteRead, onSuccess: () => qc.invalidateQueries({ queryKey: ['notifikace'] }) });
 
   const handleNotifClick = (n) => {
     if (!n.procitana) readMut.mutate(n.id);

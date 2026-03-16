@@ -305,3 +305,48 @@ CREATE TRIGGER trg_cenik_updated       BEFORE UPDATE ON cenik       FOR EACH ROW
 CREATE TRIGGER trg_kalkulace_updated   BEFORE UPDATE ON kalkulace   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE TRIGGER trg_nabidky_updated     BEFORE UPDATE ON nabidky     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE TRIGGER trg_personal_updated    BEFORE UPDATE ON personal    FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+-- ============================================================
+-- FAKTURY
+-- ============================================================
+CREATE TYPE faktura_stav AS ENUM ('vystavena', 'odeslana', 'zaplacena', 'storno');
+
+CREATE TABLE faktury (
+  id                SERIAL PRIMARY KEY,
+  cislo             VARCHAR(30) NOT NULL UNIQUE,       -- FAK-2026-001
+  zakazka_id        INTEGER REFERENCES zakazky(id) ON DELETE SET NULL,
+  klient_id         INTEGER REFERENCES klienti(id) ON DELETE SET NULL,
+  stav              faktura_stav NOT NULL DEFAULT 'vystavena',
+  datum_vystaveni   DATE NOT NULL DEFAULT CURRENT_DATE,
+  datum_splatnosti  DATE NOT NULL,
+  datum_zaplaceni   DATE,
+  zpusob_platby     VARCHAR(50) NOT NULL DEFAULT 'převod',
+  variabilni_symbol VARCHAR(20),
+  poznamka          TEXT,
+  cena_bez_dph      NUMERIC(12,2) NOT NULL DEFAULT 0,
+  dph               NUMERIC(12,2) NOT NULL DEFAULT 0,
+  cena_celkem       NUMERIC(12,2) NOT NULL DEFAULT 0,
+  dodavatel_json    JSONB,
+  vystavil_id       INTEGER REFERENCES uzivatele(id) ON DELETE SET NULL,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE faktury_polozky (
+  id            SERIAL PRIMARY KEY,
+  faktura_id    INTEGER NOT NULL REFERENCES faktury(id) ON DELETE CASCADE,
+  nazev         VARCHAR(300) NOT NULL,
+  jednotka      VARCHAR(30) NOT NULL DEFAULT 'os.',
+  mnozstvi      NUMERIC(10,2) NOT NULL DEFAULT 1,
+  cena_jednotka NUMERIC(10,2) NOT NULL DEFAULT 0,
+  dph_sazba     SMALLINT NOT NULL DEFAULT 12,
+  cena_celkem   NUMERIC(10,2) GENERATED ALWAYS AS (mnozstvi * cena_jednotka) STORED,
+  poradi        SMALLINT DEFAULT 0
+);
+
+CREATE INDEX idx_faktury_zakazka ON faktury(zakazka_id);
+CREATE INDEX idx_faktury_klient  ON faktury(klient_id);
+CREATE INDEX idx_faktury_stav    ON faktury(stav);
+CREATE INDEX idx_faktury_cislo   ON faktury(cislo);
+
+CREATE TRIGGER trg_faktury_updated BEFORE UPDATE ON faktury FOR EACH ROW EXECUTE FUNCTION set_updated_at();

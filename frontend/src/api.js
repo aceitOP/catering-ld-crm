@@ -128,6 +128,16 @@ export const googleCalendarApi = {
   status: ()       => api.get('/google-calendar/status'),
 };
 
+// ── Faktury ──────────────────────────────────────────────────
+export const fakturyApi = {
+  list:    (params) => api.get('/faktury', { params }),
+  get:     (id)     => api.get(`/faktury/${id}`),
+  create:  (data)   => api.post('/faktury', data),
+  update:  (id, d)  => api.patch(`/faktury/${id}`, d),
+  setStav: (id, d)  => api.patch(`/faktury/${id}/stav`, d),
+  delete:  (id)     => api.delete(`/faktury/${id}`),
+};
+
 // ── Notifikace ───────────────────────────────────────────────
 export const notifikaceApi = {
   list:       ()   => api.get('/notifikace'),

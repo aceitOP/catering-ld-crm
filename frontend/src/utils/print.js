@@ -154,6 +154,140 @@ export function printNabidkuPdf(n) {
   openPrint(html);
 }
 
+// ── Faktura PDF ───────────────────────────────────────────────
+export function printFakturuPdf(f) {
+  const firma    = f.dodavatel_json || {};
+  const klient   = f.klient_firma || [f.klient_jmeno, f.klient_prijmeni].filter(Boolean).join(' ') || '—';
+  const dnes     = new Date().toLocaleDateString('cs-CZ');
+
+  const STAV_LABELS = { vystavena: 'Vystavena', odeslana: 'Odeslána', zaplacena: 'Zaplacena', storno: 'Storno' };
+  const stavLabel   = STAV_LABELS[f.stav] || f.stav;
+
+  const rows = (f.polozky || []).map(p => {
+    const celkem = (parseFloat(p.mnozstvi) || 0) * (parseFloat(p.cena_jednotka) || 0);
+    const dphCastka = celkem * ((parseFloat(p.dph_sazba) || 12) / 100);
+    return `
+    <tr>
+      <td>${p.nazev || '—'}</td>
+      <td style="text-align:center">${p.mnozstvi}</td>
+      <td>${p.jednotka}</td>
+      <td style="text-align:right">${fmt(p.cena_jednotka)}</td>
+      <td style="text-align:center">${p.dph_sazba || 12} %</td>
+      <td style="text-align:right">${fmt(dphCastka)}</td>
+      <td style="text-align:right;font-weight:600">${fmt(celkem + dphCastka)}</td>
+    </tr>`;
+  }).join('');
+
+  const html = `<!DOCTYPE html><html lang="cs"><head>
+    <meta charset="utf-8">
+    <title>Faktura – ${f.cislo}</title>
+    <style>
+      ${BASE_CSS}
+      .header { background:${BRAND_BLUE}; color:#fff; padding:22px 30px; display:flex; justify-content:space-between; align-items:flex-start; }
+      .header-logo { font-size:20px; font-weight:800; letter-spacing:-0.5px; }
+      .header-sub { font-size:10px; opacity:0.7; margin-top:3px; }
+      .header-right { text-align:right; }
+      .header-badge { background:${ACCENT}; color:#fff; font-size:13px; font-weight:800; padding:5px 16px; border-radius:20px; display:inline-block; letter-spacing:1px; margin-bottom:6px; }
+      .content { padding:22px 30px; }
+      .parties { display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-bottom:22px; }
+      .party-box { background:#f4f5fb; border-radius:6px; padding:12px 16px; border-left:3px solid ${BRAND_BLUE}; }
+      .party-label { font-size:9px; text-transform:uppercase; letter-spacing:0.5px; color:#888; margin-bottom:6px; font-weight:600; }
+      .party-name { font-size:13px; font-weight:700; color:${BRAND_BLUE}; margin-bottom:4px; }
+      .party-detail { font-size:10px; color:#555; line-height:1.7; }
+      .meta-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:20px; }
+      .meta-box { background:#f9f9fb; border-radius:6px; padding:8px 12px; }
+      .totals-wrap { display:flex; justify-content:flex-end; margin-top:14px; }
+      .totals { min-width:300px; }
+      .t-row { display:flex; justify-content:space-between; padding:4px 0; color:#555; font-size:11px; }
+      .t-total { display:flex; justify-content:space-between; padding:9px 0; font-size:16px; font-weight:700; color:${BRAND_BLUE}; border-top:2px solid ${BRAND_BLUE}; margin-top:6px; }
+      .footer { margin-top:24px; padding-top:12px; border-top:1px solid #ddd; display:flex; justify-content:space-between; font-size:9px; color:#999; }
+      .stav-badge { display:inline-block; padding:2px 10px; border-radius:12px; font-size:10px; font-weight:700;
+        background:${f.stav === 'zaplacena' ? '#dcfce7' : f.stav === 'storno' ? '#fee2e2' : '#dbeafe'};
+        color:${f.stav === 'zaplacena' ? '#15803d' : f.stav === 'storno' ? '#dc2626' : '#1d4ed8'}; }
+    </style>
+  </head><body>
+
+  <div class="header">
+    <div>
+      <div class="header-logo">${firma.firma_nazev || 'Catering Landa &amp; Dvořák'}</div>
+      <div class="header-sub">${firma.firma_adresa || ''}</div>
+      ${firma.firma_web ? `<div class="header-sub">${firma.firma_web}</div>` : ''}
+    </div>
+    <div class="header-right">
+      <div class="header-badge">FAKTURA</div>
+      <div style="font-size:20px;font-weight:800;margin-bottom:3px">${f.cislo}</div>
+      <div class="stav-badge">${stavLabel}</div>
+    </div>
+  </div>
+
+  <div class="content">
+    <div class="parties">
+      <div class="party-box">
+        <div class="party-label">Dodavatel</div>
+        <div class="party-name">${firma.firma_nazev || '—'}</div>
+        <div class="party-detail">
+          ${firma.firma_adresa ? firma.firma_adresa + '<br>' : ''}
+          ${firma.firma_ico ? 'IČO: ' + firma.firma_ico + '<br>' : ''}
+          ${firma.firma_dic ? 'DIČ: ' + firma.firma_dic + '<br>' : ''}
+          ${firma.firma_iban ? 'Účet: ' + firma.firma_iban + '<br>' : ''}
+          ${firma.firma_email ? firma.firma_email : ''}
+        </div>
+      </div>
+      <div class="party-box">
+        <div class="party-label">Odběratel</div>
+        <div class="party-name">${f.klient_firma || klient}</div>
+        <div class="party-detail">
+          ${f.klient_firma && klient !== f.klient_firma ? klient + '<br>' : ''}
+          ${f.klient_adresa ? f.klient_adresa + '<br>' : ''}
+          ${f.klient_ico ? 'IČO: ' + f.klient_ico + '<br>' : ''}
+          ${f.klient_dic ? 'DIČ: ' + f.klient_dic + '<br>' : ''}
+          ${f.klient_email ? f.klient_email : ''}
+        </div>
+      </div>
+    </div>
+
+    <div class="meta-grid">
+      <div class="meta-box"><div class="label">Datum vystavení</div><div class="value-sm">${fmtD(f.datum_vystaveni)}</div></div>
+      <div class="meta-box"><div class="label">Datum splatnosti</div><div class="value-sm">${fmtD(f.datum_splatnosti)}</div></div>
+      <div class="meta-box"><div class="label">Způsob platby</div><div class="value-sm">${f.zpusob_platby || '—'}</div></div>
+      <div class="meta-box"><div class="label">Variabilní symbol</div><div class="value-sm">${f.variabilni_symbol || '—'}</div></div>
+    </div>
+
+    <h2 style="margin-bottom:10px">Položky faktury</h2>
+    <table>
+      <thead><tr>
+        <th>Název</th><th style="text-align:center">Mn.</th><th>Jedn.</th>
+        <th style="text-align:right">Cena/jedn.</th><th style="text-align:center">DPH</th>
+        <th style="text-align:right">DPH Kč</th><th style="text-align:right">Celkem s DPH</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+
+    <div class="totals-wrap">
+      <div class="totals">
+        <div class="t-row"><span>Základ daně (bez DPH)</span><span>${fmt(f.cena_bez_dph)}</span></div>
+        <div class="t-row"><span>DPH celkem</span><span>${fmt(f.dph)}</span></div>
+        <div class="t-total"><span>Celkem k úhradě</span><span>${fmt(f.cena_celkem)}</span></div>
+      </div>
+    </div>
+
+    ${f.poznamka ? `<div style="margin-top:18px;background:#f9f9fb;border-radius:6px;padding:12px 14px;font-size:11px;color:#444;line-height:1.6"><strong>Poznámka:</strong> ${f.poznamka}</div>` : ''}
+    ${f.zakazka_cislo ? `<div style="margin-top:10px;font-size:10px;color:#999">Zakázka: ${f.zakazka_cislo}${f.zakazka_nazev ? ' – ' + f.zakazka_nazev : ''}</div>` : ''}
+  </div>
+
+  <div style="padding:0 30px 20px">
+    <div class="footer">
+      <span>${firma.firma_nazev || 'Catering Landa &amp; Dvořák'} · IČO: ${firma.firma_ico || '—'} · DIČ: ${firma.firma_dic || '—'}</span>
+      <span>Vytištěno: ${dnes}</span>
+    </div>
+  </div>
+
+  <script>window.onload = () => { window.print(); }<\/script>
+  </body></html>`;
+
+  openPrint(html);
+}
+
 // ── Komando PDF ───────────────────────────────────────────────
 export function printKomandoPdf(z) {
   const dnes  = new Date().toLocaleDateString('cs-CZ');

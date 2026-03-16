@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { zakazkyApi, personalApi, dokumentyApi } from '../api';
 import { StavBadge, TypBadge, formatCena, formatDatum, Spinner, Btn, Modal } from '../components/ui';
 import toast from 'react-hot-toast';
-import { ArrowLeft, ChevronRight, Send, Heart, Printer, Pencil, Upload, UserPlus, Trash2, Search } from 'lucide-react';
+import { ArrowLeft, ChevronRight, Send, Heart, Printer, Pencil, Upload, UserPlus, Trash2, Search, Receipt } from 'lucide-react';
 import { printKomandoPdf } from '../utils/print';
 
 const WORKFLOW = [
@@ -61,7 +61,7 @@ export default function ZakazkaDetail() {
 
   const stavMut = useMutation({
     mutationFn: ({ stav, poznamka }) => zakazkyApi.setStav(id, { stav, poznamka }),
-    onSuccess: () => { qc.invalidateQueries(['zakazka', id]); toast.success('Stav zakázky aktualizován'); setStavModal(false); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['zakazka', id] }); toast.success('Stav zakázky aktualizován'); setStavModal(false); },
     onError: () => toast.error('Nepodařilo se změnit stav'),
   });
 
@@ -79,25 +79,25 @@ export default function ZakazkaDetail() {
 
   const editMut = useMutation({
     mutationFn: (d) => zakazkyApi.update(id, d),
-    onSuccess: () => { qc.invalidateQueries(['zakazka', id]); toast.success('Zakázka uložena'); setEditModal(false); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['zakazka', id] }); toast.success('Zakázka uložena'); setEditModal(false); },
     onError: () => toast.error('Chyba při ukládání'),
   });
 
   const addPersonalMut = useMutation({
     mutationFn: (d) => personalApi.priradZakazku(d.personal_id, { zakazka_id: id, role_na_akci: d.role_na_akci, cas_prichod: d.cas_prichod, cas_odchod: d.cas_odchod }),
-    onSuccess: () => { qc.invalidateQueries(['zakazka', id]); toast.success('Personál přiřazen'); setPersonalModal(false); setPersonalForm({ personal_id: '', role_na_akci: '', cas_prichod: '', cas_odchod: '' }); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['zakazka', id] }); toast.success('Personál přiřazen'); setPersonalModal(false); setPersonalForm({ personal_id: '', role_na_akci: '', cas_prichod: '', cas_odchod: '' }); },
     onError: () => toast.error('Chyba při přiřazování personálu'),
   });
 
   const removePersonalMut = useMutation({
     mutationFn: (pid) => zakazkyApi.removePersonal(id, pid),
-    onSuccess: () => { qc.invalidateQueries(['zakazka', id]); toast.success('Personál odebrán'); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['zakazka', id] }); toast.success('Personál odebrán'); },
     onError: () => toast.error('Chyba při odebírání personálu'),
   });
 
   const uploadMut = useMutation({
     mutationFn: (formData) => dokumentyApi.upload(formData),
-    onSuccess: () => { qc.invalidateQueries(['zakazka', id]); toast.success('Dokument nahrán'); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['zakazka', id] }); toast.success('Dokument nahrán'); },
     onError: () => toast.error('Chyba při nahrávání dokumentu'),
   });
 
@@ -167,6 +167,9 @@ export default function ZakazkaDetail() {
             </Btn>
             <Btn size="sm" variant="primary" onClick={() => navigate(`/nabidky/${id}/edit`)}>
               Nabídka
+            </Btn>
+            <Btn size="sm" onClick={() => navigate(`/faktury/nova?zakazka_id=${id}`)}>
+              <Receipt size={12}/> Vystavit fakturu
             </Btn>
           </div>
         </div>

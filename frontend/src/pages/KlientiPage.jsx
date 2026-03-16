@@ -33,13 +33,13 @@ export default function KlientiPage() {
 
   const createMut = useMutation({
     mutationFn: klientiApi.create,
-    onSuccess: () => { qc.invalidateQueries(['klienti']); toast.success('Klient přidán'); setModal(false); setForm(emptyForm); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['klienti'] }); toast.success('Klient přidán'); setModal(false); setForm(emptyForm); },
     onError: () => toast.error('Chyba při ukládání'),
   });
 
   const updateMut = useMutation({
     mutationFn: ({ id, data }) => klientiApi.update(id, data),
-    onSuccess: () => { qc.invalidateQueries(['klienti']); qc.invalidateQueries(['klient', selected]); toast.success('Klient uložen'); setEditModal(false); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['klienti'] }); qc.invalidateQueries({ queryKey: ['klient', selected] }); toast.success('Klient uložen'); setEditModal(false); },
     onError: () => toast.error('Chyba při ukládání'),
   });
 

@@ -574,19 +574,19 @@ export function PersonalPage() {
 
   const createMut = useMutation({
     mutationFn: (d) => personalApi.create({ ...d, specializace: specsToArr(d.specializace) }),
-    onSuccess: () => { qc.invalidateQueries(['personal']); toast.success('Osoba přidána'); setModal(false); setForm(EMPTY_PERSON); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['personal'] }); toast.success('Osoba přidána'); setModal(false); setForm(EMPTY_PERSON); },
     onError: () => toast.error('Chyba při ukládání'),
   });
 
   const updateMut = useMutation({
     mutationFn: (d) => personalApi.update(d.id, { ...d, specializace: specsToArr(d.specializace) }),
-    onSuccess: () => { qc.invalidateQueries(['personal']); toast.success('Uloženo'); setEditModal(false); setEditPerson(null); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['personal'] }); toast.success('Uloženo'); setEditModal(false); setEditPerson(null); },
     onError: () => toast.error('Chyba při ukládání'),
   });
 
   const deleteMut = useMutation({
     mutationFn: (id) => personalApi.delete(id),
-    onSuccess: () => { qc.invalidateQueries(['personal']); toast.success('Osoba smazána'); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['personal'] }); toast.success('Osoba smazána'); },
     onError: () => toast.error('Chybu při mazání'),
   });
 
@@ -621,7 +621,7 @@ export function PersonalPage() {
   };
   const bulkDeletePersonal = () => {
     if (!window.confirm(`Smazat ${selP.size} osob?`)) return;
-    Promise.all([...selP].map(id => personalApi.delete(id))).then(() => { qc.invalidateQueries(['personal']); setSelP(new Set()); toast.success('Osoby smazány'); });
+    Promise.all([...selP].map(id => personalApi.delete(id))).then(() => { qc.invalidateQueries({ queryKey: ['personal'] }); setSelP(new Set()); toast.success('Osoby smazány'); });
   };
 
   const PersonForm = ({ f, onChange, prefix = '' }) => (
@@ -662,7 +662,7 @@ export function PersonalPage() {
       </div>
       <div className="flex items-center gap-3 mb-3">
         <div className="w-9 h-9 rounded-full bg-stone-100 flex items-center justify-center text-xs font-medium text-stone-600 flex-shrink-0">
-          {p.jmeno[0]}{p.prijmeni[0]}
+          {p.jmeno?.[0]}{p.prijmeni?.[0]}
         </div>
         <div>
           <div className="text-sm font-medium text-stone-800">{p.jmeno} {p.prijmeni}</div>
@@ -739,7 +739,7 @@ export function DokumentyPage() {
   const toggleSelD = (id, e) => { e.stopPropagation(); setSelD(s => { const n = new Set(s); n.has(id)?n.delete(id):n.add(id); return n; }); };
   const bulkDeleteDocs = () => {
     if (!window.confirm(`Smazat ${selD.size} dokumentů?`)) return;
-    Promise.all([...selD].map(id => dokumentyApi.delete(id))).then(() => { qc.invalidateQueries(['dokumenty']); setSelD(new Set()); toast.success('Dokumenty smazány'); });
+    Promise.all([...selD].map(id => dokumentyApi.delete(id))).then(() => { qc.invalidateQueries({ queryKey: ['dokumenty'] }); setSelD(new Set()); toast.success('Dokumenty smazány'); });
   };
 
   const { data, isLoading } = useQuery({
@@ -757,7 +757,7 @@ export function DokumentyPage() {
     fd.append('kategorie', 'interni');
     try {
       await dokumentyApi.upload(fd);
-      qc.invalidateQueries(['dokumenty']);
+      qc.invalidateQueries({ queryKey: ['dokumenty'] });
       toast.success('Soubor nahrán');
     } catch { toast.error('Chyba při nahrávání'); }
     setUploading(false);
@@ -765,7 +765,7 @@ export function DokumentyPage() {
 
   const deleteMut = useMutation({
     mutationFn: dokumentyApi.delete,
-    onSuccess: () => { qc.invalidateQueries(['dokumenty']); toast.success('Dokument smazán'); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['dokumenty'] }); toast.success('Dokument smazán'); },
   });
 
   const formatSize = (b) => b > 1024*1024 ? `${(b/1024/1024).toFixed(1)} MB` : `${Math.round(b/1024)} KB`;
@@ -857,13 +857,13 @@ export function CenikPage() {
 
   const createMut = useMutation({
     mutationFn: cenikApi.create,
-    onSuccess: () => { qc.invalidateQueries(['cenik']); toast.success('Položka přidána'); setModal(false); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['cenik'] }); toast.success('Položka přidána'); setModal(false); },
   });
 
   const addKatMut = useMutation({
     mutationFn: (d) => cenikApi.addKategorie(d),
     onSuccess: (res) => {
-      qc.invalidateQueries(['cenik-kategorie']);
+      qc.invalidateQueries({ queryKey: ['cenik-kategorie'] });
       toast.success('Kategorie přidána');
       setKatModal(false);
       setKatForm({ nazev: '' });
@@ -874,7 +874,7 @@ export function CenikPage() {
 
   const updateMut = useMutation({
     mutationFn: ({ id, ...d }) => cenikApi.update(id, d),
-    onSuccess: () => { qc.invalidateQueries(['cenik']); setEditRow(null); toast.success('Cena aktualizována'); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['cenik'] }); setEditRow(null); toast.success('Cena aktualizována'); },
   });
 
   const kategorie = katData?.data?.data || [];
@@ -950,7 +950,7 @@ export function CenikPage() {
                      {marze(p.cena_nakup, p.cena_prodej)} %
                    </td>
                    <td className="px-4 py-2.5">
-                     <button onClick={() => cenikApi.delete(p.id).then(()=>qc.invalidateQueries(['cenik']))} className="text-xs text-stone-400 hover:text-red-600">Skrýt</button>
+                     <button onClick={() => cenikApi.delete(p.id).then(()=>qc.invalidateQueries({ queryKey: ['cenik'] }))} className="text-xs text-stone-400 hover:text-red-600">Skrýt</button>
                    </td>
                  </tr>
                ))}</tbody>
@@ -1125,13 +1125,13 @@ export function NabidkaEditor() {
 
   const odeslatMut = useMutation({
     mutationFn: (d) => nabidkyApi.odeslat(id, d),
-    onSuccess: () => { qc.invalidateQueries(['nabidka', id]); qc.invalidateQueries(['nabidky']); toast.success('Nabídka odeslána emailem'); setEmailModal(false); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['nabidka', id] }); qc.invalidateQueries({ queryKey: ['nabidky'] }); toast.success('Nabídka odeslána emailem'); setEmailModal(false); },
     onError: (err) => toast.error(err?.response?.data?.error || 'Chyba při odesílání'),
   });
 
   const updateMut = useMutation({
     mutationFn: (d) => nabidkyApi.update(id, d),
-    onSuccess: () => { qc.invalidateQueries(['nabidka', id]); qc.invalidateQueries(['nabidky']); toast.success('Nabídka uložena'); setEditMode(false); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['nabidka', id] }); qc.invalidateQueries({ queryKey: ['nabidky'] }); toast.success('Nabídka uložena'); setEditMode(false); },
     onError: (err) => toast.error(err?.response?.data?.error || 'Chyba při ukládání'),
   });
 
@@ -1327,7 +1327,7 @@ export function NabidkaEditor() {
                   <Printer size={13}/> Export PDF
                 </Btn>
                 {['odeslano','prijato','zamitnuto'].map(s => (
-                  <Btn key={s} onClick={() => nabidkyApi.setStav(n.id,{stav:s}).then(()=>{ qc.invalidateQueries(['nabidka',id]); toast.success('Stav aktualizován'); })}>
+                  <Btn key={s} onClick={() => nabidkyApi.setStav(n.id,{stav:s}).then(()=>{ qc.invalidateQueries({ queryKey: ['nabidka',id] }); toast.success('Stav aktualizován'); })}>
                     → {STAV_LABELS_N[s]}
                   </Btn>
                 ))}
@@ -1411,7 +1411,7 @@ export function NovaNabidka() {
   const createMut = useMutation({
     mutationFn: (data) => nabidkyApi.create(data),
     onSuccess: (res) => {
-      qc.invalidateQueries(['nabidky']);
+      qc.invalidateQueries({ queryKey: ['nabidky'] });
       toast.success('Nabídka vytvořena');
       navigate(`/nabidky/${res.data.id}/edit`);
     },
@@ -1604,8 +1604,8 @@ export function NastaveniPage() {
   useEffect(() => { if (nastavData?.data) setForm(nastavData.data); }, [nastavData]);
 
   const saveMut  = useMutation({ mutationFn: nastaveniApi.update, onSuccess: () => toast.success('Nastavení uloženo') });
-  const userMut  = useMutation({ mutationFn: uzivateleApi.create, onSuccess: () => { qc.invalidateQueries(['uzivatele']); toast.success('Uživatel přidán'); setUserModal(false); } });
-  const toggleMut = useMutation({ mutationFn: ({id,aktivni}) => uzivateleApi.update(id,{aktivni}), onSuccess: () => qc.invalidateQueries(['uzivatele']) });
+  const userMut  = useMutation({ mutationFn: uzivateleApi.create, onSuccess: () => { qc.invalidateQueries({ queryKey: ['uzivatele'] }); toast.success('Uživatel přidán'); setUserModal(false); } });
+  const toggleMut = useMutation({ mutationFn: ({id,aktivni}) => uzivateleApi.update(id,{aktivni}), onSuccess: () => qc.invalidateQueries({ queryKey: ['uzivatele'] }) });
   const passMut  = useMutation({
     mutationFn: (d) => authApi.changePassword({ stare_heslo: d.stare_heslo, nove_heslo: d.nove_heslo }),
     onSuccess: () => { toast.success('Heslo bylo úspěšně změněno'); setPassForm({ stare_heslo:'', nove_heslo:'', nove_heslo2:'' }); },
@@ -1667,7 +1667,7 @@ export function NastaveniPage() {
             <div className="bg-white rounded-xl border border-stone-200 divide-y divide-stone-50">
               {uzivatele.map(u => (
                 <div key={u.id} className="flex items-center gap-3 px-4 py-3">
-                  <div className="w-8 h-8 rounded-full bg-stone-200 flex items-center justify-center text-xs font-medium text-stone-600">{u.jmeno[0]}{u.prijmeni[0]}</div>
+                  <div className="w-8 h-8 rounded-full bg-stone-200 flex items-center justify-center text-xs font-medium text-stone-600">{u.jmeno?.[0]}{u.prijmeni?.[0]}</div>
                   <div className="flex-1">
                     <div className="text-sm font-medium text-stone-800">{u.jmeno} {u.prijmeni}</div>
                     <div className="text-xs text-stone-400">{u.email} · {ROLES[u.role]||u.role}</div>
@@ -1874,11 +1874,11 @@ export function PoptavkyPage() {
 
   const prijmutMut = useMutation({
     mutationFn: (id) => zakazkyApi.setStav(id, { stav: 'rozpracovano' }),
-    onSuccess: (_, id) => { qc.invalidateQueries(['poptavky']); qc.invalidateQueries(['zakazky']); navigate(`/zakazky/${id}`); },
+    onSuccess: (_, id) => { qc.invalidateQueries({ queryKey: ['poptavky'] }); qc.invalidateQueries({ queryKey: ['zakazky'] }); navigate(`/zakazky/${id}`); },
   });
   const stornMut = useMutation({
     mutationFn: (id) => zakazkyApi.setStav(id, { stav: 'stornovano' }),
-    onSuccess: () => { qc.invalidateQueries(['poptavky']); toast.success('Poptávka stornována'); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['poptavky'] }); toast.success('Poptávka stornována'); },
   });
 
   return (
@@ -2134,6 +2134,718 @@ export function ReportPage() {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+// ── FakturyPage.jsx ────────────────────────────────────────────
+import { fakturyApi, klientiApi } from '../api';
+import { Receipt, CreditCard, CheckCircle2, Clock, Ban } from 'lucide-react';
+import { printFakturuPdf } from '../utils/print';
+
+const FAKTURA_STAV = {
+  vystavena: { label: 'Vystavena', cls: 'bg-blue-50 text-blue-700 border border-blue-200' },
+  odeslana:  { label: 'Odeslána',  cls: 'bg-orange-50 text-orange-700 border border-orange-200' },
+  zaplacena: { label: 'Zaplacena', cls: 'bg-green-50 text-green-700 border border-green-200' },
+  storno:    { label: 'Storno',    cls: 'bg-red-50 text-red-400 border border-red-200' },
+};
+
+function FakturaStavBadge({ stav }) {
+  const cfg = FAKTURA_STAV[stav] || { label: stav, cls: 'bg-stone-100 text-stone-500' };
+  return <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${cfg.cls}`}>{cfg.label}</span>;
+}
+
+export function FakturyPage() {
+  const navigate = useNavigate();
+  const [stavFilter, setStavFilter] = useState('');
+  const [q, setQ] = useState('');
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['faktury', stavFilter, q],
+    queryFn: () => fakturyApi.list({ stav: stavFilter || undefined, q: q || undefined }),
+  });
+  const faktury = data?.data?.data || [];
+
+  const fmtC = (n) => n != null ? Number(n).toLocaleString('cs-CZ', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) + ' Kč' : '—';
+  const fmtD = (d) => d ? new Date(d).toLocaleDateString('cs-CZ') : '—';
+
+  const totalVystavena = faktury.filter(f => f.stav === 'vystavena').reduce((s, f) => s + parseFloat(f.cena_celkem || 0), 0);
+  const totalOdeslana  = faktury.filter(f => f.stav === 'odeslana').reduce((s, f) => s + parseFloat(f.cena_celkem || 0), 0);
+  const totalZaplacena = faktury.filter(f => f.stav === 'zaplacena').reduce((s, f) => s + parseFloat(f.cena_celkem || 0), 0);
+
+  return (
+    <div className="p-6 max-w-6xl mx-auto space-y-5">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold text-stone-800">Fakturace</h1>
+          <p className="text-sm text-stone-400 mt-0.5">Vydané faktury za catering zakázky</p>
+        </div>
+        <Btn variant="primary" onClick={() => navigate('/faktury/nova')}><Plus size={14}/> Nová faktura</Btn>
+      </div>
+
+      {/* Statistiky */}
+      <div className="grid grid-cols-3 gap-4">
+        {[
+          { label: 'Vystaveno', value: totalVystavena, icon: Clock, color: 'text-blue-600', bg: 'bg-blue-50' },
+          { label: 'Odesláno', value: totalOdeslana, icon: CreditCard, color: 'text-orange-600', bg: 'bg-orange-50' },
+          { label: 'Zaplaceno', value: totalZaplacena, icon: CheckCircle2, color: 'text-green-600', bg: 'bg-green-50' },
+        ].map(s => (
+          <div key={s.label} className="bg-white border border-stone-200 rounded-xl px-5 py-4 flex items-center gap-4">
+            <div className={`w-10 h-10 rounded-lg ${s.bg} flex items-center justify-center flex-shrink-0`}>
+              <s.icon size={18} className={s.color} />
+            </div>
+            <div>
+              <div className="text-xs text-stone-400">{s.label}</div>
+              <div className={`text-base font-bold ${s.color}`}>{fmtC(s.value)}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Filtry */}
+      <div className="flex gap-3 items-center">
+        <input
+          className="border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200 w-60 bg-white"
+          placeholder="Hledat (číslo, klient)…"
+          value={q} onChange={e => setQ(e.target.value)}
+        />
+        <div className="flex gap-1">
+          {['', 'vystavena', 'odeslana', 'zaplacena', 'storno'].map(s => (
+            <button key={s}
+              onClick={() => setStavFilter(s)}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                stavFilter === s ? 'bg-stone-800 text-white' : 'bg-white border border-stone-200 text-stone-600 hover:border-stone-300'
+              }`}
+            >{s === '' ? 'Vše' : FAKTURA_STAV[s]?.label || s}</button>
+          ))}
+        </div>
+      </div>
+
+      {/* Tabulka */}
+      {isLoading ? (
+        <div className="flex justify-center py-16"><Spinner /></div>
+      ) : faktury.length === 0 ? (
+        <EmptyState icon={Receipt} title="Žádné faktury" desc="Vystavte první fakturu kliknutím na „Nová faktura"." />
+      ) : (
+        <div className="bg-white border border-stone-200 rounded-xl overflow-hidden">
+          <table className="w-full">
+            <thead>
+              <tr className="bg-stone-50 border-b border-stone-100">
+                {['Číslo','Klient','Zakázka','Vystavena','Splatnost','Celkem','Stav'].map(h =>
+                  <th key={h} className="px-4 py-3 text-left text-xs font-medium text-stone-500">{h}</th>)}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-stone-50">
+              {faktury.map(f => {
+                const overdue = f.stav === 'vystavena' || f.stav === 'odeslana'
+                  ? new Date(f.datum_splatnosti) < new Date() : false;
+                return (
+                  <tr key={f.id} onClick={() => navigate(`/faktury/${f.id}`)}
+                    className="hover:bg-stone-50 cursor-pointer transition-colors">
+                    <td className="px-4 py-3 text-sm font-semibold text-stone-800 font-mono">{f.cislo}</td>
+                    <td className="px-4 py-3 text-sm text-stone-700">
+                      {f.klient_firma || [f.klient_jmeno, f.klient_prijmeni].filter(Boolean).join(' ') || '—'}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-stone-500">{f.zakazka_cislo || '—'}</td>
+                    <td className="px-4 py-3 text-sm text-stone-500">{fmtD(f.datum_vystaveni)}</td>
+                    <td className={`px-4 py-3 text-sm font-medium ${overdue ? 'text-red-600' : 'text-stone-500'}`}>
+                      {fmtD(f.datum_splatnosti)}
+                      {overdue && <span className="ml-1 text-xs bg-red-50 text-red-500 px-1.5 py-0.5 rounded-full">Po splatnosti</span>}
+                    </td>
+                    <td className="px-4 py-3 text-sm font-semibold text-stone-800">{fmtC(f.cena_celkem)}</td>
+                    <td className="px-4 py-3"><FakturaStavBadge stav={f.stav} /></td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── FakturaDetail.jsx ──────────────────────────────────────────
+export function FakturaDetail() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const qc = useQueryClient();
+  const [editMode, setEditMode] = useState(false);
+  const [editForm, setEditForm] = useState({});
+  const [editPolozky, setEditPolozky] = useState([]);
+  const [cenikFilter, setCenikFilter] = useState('');
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['faktura', id],
+    queryFn: () => fakturyApi.get(id),
+  });
+  const f = data?.data;
+
+  const { data: cenikData } = useQuery({
+    queryKey: ['cenik'],
+    queryFn: () => cenikApi.list({ limit: 200 }),
+    enabled: editMode,
+  });
+  const cenikItems = cenikData?.data?.data || [];
+  const filteredCenik = cenikFilter
+    ? cenikItems.filter(c => c.nazev.toLowerCase().includes(cenikFilter.toLowerCase()))
+    : [];
+
+  useEffect(() => {
+    if (f && editMode) {
+      setEditForm({
+        datum_splatnosti: f.datum_splatnosti?.slice(0, 10) || '',
+        zpusob_platby: f.zpusob_platby || 'převod',
+        variabilni_symbol: f.variabilni_symbol || '',
+        poznamka: f.poznamka || '',
+      });
+      setEditPolozky((f.polozky || []).map(p => ({
+        nazev: p.nazev, jednotka: p.jednotka, mnozstvi: parseFloat(p.mnozstvi),
+        cena_jednotka: parseFloat(p.cena_jednotka), dph_sazba: p.dph_sazba || 12,
+      })));
+    }
+  }, [f, editMode]);
+
+  const stavMut = useMutation({
+    mutationFn: (d) => fakturyApi.setStav(id, d),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['faktura', id] }); qc.invalidateQueries({ queryKey: ['faktury'] }); },
+  });
+
+  const updateMut = useMutation({
+    mutationFn: (d) => fakturyApi.update(id, d),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['faktura', id] }); setEditMode(false); toast.success('Faktura uložena'); },
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: () => fakturyApi.delete(id),
+    onSuccess: () => { navigate('/faktury'); toast.success('Faktura smazána'); },
+  });
+
+  const updateEditPolozka = (i, k, v) => setEditPolozky(ps => ps.map((p, idx) => idx === i ? { ...p, [k]: v } : p));
+  const removeEditPolozka = (i) => setEditPolozky(ps => ps.filter((_, idx) => idx !== i));
+  const addBlankPolozka = () => setEditPolozky(ps => [...ps, { nazev: '', jednotka: 'os.', mnozstvi: 1, cena_jednotka: 0, dph_sazba: 12 }]);
+  const addFromCenikF = (item) => setEditPolozky(ps => [...ps, { nazev: item.nazev, jednotka: item.jednotka, mnozstvi: 1, cena_jednotka: parseFloat(item.cena_prodej), dph_sazba: item.dph_sazba || 12 }]);
+
+  const fmtC = (n) => n != null ? Number(n).toLocaleString('cs-CZ', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) + ' Kč' : '—';
+  const fmtD = (d) => d ? new Date(d).toLocaleDateString('cs-CZ') : '—';
+
+  const editTotalBezDph = editPolozky.reduce((s, p) => s + (parseFloat(p.mnozstvi)||0)*(parseFloat(p.cena_jednotka)||0), 0);
+  const editDph = editPolozky.reduce((s, p) => { const c=(parseFloat(p.mnozstvi)||0)*(parseFloat(p.cena_jednotka)||0); return s+c*((p.dph_sazba||12)/100); }, 0);
+
+  if (isLoading) return <div className="flex justify-center py-20"><Spinner /></div>;
+  if (!f) return <div className="p-6 text-stone-400">Faktura nenalezena</div>;
+
+  const firma = f.dodavatel_json || {};
+
+  return (
+    <div className="p-6 max-w-5xl mx-auto space-y-5">
+      {/* Header */}
+      <div className="flex items-start justify-between">
+        <div className="flex items-center gap-3">
+          <button onClick={() => navigate('/faktury')} className="p-1.5 hover:bg-stone-100 rounded-lg text-stone-400 hover:text-stone-600 transition-colors">
+            <ArrowLeft size={16}/>
+          </button>
+          <div>
+            <div className="flex items-center gap-3">
+              <h1 className="text-xl font-bold text-stone-800 font-mono">{f.cislo}</h1>
+              <FakturaStavBadge stav={f.stav} />
+            </div>
+            <div className="text-xs text-stone-400 mt-0.5">
+              Vystavena {fmtD(f.datum_vystaveni)}
+              {f.zakazka_cislo && <> · <button onClick={() => navigate(`/zakazky/${f.zakazka_id}`)} className="hover:underline text-brand-600">{f.zakazka_cislo}</button></>}
+            </div>
+          </div>
+        </div>
+        <div className="flex gap-2 flex-wrap justify-end">
+          <Btn size="sm" onClick={() => printFakturuPdf(f)}><Printer size={12}/> PDF</Btn>
+          {f.stav === 'vystavena' && !editMode && (
+            <Btn size="sm" onClick={() => setEditMode(true)}><Pencil size={12}/> Upravit</Btn>
+          )}
+          {f.stav === 'vystavena' && (
+            <Btn size="sm" onClick={() => stavMut.mutate({ stav: 'odeslana' })} disabled={stavMut.isPending}>
+              Označit jako odeslanou
+            </Btn>
+          )}
+          {f.stav === 'odeslana' && (
+            <Btn size="sm" variant="primary" onClick={() => stavMut.mutate({ stav: 'zaplacena' })} disabled={stavMut.isPending}>
+              <CheckCircle2 size={12}/> Zaplacena
+            </Btn>
+          )}
+          {(f.stav === 'vystavena' || f.stav === 'odeslana') && (
+            <Btn size="sm" onClick={() => { if (window.confirm('Stornovat fakturu?')) stavMut.mutate({ stav: 'storno' }); }}>
+              <Ban size={12}/> Storno
+            </Btn>
+          )}
+          {f.stav === 'vystavena' && (
+            <Btn size="sm" onClick={() => { if (window.confirm('Smazat fakturu?')) deleteMut.mutate(); }}>
+              <Trash2 size={12}/> Smazat
+            </Btn>
+          )}
+        </div>
+      </div>
+
+      {/* Dodavatel / Odběratel */}
+      <div className="grid grid-cols-2 gap-5">
+        <div className="bg-white border border-stone-200 rounded-xl p-5">
+          <div className="text-xs text-stone-400 font-semibold uppercase tracking-wide mb-3">Dodavatel</div>
+          <div className="text-sm font-bold text-stone-800">{firma.firma_nazev || '—'}</div>
+          <div className="text-xs text-stone-500 mt-1 space-y-0.5">
+            {firma.firma_adresa && <div>{firma.firma_adresa}</div>}
+            {firma.firma_ico && <div>IČO: {firma.firma_ico}{firma.firma_dic && ` · DIČ: ${firma.firma_dic}`}</div>}
+            {firma.firma_iban && <div>Účet: {firma.firma_iban}</div>}
+            {firma.firma_email && <div>{firma.firma_email}</div>}
+          </div>
+        </div>
+        <div className="bg-white border border-stone-200 rounded-xl p-5">
+          <div className="text-xs text-stone-400 font-semibold uppercase tracking-wide mb-3">Odběratel</div>
+          <div className="text-sm font-bold text-stone-800">
+            {f.klient_firma || [f.klient_jmeno, f.klient_prijmeni].filter(Boolean).join(' ') || '—'}
+          </div>
+          <div className="text-xs text-stone-500 mt-1 space-y-0.5">
+            {f.klient_adresa && <div>{f.klient_adresa}</div>}
+            {f.klient_ico && <div>IČO: {f.klient_ico}{f.klient_dic && ` · DIČ: ${f.klient_dic}`}</div>}
+            {f.klient_email && <div>{f.klient_email}</div>}
+          </div>
+        </div>
+      </div>
+
+      {/* Meta info */}
+      {editMode ? (
+        <div className="bg-white border border-stone-200 rounded-xl p-5 space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-stone-500 mb-1">Datum splatnosti</label>
+              <input type="date" className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                value={editForm.datum_splatnosti} onChange={e => setEditForm(f => ({ ...f, datum_splatnosti: e.target.value }))}/>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-stone-500 mb-1">Způsob platby</label>
+              <select className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none bg-white"
+                value={editForm.zpusob_platby} onChange={e => setEditForm(f => ({ ...f, zpusob_platby: e.target.value }))}>
+                <option value="převod">Bankovní převod</option>
+                <option value="hotovost">Hotovost</option>
+                <option value="karta">Platební karta</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-stone-500 mb-1">Variabilní symbol</label>
+              <input className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                value={editForm.variabilni_symbol} onChange={e => setEditForm(f => ({ ...f, variabilni_symbol: e.target.value }))}/>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-stone-500 mb-1">Poznámka</label>
+              <input className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                value={editForm.poznamka} onChange={e => setEditForm(f => ({ ...f, poznamka: e.target.value }))}/>
+            </div>
+          </div>
+
+          {/* Položky edit */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-stone-700">Položky</span>
+              <div className="flex gap-2">
+                <button onClick={addBlankPolozka} className="text-xs text-stone-500 hover:text-stone-800 flex items-center gap-1">
+                  <Plus size={11}/> Vlastní položka
+                </button>
+              </div>
+            </div>
+            <div className="border border-stone-200 rounded-lg overflow-hidden">
+              <div className="px-3 py-2 bg-stone-50 border-b border-stone-100">
+                <input className="w-full border border-stone-200 rounded px-2 py-1 text-xs focus:outline-none bg-white"
+                  placeholder="Hledat v ceníku…" value={cenikFilter} onChange={e => setCenikFilter(e.target.value)}/>
+                {cenikFilter && filteredCenik.length > 0 && (
+                  <div className="mt-1 max-h-36 overflow-y-auto rounded border border-stone-200 bg-white divide-y divide-stone-50">
+                    {filteredCenik.slice(0, 8).map(c => (
+                      <button key={c.id} onClick={() => { addFromCenikF(c); setCenikFilter(''); }}
+                        className="w-full text-left px-2 py-1.5 text-xs hover:bg-stone-50 flex justify-between">
+                        <span>{c.nazev} <span className="text-stone-400">({c.jednotka})</span></span>
+                        <span className="text-stone-500">{Number(c.cena_prodej).toLocaleString('cs-CZ')} Kč</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <table className="w-full">
+                <thead><tr className="bg-stone-50 border-b border-stone-100">
+                  {['Název','Mn.','Jedn.','Cena/jedn.','DPH %','Celkem',''].map(h =>
+                    <th key={h} className="px-3 py-2 text-left text-xs font-medium text-stone-400">{h}</th>)}
+                </tr></thead>
+                <tbody>
+                  {editPolozky.map((p, i) => {
+                    const celkem = (parseFloat(p.mnozstvi)||0)*(parseFloat(p.cena_jednotka)||0);
+                    return (
+                      <tr key={i} className="border-b border-stone-50">
+                        <td className="px-3 py-1.5"><input className="w-full border border-stone-200 rounded px-2 py-1 text-xs focus:outline-none"
+                          value={p.nazev} onChange={e => updateEditPolozka(i,'nazev',e.target.value)} placeholder="Název…"/></td>
+                        <td className="px-3 py-1.5 w-20"><input type="number" min="0" step="0.1" className="w-full border border-stone-200 rounded px-2 py-1 text-xs focus:outline-none"
+                          value={p.mnozstvi} onChange={e => updateEditPolozka(i,'mnozstvi',e.target.value)}/></td>
+                        <td className="px-3 py-1.5 w-20"><input className="w-full border border-stone-200 rounded px-2 py-1 text-xs focus:outline-none"
+                          value={p.jednotka} onChange={e => updateEditPolozka(i,'jednotka',e.target.value)}/></td>
+                        <td className="px-3 py-1.5 w-28"><input type="number" min="0" className="w-full border border-stone-200 rounded px-2 py-1 text-xs focus:outline-none"
+                          value={p.cena_jednotka} onChange={e => updateEditPolozka(i,'cena_jednotka',e.target.value)}/></td>
+                        <td className="px-3 py-1.5 w-20">
+                          <select className="w-full border border-stone-200 rounded px-1 py-1 text-xs focus:outline-none bg-white"
+                            value={p.dph_sazba} onChange={e => updateEditPolozka(i,'dph_sazba',parseInt(e.target.value))}>
+                            <option value={0}>0 %</option><option value={12}>12 %</option><option value={21}>21 %</option>
+                          </select>
+                        </td>
+                        <td className="px-3 py-1.5 w-28 text-xs font-medium text-stone-700">{fmtC(celkem)}</td>
+                        <td className="px-3 py-1.5 w-8">
+                          <button onClick={() => removeEditPolozka(i)} className="text-stone-300 hover:text-red-500"><Trash2 size={13}/></button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              <div className="px-3 py-2 flex justify-end gap-2 text-xs text-stone-500 bg-stone-50">
+                <span>Bez DPH: <strong>{fmtC(editTotalBezDph)}</strong></span>
+                <span className="text-stone-300">|</span>
+                <span>DPH: <strong>{fmtC(editDph)}</strong></span>
+                <span className="text-stone-300">|</span>
+                <span className="text-stone-800 font-semibold">Celkem: {fmtC(editTotalBezDph + editDph)}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex gap-2 justify-end pt-2">
+            <Btn onClick={() => setEditMode(false)}>Zrušit</Btn>
+            <Btn variant="primary" onClick={() => updateMut.mutate({ ...editForm, polozky: editPolozky })} disabled={updateMut.isPending}>
+              Uložit fakturu
+            </Btn>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-4 gap-3">
+            {[
+              { label: 'Datum vystavení', value: fmtD(f.datum_vystaveni) },
+              { label: 'Datum splatnosti', value: fmtD(f.datum_splatnosti) },
+              { label: 'Způsob platby', value: f.zpusob_platby || '—' },
+              { label: 'Variabilní symbol', value: f.variabilni_symbol || '—' },
+            ].map(m => (
+              <div key={m.label} className="bg-white border border-stone-200 rounded-xl px-4 py-3">
+                <div className="text-xs text-stone-400 mb-1">{m.label}</div>
+                <div className="text-sm font-semibold text-stone-800">{m.value}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Položky */}
+          <div className="bg-white border border-stone-200 rounded-xl overflow-hidden">
+            <div className="px-5 py-3.5 border-b border-stone-100">
+              <span className="text-sm font-semibold text-stone-700">Položky ({(f.polozky||[]).length})</span>
+            </div>
+            <table className="w-full">
+              <thead><tr className="bg-stone-50 border-b border-stone-100">
+                {['Název','Množství','Jednotka','Cena/jedn.','DPH','Celkem s DPH'].map(h =>
+                  <th key={h} className="px-4 py-3 text-left text-xs font-medium text-stone-500">{h}</th>)}
+              </tr></thead>
+              <tbody className="divide-y divide-stone-50">
+                {(f.polozky || []).map((p, i) => {
+                  const c = (parseFloat(p.mnozstvi)||0)*(parseFloat(p.cena_jednotka)||0);
+                  const d = c * ((p.dph_sazba||12)/100);
+                  return (
+                    <tr key={i}>
+                      <td className="px-4 py-2.5 text-sm text-stone-700">{p.nazev}</td>
+                      <td className="px-4 py-2.5 text-sm text-stone-600">{p.mnozstvi}</td>
+                      <td className="px-4 py-2.5 text-sm text-stone-600">{p.jednotka}</td>
+                      <td className="px-4 py-2.5 text-sm text-stone-600">{fmtC(p.cena_jednotka)}</td>
+                      <td className="px-4 py-2.5 text-sm text-stone-500">{p.dph_sazba || 12} %</td>
+                      <td className="px-4 py-2.5 text-sm font-semibold text-stone-800">{fmtC(c + d)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            <div className="px-5 py-4 bg-stone-50 border-t border-stone-100 flex justify-end">
+              <div className="space-y-1 min-w-[260px] text-sm">
+                <div className="flex justify-between text-stone-600"><span>Základ daně</span><span>{fmtC(f.cena_bez_dph)}</span></div>
+                <div className="flex justify-between text-stone-600"><span>DPH</span><span>{fmtC(f.dph)}</span></div>
+                <div className="flex justify-between font-bold text-stone-900 text-base border-t border-stone-200 pt-2 mt-2">
+                  <span>Celkem k úhradě</span><span>{fmtC(f.cena_celkem)}</span>
+                </div>
+                {f.stav === 'zaplacena' && f.datum_zaplaceni && (
+                  <div className="text-xs text-green-600 text-right mt-1">Zaplaceno {fmtD(f.datum_zaplaceni)}</div>
+                )}
+              </div>
+            </div>
+          </div>
+          {f.poznamka && (
+            <div className="bg-white border border-stone-200 rounded-xl px-5 py-4">
+              <div className="text-xs text-stone-400 mb-1">Poznámka</div>
+              <div className="text-sm text-stone-600">{f.poznamka}</div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// ── NovaFakturaPage.jsx ────────────────────────────────────────
+export function NovaFakturaPage() {
+  const navigate = useNavigate();
+  const qc = useQueryClient();
+  const [searchParamsF] = useSearchParams();
+  const zakazkaIdParam = searchParamsF.get('zakazka_id');
+
+  const [klientSearch, setKlientSearch] = useState('');
+  const [klientSelected, setKlientSelected] = useState(null);
+  const [klientOpen, setKlientOpen] = useState(false);
+  const [polozky, setPolozky] = useState([]);
+  const [cenikFilter, setCenikFilterN] = useState('');
+  const [form, setForm] = useState({
+    datum_splatnosti: '',
+    zpusob_platby: 'převod',
+    variabilni_symbol: '',
+    poznamka: '',
+  });
+
+  // Načti zakázku (pokud přišli z detailu zakázky)
+  const { data: zakazkaData } = useQuery({
+    queryKey: ['zakazka-pre', zakazkaIdParam],
+    queryFn: () => fakturyApi.list({ zakazka_id: zakazkaIdParam, limit: 1 }).then(() =>
+      import('../api').then(m => m.zakazkyApi.get(zakazkaIdParam))
+    ),
+    enabled: !!zakazkaIdParam,
+  });
+
+  // Načti nastavení pro výchozí splatnost
+  const { data: nastavData } = useQuery({
+    queryKey: ['nastaveni'],
+    queryFn: () => nastaveniApi.get(),
+  });
+
+  useEffect(() => {
+    if (nastavData?.data) {
+      const splatnost = parseInt(nastavData.data.faktura_splatnost) || 14;
+      const d = new Date();
+      d.setDate(d.getDate() + splatnost);
+      setForm(f => ({ ...f, datum_splatnosti: d.toISOString().slice(0, 10) }));
+    }
+  }, [nastavData]);
+
+  useEffect(() => {
+    if (zakazkaData?.data) {
+      const z = zakazkaData.data;
+      if (z.klient_id) {
+        setKlientSelected({
+          id: z.klient_id,
+          jmeno: z.klient_jmeno, prijmeni: z.klient_prijmeni, firma: z.klient_firma,
+        });
+      }
+    }
+  }, [zakazkaData]);
+
+  const { data: klientiData } = useQuery({
+    queryKey: ['klienti-search', klientSearch],
+    queryFn: () => klientiApi.list({ q: klientSearch, limit: 10 }),
+    enabled: klientOpen && klientSearch.length >= 1,
+  });
+  const klientiSuggestions = klientiData?.data?.data || [];
+
+  const { data: cenikDataN } = useQuery({
+    queryKey: ['cenik'],
+    queryFn: () => cenikApi.list({ limit: 200 }),
+  });
+  const cenikItemsN = cenikDataN?.data?.data || [];
+  const filteredCenikN = cenikFilterN
+    ? cenikItemsN.filter(c => c.nazev.toLowerCase().includes(cenikFilterN.toLowerCase()))
+    : [];
+
+  const updatePolozkaF = (i, k, v) => setPolozky(ps => ps.map((p, idx) => idx === i ? { ...p, [k]: v } : p));
+  const removePolozkaF = (i) => setPolozky(ps => ps.filter((_, idx) => idx !== i));
+  const addBlankF = () => setPolozky(ps => [...ps, { nazev: '', jednotka: 'os.', mnozstvi: 1, cena_jednotka: 0, dph_sazba: 12 }]);
+  const addFromCenikFN = (item) => { setPolozky(ps => [...ps, { nazev: item.nazev, jednotka: item.jednotka, mnozstvi: 1, cena_jednotka: parseFloat(item.cena_prodej), dph_sazba: item.dph_sazba || 12 }]); setCenikFilterN(''); };
+
+  const totalBezDph = polozky.reduce((s, p) => s + (parseFloat(p.mnozstvi)||0)*(parseFloat(p.cena_jednotka)||0), 0);
+  const totalDph = polozky.reduce((s, p) => { const c=(parseFloat(p.mnozstvi)||0)*(parseFloat(p.cena_jednotka)||0); return s+c*((p.dph_sazba||12)/100); }, 0);
+  const fmtC = (n) => n != null ? Number(n).toLocaleString('cs-CZ', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) + ' Kč' : '—';
+
+  const createMut = useMutation({
+    mutationFn: (d) => fakturyApi.create(d),
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ['faktury'] });
+      navigate(`/faktury/${res.data.id}`);
+      toast.success('Faktura vystavena');
+    },
+    onError: (err) => toast.error(err?.response?.data?.error || 'Chyba při vystavení faktury'),
+  });
+
+  const handleSubmit = () => {
+    if (!klientSelected) return toast.error('Vyberte klienta');
+    if (!form.datum_splatnosti) return toast.error('Zadejte datum splatnosti');
+    if (polozky.length === 0) return toast.error('Přidejte alespoň jednu položku');
+    createMut.mutate({
+      klient_id: klientSelected.id,
+      zakazka_id: zakazkaIdParam || null,
+      ...form,
+      polozky,
+    });
+  };
+
+  return (
+    <div className="p-6 max-w-4xl mx-auto space-y-5">
+      <div className="flex items-center gap-3">
+        <button onClick={() => navigate('/faktury')} className="p-1.5 hover:bg-stone-100 rounded-lg text-stone-400 hover:text-stone-600 transition-colors">
+          <ArrowLeft size={16}/>
+        </button>
+        <div>
+          <h1 className="text-xl font-bold text-stone-800">Nová faktura</h1>
+          {zakazkaIdParam && <p className="text-xs text-stone-400 mt-0.5">Zakázka #{zakazkaIdParam}</p>}
+        </div>
+      </div>
+
+      <div className="bg-white border border-stone-200 rounded-xl p-5 space-y-4">
+        <h2 className="text-sm font-semibold text-stone-700">Odběratel</h2>
+        <div className="relative">
+          <div className="flex gap-2 items-center">
+            {klientSelected ? (
+              <div className="flex-1 flex items-center gap-3 bg-stone-50 border border-stone-200 rounded-lg px-3 py-2">
+                <div className="flex-1">
+                  <div className="text-sm font-medium text-stone-800">
+                    {klientSelected.firma || [klientSelected.jmeno, klientSelected.prijmeni].filter(Boolean).join(' ')}
+                  </div>
+                  {klientSelected.firma && <div className="text-xs text-stone-400">{klientSelected.jmeno} {klientSelected.prijmeni}</div>}
+                </div>
+                <button onClick={() => setKlientSelected(null)} className="text-stone-400 hover:text-red-500"><XIcon size={14}/></button>
+              </div>
+            ) : (
+              <input
+                className="flex-1 border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200"
+                placeholder="Hledat klienta…"
+                value={klientSearch}
+                onChange={e => { setKlientSearch(e.target.value); setKlientOpen(true); }}
+                onFocus={() => setKlientOpen(true)}
+              />
+            )}
+          </div>
+          {klientOpen && !klientSelected && klientiSuggestions.length > 0 && (
+            <div className="absolute top-full left-0 right-0 z-10 bg-white border border-stone-200 rounded-lg shadow-lg mt-1 max-h-48 overflow-y-auto">
+              {klientiSuggestions.map(k => (
+                <button key={k.id} onClick={() => { setKlientSelected(k); setKlientOpen(false); setKlientSearch(''); }}
+                  className="w-full text-left px-3 py-2.5 hover:bg-stone-50 border-b border-stone-50 last:border-0">
+                  <div className="text-sm font-medium text-stone-800">{k.firma || [k.jmeno, k.prijmeni].filter(Boolean).join(' ')}</div>
+                  {k.firma && <div className="text-xs text-stone-400">{k.jmeno} {k.prijmeni}</div>}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Parametry faktury */}
+      <div className="bg-white border border-stone-200 rounded-xl p-5">
+        <h2 className="text-sm font-semibold text-stone-700 mb-4">Parametry faktury</h2>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-medium text-stone-500 mb-1">Datum splatnosti *</label>
+            <input type="date" className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+              value={form.datum_splatnosti} onChange={e => setForm(f => ({ ...f, datum_splatnosti: e.target.value }))}/>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-stone-500 mb-1">Způsob platby</label>
+            <select className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none bg-white"
+              value={form.zpusob_platby} onChange={e => setForm(f => ({ ...f, zpusob_platby: e.target.value }))}>
+              <option value="převod">Bankovní převod</option>
+              <option value="hotovost">Hotovost</option>
+              <option value="karta">Platební karta</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-stone-500 mb-1">Variabilní symbol</label>
+            <input className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+              placeholder="Automaticky z čísla faktury…"
+              value={form.variabilni_symbol} onChange={e => setForm(f => ({ ...f, variabilni_symbol: e.target.value }))}/>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-stone-500 mb-1">Poznámka</label>
+            <input className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+              value={form.poznamka} onChange={e => setForm(f => ({ ...f, poznamka: e.target.value }))}/>
+          </div>
+        </div>
+      </div>
+
+      {/* Položky */}
+      <div className="bg-white border border-stone-200 rounded-xl overflow-hidden">
+        <div className="px-5 py-3.5 border-b border-stone-100 flex items-center justify-between">
+          <span className="text-sm font-semibold text-stone-700">Položky faktury</span>
+          <button onClick={addBlankF} className="text-xs text-stone-500 hover:text-stone-800 flex items-center gap-1">
+            <Plus size={11}/> Vlastní položka
+          </button>
+        </div>
+
+        <div className="px-5 py-3 bg-stone-50 border-b border-stone-100">
+          <input className="w-full border border-stone-200 rounded-md px-3 py-1.5 text-xs focus:outline-none bg-white"
+            placeholder="Hledat v ceníku a přidat…"
+            value={cenikFilterN} onChange={e => setCenikFilterN(e.target.value)}/>
+          {cenikFilterN && filteredCenikN.length > 0 && (
+            <div className="mt-2 max-h-48 overflow-y-auto rounded-md border border-stone-200 bg-white divide-y divide-stone-50">
+              {filteredCenikN.slice(0, 10).map(c => (
+                <button key={c.id} onClick={() => addFromCenikFN(c)}
+                  className="w-full text-left px-3 py-2 text-xs hover:bg-stone-50 flex items-center justify-between">
+                  <span>{c.nazev} <span className="text-stone-400">({c.jednotka})</span></span>
+                  <span className="text-stone-500 font-medium">{Number(c.cena_prodej).toLocaleString('cs-CZ')} Kč</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {polozky.length === 0 ? (
+          <div className="px-5 py-8 text-center text-sm text-stone-400">Přidejte položky z ceníku nebo klikněte na „Vlastní položka".</div>
+        ) : (
+          <>
+            <table className="w-full">
+              <thead><tr className="bg-stone-50 border-b border-stone-100">
+                {['Název','Mn.','Jedn.','Cena/jedn.','DPH %','Celkem',''].map(h =>
+                  <th key={h} className="px-3 py-2.5 text-left text-xs font-medium text-stone-400">{h}</th>)}
+              </tr></thead>
+              <tbody>
+                {polozky.map((p, i) => {
+                  const c = (parseFloat(p.mnozstvi)||0)*(parseFloat(p.cena_jednotka)||0);
+                  const d = c*((p.dph_sazba||12)/100);
+                  return (
+                    <tr key={i} className={i < polozky.length-1 ? 'border-b border-stone-50' : ''}>
+                      <td className="px-3 py-2"><input className="w-full border border-stone-200 rounded px-2 py-1 text-xs focus:outline-none"
+                        value={p.nazev} onChange={e => updatePolozkaF(i,'nazev',e.target.value)} placeholder="Název…"/></td>
+                      <td className="px-3 py-2 w-20"><input type="number" min="0" step="0.1" className="w-full border border-stone-200 rounded px-2 py-1 text-xs focus:outline-none"
+                        value={p.mnozstvi} onChange={e => updatePolozkaF(i,'mnozstvi',e.target.value)}/></td>
+                      <td className="px-3 py-2 w-20"><input className="w-full border border-stone-200 rounded px-2 py-1 text-xs focus:outline-none"
+                        value={p.jednotka} onChange={e => updatePolozkaF(i,'jednotka',e.target.value)}/></td>
+                      <td className="px-3 py-2 w-28"><input type="number" min="0" className="w-full border border-stone-200 rounded px-2 py-1 text-xs focus:outline-none"
+                        value={p.cena_jednotka} onChange={e => updatePolozkaF(i,'cena_jednotka',e.target.value)}/></td>
+                      <td className="px-3 py-2 w-20">
+                        <select className="w-full border border-stone-200 rounded px-1 py-1 text-xs focus:outline-none bg-white"
+                          value={p.dph_sazba} onChange={e => updatePolozkaF(i,'dph_sazba',parseInt(e.target.value))}>
+                          <option value={0}>0 %</option><option value={12}>12 %</option><option value={21}>21 %</option>
+                        </select>
+                      </td>
+                      <td className="px-3 py-2 w-28 text-xs font-medium text-stone-700">{fmtC(c+d)}</td>
+                      <td className="px-3 py-2 w-8">
+                        <button onClick={() => removePolozkaF(i)} className="text-stone-300 hover:text-red-500"><Trash2 size={13}/></button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            <div className="px-5 py-3 bg-stone-50 border-t border-stone-100 flex justify-end gap-4 text-sm">
+              <span className="text-stone-500">Bez DPH: <strong>{fmtC(totalBezDph)}</strong></span>
+              <span className="text-stone-500">DPH: <strong>{fmtC(totalDph)}</strong></span>
+              <span className="text-stone-800 font-bold">Celkem: {fmtC(totalBezDph + totalDph)}</span>
+            </div>
+          </>
+        )}
+      </div>
+
+      <div className="flex gap-3 justify-end">
+        <Btn onClick={() => navigate('/faktury')}>Zrušit</Btn>
+        <Btn variant="primary" onClick={handleSubmit} disabled={createMut.isPending}>
+          <Receipt size={14}/> Vystavit fakturu
+        </Btn>
+      </div>
     </div>
   );
 }

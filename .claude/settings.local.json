@@ -24,7 +24,10 @@
       "Bash(cat \"e:/Dropbox/Work/catering Landa&Dvořák/CRM/catering-ld-crm/catering-ld-crm/backend/package.json\")",
       "Bash(find \"/Users/op/Library/CloudStorage/Dropbox/Work/catering Landa&Dvořák/CRM/catering-ld-crm/catering-ld-crm\" -type f -name *.sql -o -name schema* -o -name *migration*)",
       "Bash(ls \"/Users/op/Library/CloudStorage/Dropbox/Work/catering Landa&Dvořák/CRM/catering-ld-crm/catering-ld-crm/backend/src/routes/\")",
-      "Bash(ls \"/Users/op/Library/CloudStorage/Dropbox/Work/catering Landa&Dvořák/CRM/catering-ld-crm/catering-ld-crm/backend/src/\")"
+      "Bash(ls \"/Users/op/Library/CloudStorage/Dropbox/Work/catering Landa&Dvořák/CRM/catering-ld-crm/catering-ld-crm/backend/src/\")",
+      "Bash(find \"/Users/op/Library/CloudStorage/Dropbox/Work/catering Landa&Dvořák/CRM/catering-ld-crm/catering-ld-crm/backend/src\" -type f -name \"*.js\")",
+      "Bash(ls -la \"/Users/op/Library/CloudStorage/Dropbox/Work/catering Landa&Dvořák/CRM/catering-ld-crm/catering-ld-crm/backend/src/routes/\")",
+      "Bash(wc -l \"/Users/op/Library/CloudStorage/Dropbox/Work/catering Landa&Dvořák/CRM/catering-ld-crm/catering-ld-crm/frontend/src/pages/_all.jsx\")"
     ]
   }
 }
