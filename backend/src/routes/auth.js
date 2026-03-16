@@ -1,11 +1,20 @@
 const router  = require('express').Router();
 const bcrypt  = require('bcryptjs');
 const jwt     = require('jsonwebtoken');
+const rateLimit = require('express-rate-limit');
 const { query } = require('../db');
 const { auth }  = require('../middleware/auth');
 
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minut
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Příliš mnoho pokusů o přihlášení, zkuste to znovu za 15 minut.' },
+});
+
 // POST /api/auth/login
-router.post('/login', async (req, res, next) => {
+router.post('/login', loginLimiter, async (req, res, next) => {
   try {
     const { email, heslo } = req.body;
     if (!email || !heslo) {

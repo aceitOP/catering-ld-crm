@@ -25,6 +25,20 @@ export default function ZakazkyPage() {
 
   const setF = (k, v) => setFilters(f => ({ ...f, [k]: v, page: 1 }));
 
+  const [sel, setSel] = useState(new Set());
+  const toggleSel = (id, e) => { e.stopPropagation(); setSel(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; }); };
+  const allChecked = rows.length > 0 && rows.every(r => sel.has(r.id));
+  const toggleAll  = () => setSel(allChecked ? new Set() : new Set(rows.map(r => r.id)));
+
+  const exportSelCsv = () => {
+    const selRows = rows.filter(r => sel.has(r.id));
+    const headers = ZAKAZKY_COLS.map(c => c.header);
+    const csvData = selRows.map(r => ZAKAZKY_COLS.map(c => String(typeof c.accessor === 'function' ? (c.accessor(r) ?? '') : (r[c.accessor] ?? ''))));
+    const csv = [headers, ...csvData].map(r => r.map(c => `"${c.replace(/"/g,'""')}"`).join(',')).join('\r\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob); const a = Object.assign(document.createElement('a'), { href: url, download: 'vybrane-zakazky.csv' }); a.click(); URL.revokeObjectURL(url);
+  };
+
   // Souhrn
   const obrat = rows.reduce((s, z) => s + parseFloat(z.cena_celkem || 0), 0);
   const potvrzene = rows.filter(z => z.stav === 'potvrzeno').length;
@@ -48,6 +62,14 @@ export default function ZakazkyPage() {
         actions={
           <div className="flex items-center gap-2">
             <ExportMenu data={rows} columns={ZAKAZKY_COLS} filename="zakazky"/>
+            <button onClick={() => navigate('/klienti')}
+              className="inline-flex items-center gap-1.5 bg-white border border-stone-200 text-stone-700 text-xs font-medium px-3 py-2 rounded-md hover:bg-stone-50 transition-colors">
+              <Plus size={13} /> Nový klient
+            </button>
+            <button onClick={() => navigate('/nabidky/nova')}
+              className="inline-flex items-center gap-1.5 bg-white border border-stone-200 text-stone-700 text-xs font-medium px-3 py-2 rounded-md hover:bg-stone-50 transition-colors">
+              <Plus size={13} /> Nová nabídka
+            </button>
             <button
               onClick={() => navigate('/zakazky/nova')}
               className="inline-flex items-center gap-1.5 bg-stone-900 text-white text-xs font-medium px-3 py-2 rounded-md hover:bg-stone-800 transition-colors"
@@ -107,6 +129,9 @@ export default function ZakazkyPage() {
             <table className="w-full">
               <thead>
                 <tr className="bg-stone-50 border-b border-stone-100">
+                  <th className="pl-4 pr-2 py-3 w-8">
+                    <input type="checkbox" checked={allChecked} onChange={toggleAll} className="rounded cursor-pointer"/>
+                  </th>
                   {['Zakázka','Klient','Typ','Stav','Datum','Cena',''].map(h => (
                     <th key={h} className="px-4 py-3 text-left text-xs font-medium text-stone-500 whitespace-nowrap">{h}</th>
                   ))}
@@ -117,8 +142,11 @@ export default function ZakazkyPage() {
                   <tr
                     key={z.id}
                     onClick={() => navigate(`/zakazky/${z.id}`)}
-                    className={`cursor-pointer hover:bg-stone-50 transition-colors ${i < rows.length-1 ? 'border-b border-stone-50' : ''}`}
+                    className={`cursor-pointer hover:bg-stone-50 transition-colors ${sel.has(z.id) ? 'bg-stone-50' : ''} ${i < rows.length-1 ? 'border-b border-stone-50' : ''}`}
                   >
+                    <td className="pl-4 pr-2 w-8" onClick={e => toggleSel(z.id, e)}>
+                      <input type="checkbox" checked={sel.has(z.id)} onChange={() => {}} className="rounded cursor-pointer"/>
+                    </td>
                     <td className="px-4 py-3">
                       <div className="text-sm font-medium text-stone-900">{z.nazev}</div>
                       <div className="text-xs text-stone-400">{z.cislo}</div>
@@ -165,6 +193,14 @@ export default function ZakazkyPage() {
           </div>
         )}
       </div>
+
+      {sel.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-stone-900 text-white rounded-xl px-5 py-3 shadow-2xl z-30">
+          <span className="text-sm font-medium">{sel.size} vybráno</span>
+          <button onClick={exportSelCsv} className="text-xs bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg transition-colors">Export CSV</button>
+          <button onClick={() => setSel(new Set())} className="text-xs text-stone-400 hover:text-white ml-1 transition-colors">✕</button>
+        </div>
+      )}
     </div>
   );
 }

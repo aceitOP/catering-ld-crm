@@ -21,6 +21,11 @@ router.get('/', auth, async (req, res, next) => {
     const { stav, typ, obchodnik_id, klient_id, od, do: doo,
             cena_od, cena_do, q, page = 1, limit = 20 } = req.query;
 
+    // Input validation
+    if (q && q.length > 200) return res.status(400).json({ error: 'Hledaný výraz je příliš dlouhý' });
+    const safeLimit = Math.min(Math.max(parseInt(limit) || 20, 1), 200);
+    const safePage  = Math.max(parseInt(page) || 1, 1);
+
     const where = [];
     const params = [];
     let p = 1;
@@ -37,7 +42,7 @@ router.get('/', auth, async (req, res, next) => {
                         params.push(`%${q}%`); p++; }
 
     const whereClause = where.length ? 'WHERE ' + where.join(' AND ') : '';
-    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const offset = (safePage - 1) * safeLimit;
 
     const sql = `
       SELECT z.*,
@@ -51,14 +56,14 @@ router.get('/', auth, async (req, res, next) => {
       ORDER BY z.datum_akce DESC NULLS LAST, z.created_at DESC
       LIMIT $${p++} OFFSET $${p++}`;
 
-    params.push(parseInt(limit), offset);
+    params.push(safeLimit, offset);
     const { rows } = await query(sql, params);
     const total = rows[0]?.total_count || 0;
 
     res.json({
       data: rows.map(r => { delete r.total_count; return r; }),
-      meta: { total: parseInt(total), page: parseInt(page), limit: parseInt(limit),
-              pages: Math.ceil(parseInt(total) / parseInt(limit)) }
+      meta: { total: parseInt(total), page: safePage, limit: safeLimit,
+              pages: Math.ceil(parseInt(total) / safeLimit) }
     });
   } catch (err) { next(err); }
 });

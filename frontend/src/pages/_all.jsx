@@ -140,7 +140,7 @@ export function KalendarPage() {
                         </span>
                       </div>
                       <div className="space-y-0.5">
-                        {evs.slice(0, 3).map(e => (
+                        {evs.map(e => (
                           <div key={e.id}
                             onClick={() => navigate(`/zakazky/${e.id}`)}
                             title={e.nazev}
@@ -153,9 +153,6 @@ export function KalendarPage() {
                             </span>
                           </div>
                         ))}
-                        {evs.length > 3 && (
-                          <div className="text-xs text-stone-400 pl-1 cursor-default">+{evs.length - 3} více</div>
-                        )}
                       </div>
                     </>
                   )}
@@ -264,6 +261,21 @@ export function PersonalPage() {
   const set  = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const setE = (k, v) => setEditForm(f => ({ ...f, [k]: v }));
 
+  const [selP, setSelP] = useState(new Set());
+  const toggleSelP = (id) => setSelP(s => { const n = new Set(s); n.has(id)?n.delete(id):n.add(id); return n; });
+  const exportSelPersCsv = () => {
+    const rows = personal.filter(r => selP.has(r.id));
+    const cols = PERSONAL_EXPORT_COLS;
+    const getCell = (r, acc) => typeof acc === 'function' ? acc(r) : (r[acc] ?? '');
+    const csv = [cols.map(c=>c.header), ...rows.map(r => cols.map(c => String(getCell(r, c.accessor))))].map(r => r.map(c=>`"${c.replace(/"/g,'""')}"`).join(',')).join('\r\n');
+    const blob = new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
+    const url = URL.createObjectURL(blob); const a = Object.assign(document.createElement('a'),{href:url,download:'vybrani-personal.csv'}); a.click(); URL.revokeObjectURL(url);
+  };
+  const bulkDeletePersonal = () => {
+    if (!window.confirm(`Smazat ${selP.size} osob?`)) return;
+    Promise.all([...selP].map(id => personalApi.delete(id))).then(() => { qc.invalidateQueries(['personal']); setSelP(new Set()); toast.success('Osoby smazány'); });
+  };
+
   const PersonForm = ({ f, onChange, prefix = '' }) => (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
@@ -283,7 +295,10 @@ export function PersonalPage() {
   );
 
   const Card = ({ p }) => (
-    <div className="bg-white rounded-lg border border-stone-200 p-4 relative group">
+    <div className={`bg-white rounded-lg border p-4 relative group transition-colors ${selP.has(p.id) ? 'border-stone-400 bg-stone-50' : 'border-stone-200'}`}>
+      {/* Checkbox */}
+      <input type="checkbox" checked={selP.has(p.id)} onChange={() => toggleSelP(p.id)}
+        className="absolute top-2.5 left-2.5 rounded cursor-pointer opacity-0 group-hover:opacity-100 checked:opacity-100 transition-opacity"/>
       {/* Action buttons – shown on hover */}
       <div className="absolute top-2.5 right-2.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
         <button onClick={() => openEdit(p)}
@@ -350,6 +365,15 @@ export function PersonalPage() {
         footer={<><Btn onClick={() => { setEditModal(false); setEditPerson(null); }}>Zrušit</Btn><Btn variant="primary" onClick={() => updateMut.mutate({ id: editPerson.id, ...editForm })} disabled={!editForm.jmeno||!editForm.prijmeni||updateMut.isPending}>{updateMut.isPending?'Ukládám…':'Uložit'}</Btn></>}>
         <PersonForm f={editForm} onChange={setE}/>
       </Modal>
+
+      {selP.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-stone-900 text-white rounded-xl px-5 py-3 shadow-2xl z-30">
+          <span className="text-sm font-medium">{selP.size} vybráno</span>
+          <button onClick={exportSelPersCsv} className="text-xs bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg transition-colors">Export CSV</button>
+          <button onClick={bulkDeletePersonal} className="text-xs bg-red-500/70 hover:bg-red-500 px-3 py-1.5 rounded-lg transition-colors">Smazat</button>
+          <button onClick={() => setSelP(new Set())} className="text-xs text-stone-400 hover:text-white ml-1 transition-colors">✕</button>
+        </div>
+      )}
     </div>
   );
 }
@@ -363,6 +387,12 @@ const KAT_LABELS = { nabidka:'Nabídka', kalkulace:'Kalkulace', smlouva:'Smlouva
 export function DokumentyPage() {
   const qc = useQueryClient();
   const [uploading, setUploading] = useState(false);
+  const [selD, setSelD] = useState(new Set());
+  const toggleSelD = (id, e) => { e.stopPropagation(); setSelD(s => { const n = new Set(s); n.has(id)?n.delete(id):n.add(id); return n; }); };
+  const bulkDeleteDocs = () => {
+    if (!window.confirm(`Smazat ${selD.size} dokumentů?`)) return;
+    Promise.all([...selD].map(id => dokumentyApi.delete(id))).then(() => { qc.invalidateQueries(['dokumenty']); setSelD(new Set()); toast.success('Dokumenty smazány'); });
+  };
 
   const { data, isLoading } = useQuery({
     queryKey: ['dokumenty'],
@@ -408,10 +438,12 @@ export function DokumentyPage() {
         <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
           <table className="w-full">
             <thead><tr className="bg-stone-50 border-b border-stone-100">
+              <th className="pl-4 pr-2 py-3 w-8"><input type="checkbox" checked={docs.length>0&&docs.every(r=>selD.has(r.id))} onChange={() => setSelD(docs.every(r=>selD.has(r.id))?new Set():new Set(docs.map(r=>r.id)))} className="rounded cursor-pointer"/></th>
               {['Název','Kategorie','Velikost','Nahráno','Akce'].map(h=><th key={h} className="px-4 py-3 text-left text-xs font-medium text-stone-500">{h}</th>)}
             </tr></thead>
             <tbody>{docs.map((d,i)=>(
-              <tr key={d.id} className={`${i<docs.length-1?'border-b border-stone-50':''} hover:bg-stone-50`}>
+              <tr key={d.id} className={`${selD.has(d.id)?'bg-stone-50':''} ${i<docs.length-1?'border-b border-stone-50':''} hover:bg-stone-50`}>
+                <td className="pl-4 pr-2 w-8" onClick={e=>toggleSelD(d.id,e)}><input type="checkbox" checked={selD.has(d.id)} onChange={()=>{}} className="rounded cursor-pointer"/></td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2.5">
                     <div className="w-8 h-8 rounded bg-stone-100 flex items-center justify-center text-xs font-bold text-stone-500 uppercase">{d.filename.split('.').pop()}</div>
@@ -432,6 +464,13 @@ export function DokumentyPage() {
           </table>
         </div>}
       </div>
+      {selD.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-stone-900 text-white rounded-xl px-5 py-3 shadow-2xl z-30">
+          <span className="text-sm font-medium">{selD.size} vybráno</span>
+          <button onClick={bulkDeleteDocs} className="text-xs bg-red-500/70 hover:bg-red-500 px-3 py-1.5 rounded-lg transition-colors">Smazat</button>
+          <button onClick={() => setSelD(new Set())} className="text-xs text-stone-400 hover:text-white ml-1 transition-colors">✕</button>
+        </div>
+      )}
     </div>
   );
 }
@@ -635,6 +674,17 @@ export function NabidkyPage() {
   const fmt = (n) => n == null ? '—' : new Intl.NumberFormat('cs-CZ',{style:'currency',currency:'CZK',maximumFractionDigits:0}).format(n);
   const fmtD = (d) => d ? new Date(d).toLocaleDateString('cs-CZ') : '—';
 
+  const [selN, setSelN] = useState(new Set());
+  const toggleSelN = (id, e) => { e.stopPropagation(); setSelN(s => { const n = new Set(s); n.has(id)?n.delete(id):n.add(id); return n; }); };
+  const allCheckedN = nabidky.length > 0 && nabidky.every(r => selN.has(r.id));
+  const exportSelNabCsv = () => {
+    const cols = [['Název','nazev'],['Verze',r=>`v${r.verze}`],['Zakázka','zakazka_cislo'],['Stav',r=>STAV_LABELS_N[r.stav]||r.stav],['Cena',r=>r.cena_celkem!=null?Number(r.cena_celkem).toFixed(0):'—']];
+    const rows = nabidky.filter(r => selN.has(r.id));
+    const csv = [cols.map(c=>Array.isArray(c)?c[0]:c[0]), ...rows.map(r => cols.map(c => String(typeof c[1]==='function'?c[1](r):(r[c[1]]??''))))].map(r=>r.map(c=>`"${c.replace(/"/g,'""')}"`).join(',')).join('\r\n');
+    const blob = new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
+    const url = URL.createObjectURL(blob); const a = Object.assign(document.createElement('a'),{href:url,download:'vybrane-nabidky.csv'}); a.click(); URL.revokeObjectURL(url);
+  };
+
   return (
     <div>
       <PageHeader title="Nabídky" subtitle={`${nabidky.length} nabídek`}
@@ -662,10 +712,12 @@ export function NabidkyPage() {
         <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
           <table className="w-full">
             <thead><tr className="bg-stone-50 border-b border-stone-100">
+              <th className="pl-4 pr-2 py-3 w-8"><input type="checkbox" checked={allCheckedN} onChange={() => setSelN(allCheckedN ? new Set() : new Set(nabidky.map(r=>r.id)))} className="rounded cursor-pointer"/></th>
               {['Nabídka','Zakázka','Klient','Stav','Platnost','Cena celkem'].map(h=><th key={h} className="px-4 py-3 text-left text-xs font-medium text-stone-500">{h}</th>)}
             </tr></thead>
             <tbody>{nabidky.map((n,i)=>(
-              <tr key={n.id} onClick={() => navigate(`/nabidky/${n.id}/edit`)} className={`cursor-pointer hover:bg-stone-50 ${i<nabidky.length-1?'border-b border-stone-50':''}`}>
+              <tr key={n.id} onClick={() => navigate(`/nabidky/${n.id}/edit`)} className={`cursor-pointer hover:bg-stone-50 ${selN.has(n.id)?'bg-stone-50':''} ${i<nabidky.length-1?'border-b border-stone-50':''}`}>
+                <td className="pl-4 pr-2 w-8" onClick={e=>toggleSelN(n.id,e)}><input type="checkbox" checked={selN.has(n.id)} onChange={()=>{}} className="rounded cursor-pointer"/></td>
                 <td className="px-4 py-3"><div className="text-sm font-medium text-stone-800">{n.nazev}</div><div className="text-xs text-stone-400">v{n.verze}</div></td>
                 <td className="px-4 py-3 text-sm text-stone-600">{n.zakazka_cislo}</td>
                 <td className="px-4 py-3 text-sm text-stone-600">{n.klient_firma || `${n.klient_jmeno||''} ${n.klient_prijmeni||''}`}</td>
@@ -677,6 +729,13 @@ export function NabidkyPage() {
           </table>
         </div>}
       </div>
+      {selN.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-stone-900 text-white rounded-xl px-5 py-3 shadow-2xl z-30">
+          <span className="text-sm font-medium">{selN.size} vybráno</span>
+          <button onClick={exportSelNabCsv} className="text-xs bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg transition-colors">Export CSV</button>
+          <button onClick={() => setSelN(new Set())} className="text-xs text-stone-400 hover:text-white ml-1 transition-colors">✕</button>
+        </div>
+      )}
     </div>
   );
 }
@@ -1289,6 +1348,33 @@ export function ReportPage() {
   const [filters, setFilters] = useState({ od: '', do: '' });
   const [applied, setApplied] = useState({ od: '', do: '' });
 
+  const applyQuick = (od, d) => { setFilters({ od, do: d }); setApplied({ od, do: d }); };
+
+  const QUICK = [
+    { l: 'Tento týden', fn: () => {
+      const n = new Date(); const dow = (n.getDay() + 6) % 7;
+      const mon = new Date(n); mon.setDate(n.getDate() - dow);
+      const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+      applyQuick(mon.toISOString().slice(0,10), sun.toISOString().slice(0,10));
+    }},
+    { l: 'Minulý měsíc', fn: () => {
+      const n = new Date();
+      const f = new Date(n.getFullYear(), n.getMonth() - 1, 1);
+      const l = new Date(n.getFullYear(), n.getMonth(), 0);
+      applyQuick(f.toISOString().slice(0,10), l.toISOString().slice(0,10));
+    }},
+    { l: 'Poslední 3 měs.', fn: () => {
+      const n = new Date();
+      const f = new Date(n.getFullYear(), n.getMonth() - 3, 1);
+      applyQuick(f.toISOString().slice(0,10), n.toISOString().slice(0,10));
+    }},
+    { l: 'Posledních 6 měs.', fn: () => {
+      const n = new Date();
+      const f = new Date(n.getFullYear(), n.getMonth() - 6, 1);
+      applyQuick(f.toISOString().slice(0,10), n.toISOString().slice(0,10));
+    }},
+  ];
+
   const { data, isLoading } = useQuery({
     queryKey: ['reporty', applied],
     queryFn: () => reportyApi.get(applied),
@@ -1318,12 +1404,21 @@ export function ReportPage() {
         actions={zakazky.length > 0 ? <ExportMenu data={zakazky} columns={ZAKAZKY_COLS} filename="report"/> : null}/>
 
       {/* Filtry */}
-      <div className="bg-stone-50 border-b border-stone-100 px-6 py-3 flex flex-wrap items-center gap-3">
+      <div className="bg-stone-50 border-b border-stone-100 px-6 py-3 flex flex-wrap items-center gap-2">
         <span className="text-xs text-stone-500 font-medium">Období:</span>
-        <input type="date" className="text-sm border border-stone-200 rounded-lg px-2 py-2 bg-white focus:outline-none"
+        <div className="flex gap-1 flex-wrap">
+          {QUICK.map(b => (
+            <button key={b.l} onClick={b.fn}
+              className="text-xs px-2.5 py-1.5 border border-stone-200 rounded-lg hover:bg-stone-100 text-stone-600 bg-white transition-colors whitespace-nowrap">
+              {b.l}
+            </button>
+          ))}
+        </div>
+        <span className="text-stone-300 text-xs hidden sm:block">|</span>
+        <input type="date" className="text-sm border border-stone-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none"
           value={filters.od} onChange={e => setFilters(f => ({ ...f, od: e.target.value }))}/>
         <span className="text-stone-400 text-xs">–</span>
-        <input type="date" className="text-sm border border-stone-200 rounded-lg px-2 py-2 bg-white focus:outline-none"
+        <input type="date" className="text-sm border border-stone-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none"
           value={filters.do} onChange={e => setFilters(f => ({ ...f, do: e.target.value }))}/>
         <Btn size="sm" variant="primary" onClick={() => setApplied({ ...filters })}>Zobrazit</Btn>
         {(applied.od || applied.do) && (

@@ -1,6 +1,17 @@
 'use strict';
 const nodemailer = require('nodemailer');
 
+// ── HTML escaping helper ───────────────────────────────────────
+function esc(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 // ── Transporter ───────────────────────────────────────────────
 function createTransporter() {
   if (!process.env.SMTP_HOST || !process.env.SMTP_USER) {
@@ -81,9 +92,9 @@ async function sendNabidka({ to, nabidka, zakazka, firma, poznamka }) {
 
   const radky = polozky.map(p => `
     <tr style="border-bottom:1px solid #f5f5f4;">
-      <td style="padding:9px 10px;font-size:14px;">${p.nazev}</td>
-      <td style="padding:9px 10px;font-size:14px;text-align:right;">${p.mnozstvi}</td>
-      <td style="padding:9px 10px;font-size:14px;color:#78716c;">${p.jednotka}</td>
+      <td style="padding:9px 10px;font-size:14px;">${esc(p.nazev)}</td>
+      <td style="padding:9px 10px;font-size:14px;text-align:right;">${esc(String(p.mnozstvi))}</td>
+      <td style="padding:9px 10px;font-size:14px;color:#78716c;">${esc(p.jednotka)}</td>
       <td style="padding:9px 10px;font-size:14px;text-align:right;">${czk(p.cena_jednotka)}</td>
       <td style="padding:9px 10px;font-size:14px;font-weight:bold;text-align:right;">${czk(p.cena_celkem)}</td>
     </tr>`).join('');
@@ -95,11 +106,11 @@ async function sendNabidka({ to, nabidka, zakazka, firma, poznamka }) {
     </tr>` : '';
 
   const body = `
-    ${nabidka.uvodni_text ? `<p style="font-size:15px;line-height:1.7;margin:0 0 24px;">${nabidka.uvodni_text.replace(/\n/g,'<br>')}</p>` : ''}
-    ${poznamka ? `<p style="font-size:15px;line-height:1.7;margin:0 0 24px;">${poznamka.replace(/\n/g,'<br>')}</p>` : ''}
+    ${nabidka.uvodni_text ? `<p style="font-size:15px;line-height:1.7;margin:0 0 24px;">${esc(nabidka.uvodni_text).replace(/\n/g,'<br>')}</p>` : ''}
+    ${poznamka ? `<p style="font-size:15px;line-height:1.7;margin:0 0 24px;">${esc(poznamka).replace(/\n/g,'<br>')}</p>` : ''}
 
-    <h2 style="font-size:16px;color:#1c1917;margin:0 0 12px;">${nabidka.nazev}</h2>
-    ${zakazka.datum_akce ? `<p style="font-size:13px;color:#78716c;margin:0 0 20px;">Datum akce: <strong>${datum(zakazka.datum_akce)}</strong>${zakazka.misto ? ' · ' + zakazka.misto : ''}${zakazka.pocet_hostu ? ' · ' + zakazka.pocet_hostu + ' hostů' : ''}</p>` : ''}
+    <h2 style="font-size:16px;color:#1c1917;margin:0 0 12px;">${esc(nabidka.nazev)}</h2>
+    ${zakazka.datum_akce ? `<p style="font-size:13px;color:#78716c;margin:0 0 20px;">Datum akce: <strong>${datum(zakazka.datum_akce)}</strong>${zakazka.misto ? ' · ' + esc(zakazka.misto) : ''}${zakazka.pocet_hostu ? ' · ' + zakazka.pocet_hostu + ' hostů' : ''}</p>` : ''}
 
     <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:20px;">
       <thead>
@@ -130,7 +141,7 @@ async function sendNabidka({ to, nabidka, zakazka, firma, poznamka }) {
     </table>
 
     ${nabidka.platnost_do ? `<p style="font-size:13px;color:#78716c;margin:0 0 20px;">⏱ Nabídka platí do: <strong>${datum(nabidka.platnost_do)}</strong></p>` : ''}
-    ${nabidka.zaverecny_text ? `<p style="font-size:15px;line-height:1.7;margin:20px 0 0;">${nabidka.zaverecny_text.replace(/\n/g,'<br>')}</p>` : ''}
+    ${nabidka.zaverecny_text ? `<p style="font-size:15px;line-height:1.7;margin:20px 0 0;">${esc(nabidka.zaverecny_text).replace(/\n/g,'<br>')}</p>` : ''}
   `;
 
   const subject = `Nabídka: ${nabidka.nazev} – ${firma?.firma_nazev || 'Catering LD'}`;
@@ -161,16 +172,16 @@ async function sendKomando({ personal, zakazka, firma, poznamka }) {
 
   const personalRadky = personal.map(p => `
     <tr style="border-bottom:1px solid #f5f5f4;">
-      <td style="padding:9px 10px;font-size:14px;font-weight:600;">${p.jmeno} ${p.prijmeni}</td>
-      <td style="padding:9px 10px;font-size:14px;color:#78716c;">${p.role_na_akci || p.role || '—'}</td>
+      <td style="padding:9px 10px;font-size:14px;font-weight:600;">${esc(p.jmeno)} ${esc(p.prijmeni)}</td>
+      <td style="padding:9px 10px;font-size:14px;color:#78716c;">${esc(p.role_na_akci || p.role || '—')}</td>
       <td style="padding:9px 10px;font-size:14px;text-align:center;">${p.cas_prichod ? p.cas_prichod.slice(0,5) : '—'}</td>
       <td style="padding:9px 10px;font-size:14px;text-align:center;">${p.cas_odchod ? p.cas_odchod.slice(0,5) : '—'}</td>
     </tr>`).join('');
 
   const buildBody = (osoba) => `
     <p style="font-size:15px;line-height:1.7;margin:0 0 24px;">
-      Dobrý den, <strong>${osoba.jmeno}</strong>,<br>
-      zasíláme Vám komando k akci <strong>${zakazka.nazev}</strong> (${zakazka.cislo}).
+      Dobrý den, <strong>${esc(osoba.jmeno)}</strong>,<br>
+      zasíláme Vám komando k akci <strong>${esc(zakazka.nazev)}</strong> (${esc(zakazka.cislo)}).
     </p>
 
     <div style="background:#f5f5f4;border-radius:8px;padding:20px;margin-bottom:24px;">
@@ -178,11 +189,11 @@ async function sendKomando({ personal, zakazka, firma, poznamka }) {
       <table cellpadding="0" cellspacing="0" style="font-size:14px;line-height:2;">
         <tr><td style="color:#78716c;padding-right:20px;">Datum:</td><td><strong>${datum(zakazka.datum_akce)}</strong></td></tr>
         <tr><td style="color:#78716c;padding-right:20px;">Čas akce:</td><td><strong>${zakazka.cas_zacatek ? zakazka.cas_zacatek.slice(0,5) : '—'} – ${zakazka.cas_konec ? zakazka.cas_konec.slice(0,5) : '—'}</strong></td></tr>
-        <tr><td style="color:#78716c;padding-right:20px;">Místo:</td><td><strong>${zakazka.misto || '—'}</strong></td></tr>
+        <tr><td style="color:#78716c;padding-right:20px;">Místo:</td><td><strong>${esc(zakazka.misto || '—')}</strong></td></tr>
         <tr><td style="color:#78716c;padding-right:20px;">Počet hostů:</td><td><strong>${zakazka.pocet_hostu || '—'}</strong></td></tr>
         <tr><td style="color:#78716c;padding-right:20px;">Váš příchod:</td><td><strong>${osoba.cas_prichod ? osoba.cas_prichod.slice(0,5) : '—'}</strong></td></tr>
         <tr><td style="color:#78716c;padding-right:20px;">Váš odchod:</td><td><strong>${osoba.cas_odchod ? osoba.cas_odchod.slice(0,5) : '—'}</strong></td></tr>
-        <tr><td style="color:#78716c;padding-right:20px;">Vaše role:</td><td><strong>${osoba.role_na_akci || osoba.role || '—'}</strong></td></tr>
+        <tr><td style="color:#78716c;padding-right:20px;">Vaše role:</td><td><strong>${esc(osoba.role_na_akci || osoba.role || '—')}</strong></td></tr>
       </table>
     </div>
 
@@ -202,10 +213,10 @@ async function sendKomando({ personal, zakazka, firma, poznamka }) {
     ${zakazka.poznamka_interni ? `
     <div style="background:#fef9c3;border:1px solid #fde047;border-radius:8px;padding:16px;margin-bottom:24px;">
       <strong style="font-size:13px;color:#713f12;">Interní poznámka:</strong>
-      <p style="margin:6px 0 0;font-size:14px;color:#1c1917;">${zakazka.poznamka_interni.replace(/\n/g,'<br>')}</p>
+      <p style="margin:6px 0 0;font-size:14px;color:#1c1917;">${esc(zakazka.poznamka_interni).replace(/\n/g,'<br>')}</p>
     </div>` : ''}
 
-    ${poznamka ? `<p style="font-size:15px;line-height:1.7;margin:0 0 24px;">${poznamka.replace(/\n/g,'<br>')}</p>` : ''}
+    ${poznamka ? `<p style="font-size:15px;line-height:1.7;margin:0 0 24px;">${esc(poznamka).replace(/\n/g,'<br>')}</p>` : ''}
 
     <p style="font-size:14px;color:#78716c;margin:0;">V případě dotazů nás neváhejte kontaktovat.</p>
   `;
@@ -237,11 +248,11 @@ async function sendDekujeme({ to, zakazka, firma, text }) {
   const nazevFirmy = firma?.firma_nazev || 'Catering LD';
 
   const defaultText = `Vážení,<br><br>
-velice si vážíme Vaší důvěry a těší nás, že jsme mohli být součástí Vaší akce <strong>${zakazka.nazev}</strong>.
+velice si vážíme Vaší důvěry a těší nás, že jsme mohli být součástí Vaší akce <strong>${esc(zakazka.nazev)}</strong>.
 Doufáme, že vše proběhlo k Vaší spokojenosti a že na tuto chvíli budete vzpomínat jen v tom nejlepším.<br><br>
 Budeme rádi, pokud nás budete mít na paměti při plánování dalších Vašich akcí. Rádi Vám opět pomůžeme.`;
 
-  const bodyText = text ? text.replace(/\n/g,'<br>') : defaultText;
+  const bodyText = text ? esc(text).replace(/\n/g,'<br>') : defaultText;
 
   const body = `
     <p style="font-size:16px;font-weight:bold;color:#1c1917;margin:0 0 20px;">Děkujeme za spolupráci!</p>
@@ -250,9 +261,9 @@ Budeme rádi, pokud nás budete mít na paměti při plánování dalších Vaš
     <div style="background:#f5f5f4;border-radius:8px;padding:20px;margin-bottom:28px;">
       <h3 style="margin:0 0 12px;font-size:14px;color:#78716c;text-transform:uppercase;letter-spacing:.05em;">Souhrn akce</h3>
       <table cellpadding="0" cellspacing="0" style="font-size:14px;line-height:2;">
-        <tr><td style="color:#78716c;padding-right:20px;">Akce:</td><td><strong>${zakazka.nazev}</strong></td></tr>
+        <tr><td style="color:#78716c;padding-right:20px;">Akce:</td><td><strong>${esc(zakazka.nazev)}</strong></td></tr>
         ${zakazka.datum_akce ? `<tr><td style="color:#78716c;padding-right:20px;">Datum:</td><td><strong>${datum(zakazka.datum_akce)}</strong></td></tr>` : ''}
-        ${zakazka.misto ? `<tr><td style="color:#78716c;padding-right:20px;">Místo:</td><td><strong>${zakazka.misto}</strong></td></tr>` : ''}
+        ${zakazka.misto ? `<tr><td style="color:#78716c;padding-right:20px;">Místo:</td><td><strong>${esc(zakazka.misto)}</strong></td></tr>` : ''}
         ${zakazka.pocet_hostu ? `<tr><td style="color:#78716c;padding-right:20px;">Hostů:</td><td><strong>${zakazka.pocet_hostu}</strong></td></tr>` : ''}
         ${zakazka.cena_celkem ? `<tr><td style="color:#78716c;padding-right:20px;">Cena akce:</td><td><strong>${czk(zakazka.cena_celkem)}</strong></td></tr>` : ''}
       </table>

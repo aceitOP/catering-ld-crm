@@ -59,6 +59,24 @@ export default function KlientiPage() {
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
+  const [sel, setSel] = useState(new Set());
+  const toggleSel = (id, e) => { e.stopPropagation(); setSel(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; }); };
+  const allChecked = klienti.length > 0 && klienti.every(k => sel.has(k.id));
+  const toggleAll  = () => setSel(allChecked ? new Set() : new Set(klienti.map(k => k.id)));
+
+  const exportSelCsv = () => {
+    const cols = [
+      { h: 'Jméno', fn: r => `${r.jmeno} ${r.prijmeni||''}`.trim() },
+      { h: 'Firma', fn: r => r.firma || '' },
+      { h: 'Typ', fn: r => ({soukromy:'Soukromý',firemni:'Firemní',vip:'VIP'})[r.typ]||r.typ },
+      { h: 'E-mail', fn: r => r.email||'' }, { h: 'Telefon', fn: r => r.telefon||'' },
+    ];
+    const selRows = klienti.filter(r => sel.has(r.id));
+    const csv = [cols.map(c=>c.h), ...selRows.map(r => cols.map(c => String(c.fn(r))))].map(r => r.map(c=>`"${c.replace(/"/g,'""')}"`).join(',')).join('\r\n');
+    const blob = new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
+    const url = URL.createObjectURL(blob); const a = Object.assign(document.createElement('a'),{href:url,download:'vybrani-klienti.csv'}); a.click(); URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="flex h-full flex-col">
       <PageHeader
@@ -88,6 +106,13 @@ export default function KlientiPage() {
       <div className="flex flex-1 overflow-hidden">
         {/* Seznam */}
         <div className={`${selected ? 'w-80 flex-shrink-0' : 'flex-1'} border-r border-stone-100 flex flex-col overflow-hidden`}>
+          {/* Select all bar */}
+          {klienti.length > 0 && (
+            <div className="px-4 py-2 bg-stone-50 border-b border-stone-100 flex items-center gap-2">
+              <input type="checkbox" checked={allChecked} onChange={toggleAll} className="rounded cursor-pointer"/>
+              <span className="text-xs text-stone-500">Vybrat vše</span>
+            </div>
+          )}
           {/* Filtry */}
           <div className="px-4 py-3 bg-stone-50 border-b border-stone-100 flex gap-2">
             <div className="relative flex-1">
@@ -111,7 +136,8 @@ export default function KlientiPage() {
             ) : klienti.map(k => (
               <div key={k.id}
                 onClick={() => setSelected(selected===k.id ? null : k.id)}
-                className={`flex items-center gap-3 px-4 py-3 cursor-pointer border-b border-stone-50 hover:bg-stone-50 transition-colors ${selected===k.id?'bg-stone-50':''}`}>
+                className={`flex items-center gap-3 px-4 py-3 cursor-pointer border-b border-stone-50 hover:bg-stone-50 transition-colors ${selected===k.id||sel.has(k.id)?'bg-stone-50':''}`}>
+                <input type="checkbox" checked={sel.has(k.id)} onChange={() => {}} onClick={e => toggleSel(k.id, e)} className="rounded cursor-pointer flex-shrink-0"/>
                 <div className="w-8 h-8 rounded-full bg-stone-200 flex items-center justify-center text-xs font-medium text-stone-600 flex-shrink-0">
                   {k.jmeno?.[0]}{(k.prijmeni||k.firma)?.[0]}
                 </div>
@@ -249,6 +275,14 @@ export default function KlientiPage() {
             <textarea className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none resize-none" rows={2} value={editForm.poznamka} onChange={e=>setE('poznamka',e.target.value)}/></div>
         </div>
       </Modal>
+
+      {sel.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-stone-900 text-white rounded-xl px-5 py-3 shadow-2xl z-30">
+          <span className="text-sm font-medium">{sel.size} vybráno</span>
+          <button onClick={exportSelCsv} className="text-xs bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg transition-colors">Export CSV</button>
+          <button onClick={() => setSel(new Set())} className="text-xs text-stone-400 hover:text-white ml-1 transition-colors">✕</button>
+        </div>
+      )}
 
       {/* Modal nový klient */}
       <Modal open={modal} onClose={() => setModal(false)} title="Nový klient"

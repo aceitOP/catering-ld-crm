@@ -7,7 +7,9 @@
       "Bash(ls -la \"/e/Dropbox/Work/catering Landa&Dvořák/CRM/catering-ld-crm/catering-ld-crm/frontend/src/components\")",
       "Bash(ls -la \"/e/Dropbox/Work/catering Landa&Dvořák/CRM/catering-ld-crm/catering-ld-crm/backend/db\")",
       "Bash(ls -la \"/e/Dropbox/Work/catering Landa&Dvořák/CRM/catering-ld-crm/catering-ld-crm/frontend\")",
-      "Bash(wc -l \"e:/Dropbox/Work/catering Landa&Dvořák/CRM/catering-ld-crm/catering-ld-crm/frontend/src/pages/_all.jsx\")"
+      "Bash(wc -l \"e:/Dropbox/Work/catering Landa&Dvořák/CRM/catering-ld-crm/catering-ld-crm/frontend/src/pages/_all.jsx\")",
+      "Bash(npm install:*)",
+      "Bash(npm audit:*)"
     ]
   }
 }
