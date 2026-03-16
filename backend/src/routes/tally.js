@@ -13,19 +13,27 @@ const { createNotif } = require('../notifHelper');
 function getField(fields, regex) {
   const f = fields.find(f => regex.test(f.label));
   if (!f) return null;
-  // Tally může vrátit array (checkboxes) nebo string
+  // CHECKBOXES – Tally vrací array UUID; mapujeme přes options na text
+  if (f.type === 'CHECKBOXES' && Array.isArray(f.value) && Array.isArray(f.options)) {
+    const selected = f.options.filter(o => f.value.includes(o.id)).map(o => o.text);
+    return selected[0] ?? null;
+  }
   if (Array.isArray(f.value)) return f.value[0] ?? null;
   return f.value ?? null;
 }
 
 // Mapování textových hodnot typ_akce → DB enum
 const TYP_MAP = {
-  'svatb':        'svatba',
-  'soukrom':      'soukroma_akce',
-  'firemn':       'firemni_akce',
-  'závoz':        'zavoz',
-  'zavoz':        'zavoz',
-  'bistro':       'bistro',
+  'svatb':      'svatba',
+  'soukrom':    'soukroma_akce',
+  'firemn':     'firemni_akce',
+  'závoz':      'zavoz',
+  'zavoz':      'zavoz',
+  'bistro':     'bistro',
+  'občerstv':   'bistro',       // "Pouze občerstvení"
+  'obcerstv':   'bistro',       // fallback bez háčků
+  'eventov':    'firemni_akce', // "Eventový prostor"
+  'mobilní bar':'bistro',       // "Mobilní bar"
 };
 
 function mapTyp(raw) {
@@ -64,17 +72,23 @@ router.post('/webhook', async (req, res, next) => {
     }
 
     // Parsování polí formuláře
-    const jmeno      = getField(fields, /jm[eé]no/i);
-    const prijmeni   = getField(fields, /p[rř][íi]jmen/i);
+    let jmeno    = getField(fields, /jm[eé]no/i);
+    let prijmeni = getField(fields, /p[rř][íi]jmen/i);
+    // Pokud oba regex trefily stejné kombinované pole "jméno a příjmení", rozděl podle mezery
+    if (jmeno && prijmeni && jmeno === prijmeni) {
+      const parts = jmeno.trim().split(/\s+/);
+      jmeno    = parts[0] || null;
+      prijmeni = parts.slice(1).join(' ') || null;
+    }
     const email      = getField(fields, /e.?mail/i);
     const telefon    = getField(fields, /telefon|phone/i);
     const firma      = getField(fields, /firma|spole[cč]nost|company/i);
     const typRaw     = getField(fields, /typ\s*(akce)?|druh\s*(akce)?|type/i);
     const datumRaw   = getField(fields, /datum|date/i);
-    const hostiRaw   = getField(fields, /host[ée]|po[cč]et\s*host|guest/i);
+    const hostiRaw   = getField(fields, /host[ée]|po[cč]et\s*(host|osob)|guest|osob|person/i);
     const misto      = getField(fields, /m[ií]sto|venue|location/i);
     const rozpocetRaw= getField(fields, /rozpo[cč]et|budget|cena/i);
-    const zprava     = getField(fields, /zpr[aá]va|vzkaz|message|pozn[aá]mka|note/i);
+    const zprava     = getField(fields, /zpr[aá]va|vzkaz|message|pozn[aá]mka|note|p[rř]edstav|po[žz]adavk/i);
 
     if (!jmeno && !email) {
       return res.status(400).json({ error: 'Formulář musí obsahovat alespoň jméno nebo e-mail' });

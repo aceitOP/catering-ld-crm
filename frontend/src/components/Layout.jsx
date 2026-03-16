@@ -41,9 +41,9 @@ function timeAgo(ts) {
 const NAV = [
   { to: '/dashboard',  label: 'Dashboard',   icon: LayoutDashboard },
   { to: '/poptavky',   label: 'Poptávky',     icon: Inbox },
+  { to: '/nabidky',    label: 'Nabídky',      icon: FileText },
   { to: '/zakazky',    label: 'Zakázky',      icon: ClipboardList },
   { to: '/klienti',    label: 'Klienti',      icon: Users },
-  { to: '/nabidky',    label: 'Nabídky',      icon: FileText },
   { to: '/kalendar',   label: 'Kalendář',     icon: Calendar },
   { to: '/personal',   label: 'Personál',     icon: UserCheck },
   { to: '/dokumenty',  label: 'Dokumenty',    icon: FolderOpen },
