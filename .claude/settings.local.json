@@ -27,7 +27,9 @@
       "Bash(ls \"/Users/op/Library/CloudStorage/Dropbox/Work/catering Landa&Dvořák/CRM/catering-ld-crm/catering-ld-crm/backend/src/\")",
       "Bash(find \"/Users/op/Library/CloudStorage/Dropbox/Work/catering Landa&Dvořák/CRM/catering-ld-crm/catering-ld-crm/backend/src\" -type f -name \"*.js\")",
       "Bash(ls -la \"/Users/op/Library/CloudStorage/Dropbox/Work/catering Landa&Dvořák/CRM/catering-ld-crm/catering-ld-crm/backend/src/routes/\")",
-      "Bash(wc -l \"/Users/op/Library/CloudStorage/Dropbox/Work/catering Landa&Dvořák/CRM/catering-ld-crm/catering-ld-crm/frontend/src/pages/_all.jsx\")"
+      "Bash(wc -l \"/Users/op/Library/CloudStorage/Dropbox/Work/catering Landa&Dvořák/CRM/catering-ld-crm/catering-ld-crm/frontend/src/pages/_all.jsx\")",
+      "Bash(wc -l \"/Users/op/Library/CloudStorage/Dropbox/Work/catering Landa&Dvořák/CRM/catering-ld-crm/catering-ld-crm/backend/src/routes/faktury.js\")",
+      "Bash(npx vite:*)"
     ]
   }
 }

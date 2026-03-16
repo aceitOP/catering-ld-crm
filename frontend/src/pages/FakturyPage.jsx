@@ -1,1 +1,1 @@
-export { FakturyPage as default } from './_all.jsx';
+export { FakturyPage as default } from './_all';

@@ -1,9 +1,18 @@
 // Changelog – Catering LD CRM
 // Typy změn: 'new' | 'improvement' | 'fix' | 'security'
 
-export const APP_VERSION = '1.9.0';
+export const APP_VERSION = '1.9.1';
 
 export const CHANGELOG = [
+  {
+    version: '1.9.1',
+    date: '2026-03-16',
+    changes: [
+      { type: 'fix', text: 'Dashboard – opraveno přetékání textu notifikací mimo box' },
+      { type: 'improvement', text: 'Personál – filtry podle typu (Interní/Externí) a role (Číšník, Kuchař, …)' },
+      { type: 'fix', text: 'Opravena chyba 404 při obnovení stránky (F5) – SPA routing' },
+    ],
+  },
   {
     version: '1.9.0',
     date: '2026-03-16',

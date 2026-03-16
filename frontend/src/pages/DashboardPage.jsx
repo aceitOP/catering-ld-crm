@@ -292,9 +292,9 @@ export default function DashboardPage() {
                   <div key={n.id}
                     onClick={() => n.odkaz && navigate(n.odkaz)}
                     className={`px-4 py-3 ${n.odkaz ? 'cursor-pointer hover:bg-stone-50' : ''} ${!n.procitana ? 'bg-blue-50/20' : ''}`}>
-                    <div className="flex items-start gap-2">
+                    <div className="flex items-start gap-2 min-w-0">
                       {!n.procitana && <span className="w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0 mt-1.5" />}
-                      <div className={!n.procitana ? '' : 'ml-3.5'}>
+                      <div className={`min-w-0 overflow-hidden ${!n.procitana ? '' : 'ml-3.5'}`}>
                         <div className="text-xs font-medium text-stone-800 line-clamp-2">{n.titulek}</div>
                         {n.zprava && <div className="text-xs text-stone-400 mt-0.5 truncate">{n.zprava}</div>}
                       </div>

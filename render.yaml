@@ -37,7 +37,7 @@ services:
     runtime: node
     rootDir: frontend
     buildCommand: npm install && npm run build
-    startCommand: npx serve dist -l 10000
+    startCommand: npx serve dist -s -l 10000
     plan: free
     envVars:
       - key: VITE_API_URL

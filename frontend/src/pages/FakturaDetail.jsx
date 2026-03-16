@@ -1,1 +1,1 @@
-export { FakturaDetail as default } from './_all.jsx';
+export { FakturaDetail as default } from './_all';

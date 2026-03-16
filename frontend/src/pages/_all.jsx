@@ -539,7 +539,7 @@ export function KalendarPage() {
 // ── PersonalPage.jsx ──────────────────────────────────────────
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { personalApi } from '../api';
-import { PageHeader, EmptyState, Btn, Modal, Spinner, ExportMenu } from '../components/ui';
+import { PageHeader, EmptyState, Btn, Modal, Spinner, ExportMenu, useSort, SortTh } from '../components/ui';
 import toast from 'react-hot-toast';
 import { Plus, UserCheck, Pencil, Trash2 as Trash2Personal } from 'lucide-react';
 
@@ -590,7 +590,12 @@ export function PersonalPage() {
     onError: () => toast.error('Chybu při mazání'),
   });
 
-  const personal = data?.data?.data || [];
+  const personalAll = data?.data?.data || [];
+  const personal = personalAll.filter(p => {
+    if (filterRole && p.role !== filterRole) return false;
+    if (filterTyp && p.typ !== filterTyp) return false;
+    return true;
+  });
   const interni  = personal.filter(p => p.typ === 'interni');
   const externi  = personal.filter(p => p.typ === 'externi');
 
@@ -608,6 +613,9 @@ export function PersonalPage() {
 
   const set  = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const setE = (k, v) => setEditForm(f => ({ ...f, [k]: v }));
+
+  const [filterRole, setFilterRole] = useState('');
+  const [filterTyp, setFilterTyp] = useState('');
 
   const [selP, setSelP] = useState(new Set());
   const toggleSelP = (id) => setSelP(s => { const n = new Set(s); n.has(id)?n.delete(id):n.add(id); return n; });
@@ -681,7 +689,7 @@ export function PersonalPage() {
 
   return (
     <div>
-      <PageHeader title="Personál" subtitle={`${personal.length} osob`}
+      <PageHeader title="Personál" subtitle={`${personal.length} osob${personalAll.length !== personal.length ? ` z ${personalAll.length}` : ''}`}
         actions={
           <div className="flex items-center gap-2">
             <ExportMenu data={personal} columns={PERSONAL_EXPORT_COLS} filename="personal"/>
@@ -689,6 +697,19 @@ export function PersonalPage() {
           </div>
         }/>
       <div className="p-6 space-y-6">
+        {/* Filtry */}
+        <div className="flex flex-wrap gap-3">
+          <select className="border border-stone-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none" value={filterTyp} onChange={e => setFilterTyp(e.target.value)}>
+            <option value="">Všechny typy</option>
+            <option value="interni">Interní</option>
+            <option value="externi">Externí</option>
+          </select>
+          <select className="border border-stone-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none" value={filterRole} onChange={e => setFilterRole(e.target.value)}>
+            <option value="">Všechny role</option>
+            {Object.entries(ROLE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          </select>
+          {(filterTyp || filterRole) && <button onClick={() => { setFilterTyp(''); setFilterRole(''); }} className="text-xs text-stone-400 hover:text-stone-600 underline">Zrušit filtry</button>}
+        </div>
         {isLoading ? <div className="flex justify-center py-10"><Spinner/></div> : <>
           {interni.length > 0 && <>
             <div className="text-xs font-semibold text-stone-500 uppercase tracking-wide">Interní personál ({interni.length})</div>
@@ -746,7 +767,10 @@ export function DokumentyPage() {
     queryKey: ['dokumenty'],
     queryFn: () => dokumentyApi.list(),
   });
-  const docs = data?.data?.data || [];
+  const docsRaw = data?.data?.data || [];
+  const sortD = useSort();
+  const SORT_ACC_D = { nazev: 'nazev', kategorie: 'kategorie', velikost: r => Number(r.velikost) || 0, nahrano: 'created_at' };
+  const docs = sortD.sortFn(docsRaw, SORT_ACC_D);
 
   const handleUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -787,7 +811,8 @@ export function DokumentyPage() {
           <table className="w-full">
             <thead><tr className="bg-stone-50 border-b border-stone-100">
               <th className="pl-4 pr-2 py-3 w-8"><input type="checkbox" checked={docs.length>0&&docs.every(r=>selD.has(r.id))} onChange={() => setSelD(docs.every(r=>selD.has(r.id))?new Set():new Set(docs.map(r=>r.id)))} className="rounded cursor-pointer"/></th>
-              {['Název','Kategorie','Velikost','Nahráno','Akce'].map(h=><th key={h} className="px-4 py-3 text-left text-xs font-medium text-stone-500">{h}</th>)}
+              {[['Název','nazev'],['Kategorie','kategorie'],['Velikost','velikost'],['Nahráno','nahrano']].map(([l,k])=><SortTh key={k} label={l} sortKey={k} active={sortD.sortKey===k} dir={sortD.sortDir} onSort={sortD.toggle}/>)}
+              <th className="px-4 py-3 text-left text-xs font-medium text-stone-500">Akce</th>
             </tr></thead>
             <tbody>{docs.map((d,i)=>(
               <tr key={d.id} className={`${selD.has(d.id)?'bg-stone-50':''} ${i<docs.length-1?'border-b border-stone-50':''} hover:bg-stone-50`}>
@@ -879,7 +904,10 @@ export function CenikPage() {
 
   const kategorie = katData?.data?.data || [];
   const items = data?.data?.data || [];
-  const grouped = items.reduce((acc, item) => { (acc[item.kategorie] = acc[item.kategorie]||[]).push(item); return acc; }, {});
+  const sortC = useSort();
+  const SORT_ACC_C = { nazev: 'nazev', jedn: 'jednotka', nakup: r => parseFloat(r.cena_nakup)||0, prodej: r => parseFloat(r.cena_prodej)||0, dph: r => parseFloat(r.dph_sazba)||0, marze: r => { const n=parseFloat(r.cena_nakup)||0,p=parseFloat(r.cena_prodej)||0; return p>0?(p-n)/p*100:0; } };
+  const sortedItems = sortC.sortFn(items, SORT_ACC_C);
+  const grouped = sortedItems.reduce((acc, item) => { (acc[item.kategorie] = acc[item.kategorie]||[]).push(item); return acc; }, {});
   const set = (k,v) => setForm(f=>({...f,[k]:v}));
   const marze = (n,p) => p>0 ? Math.round((p-n)/p*100) : 0;
   const marze_color = (m) => m >= 40 ? 'text-green-700' : m >= 25 ? 'text-amber-700' : 'text-red-600';
@@ -923,7 +951,8 @@ export function CenikPage() {
              </div>
              <table className="w-full">
                <thead><tr className="border-b border-stone-50">
-                 {['Název','Jedn.','Nákup','Prodej','DPH','Marže',''].map(h=><th key={h} className="px-4 py-2.5 text-left text-xs font-medium text-stone-400">{h}</th>)}
+                 {[['Název','nazev'],['Jedn.','jedn'],['Nákup','nakup'],['Prodej','prodej'],['DPH','dph'],['Marže','marze']].map(([l,k])=><SortTh key={k} label={l} sortKey={k} active={sortC.sortKey===k} dir={sortC.sortDir} onSort={sortC.toggle} className="py-2.5"/>)}
+                 <th className="px-4 py-2.5"></th>
                </tr></thead>
                <tbody>{polozky.map((p,i)=>(
                  <tr key={p.id} className={`${i<polozky.length-1?'border-b border-stone-50':''} hover:bg-stone-50`}>
@@ -1018,9 +1047,13 @@ export function NabidkyPage() {
     queryKey: ['nabidky'],
     queryFn: () => nabidkyApi.list({ limit: 100 }),
   });
-  const nabidky = data?.data?.data || [];
+  const nabidkyRaw = data?.data?.data || [];
   const fmt = (n) => n == null ? '—' : new Intl.NumberFormat('cs-CZ',{style:'currency',currency:'CZK',maximumFractionDigits:0}).format(n);
   const fmtD = (d) => d ? new Date(d).toLocaleDateString('cs-CZ') : '—';
+
+  const sortN = useSort();
+  const SORT_ACC_N = { nabidka: 'nazev', zakazka: 'zakazka_cislo', klient: r => r.klient_firma || `${r.klient_jmeno||''} ${r.klient_prijmeni||''}`, stav: 'stav', platnost: 'platnost_do', cena: r => parseFloat(r.cena_celkem)||0 };
+  const nabidky = sortN.sortFn(nabidkyRaw, SORT_ACC_N);
 
   const [selN, setSelN] = useState(new Set());
   const toggleSelN = (id, e) => { e.stopPropagation(); setSelN(s => { const n = new Set(s); n.has(id)?n.delete(id):n.add(id); return n; }); };
@@ -1061,7 +1094,7 @@ export function NabidkyPage() {
           <table className="w-full">
             <thead><tr className="bg-stone-50 border-b border-stone-100">
               <th className="pl-4 pr-2 py-3 w-8"><input type="checkbox" checked={allCheckedN} onChange={() => setSelN(allCheckedN ? new Set() : new Set(nabidky.map(r=>r.id)))} className="rounded cursor-pointer"/></th>
-              {['Nabídka','Zakázka','Klient','Stav','Platnost','Cena celkem'].map(h=><th key={h} className="px-4 py-3 text-left text-xs font-medium text-stone-500">{h}</th>)}
+              {[['Nabídka','nabidka'],['Zakázka','zakazka'],['Klient','klient'],['Stav','stav'],['Platnost','platnost'],['Cena celkem','cena']].map(([l,k])=><SortTh key={k} label={l} sortKey={k} active={sortN.sortKey===k} dir={sortN.sortDir} onSort={sortN.toggle}/>)}
             </tr></thead>
             <tbody>{nabidky.map((n,i)=>(
               <tr key={n.id} onClick={() => navigate(`/nabidky/${n.id}/edit`)} className={`cursor-pointer hover:bg-stone-50 ${selN.has(n.id)?'bg-stone-50':''} ${i<nabidky.length-1?'border-b border-stone-50':''}`}>
@@ -2008,7 +2041,11 @@ export function ReportPage() {
 
   const report  = data?.data;
   const souhrn  = report?.souhrn || {};
-  const zakazky = report?.zakazky || [];
+  const zakazkyRaw = report?.zakazky || [];
+
+  const sortR = useSort();
+  const SORT_ACC_R = { datum: 'datum_akce', zakazka: 'nazev', klient: r => r.klient_firma || `${r.klient_jmeno||''} ${r.klient_prijmeni||''}`, typ: 'typ', cena: r => parseFloat(r.cena_celkem)||0, naklady: r => parseFloat(r.cena_naklady)||0, zisk: r => (parseFloat(r.cena_celkem)||0)-(parseFloat(r.cena_naklady)||0) };
+  const zakazky = sortR.sortFn(zakazkyRaw, SORT_ACC_R);
 
   const fmtC = (n) => n == null ? '—' : new Intl.NumberFormat('cs-CZ',{style:'currency',currency:'CZK',maximumFractionDigits:0}).format(n);
   const fmtD = (d) => d ? new Date(d).toLocaleDateString('cs-CZ') : '—';
@@ -2103,8 +2140,8 @@ export function ReportPage() {
               <table className="w-full">
                 <thead>
                   <tr className="bg-stone-50 border-b border-stone-100">
-                    {['Datum','Zakázka','Klient','Typ','Cena','Náklady','Zisk'].map(h =>
-                      <th key={h} className="px-4 py-3 text-left text-xs font-medium text-stone-500">{h}</th>)}
+                    {[['Datum','datum'],['Zakázka','zakazka'],['Klient','klient'],['Typ','typ'],['Cena','cena'],['Náklady','naklady'],['Zisk','zisk']].map(([l,k]) =>
+                      <SortTh key={k} label={l} sortKey={k} active={sortR.sortKey===k} dir={sortR.sortDir} onSort={sortR.toggle}/>)}
                   </tr>
                 </thead>
                 <tbody>
@@ -2164,7 +2201,11 @@ export function FakturyPage() {
     queryKey: ['faktury', stavFilter, q],
     queryFn: () => fakturyApi.list({ stav: stavFilter || undefined, q: q || undefined }),
   });
-  const faktury = data?.data?.data || [];
+  const fakturyRaw = data?.data?.data || [];
+
+  const sortF = useSort();
+  const SORT_ACC_F = { cislo: 'cislo', klient: r => r.klient_firma || `${r.klient_jmeno||''} ${r.klient_prijmeni||''}`, zakazka: 'zakazka_cislo', vystavena: 'datum_vystaveni', splatnost: 'datum_splatnosti', celkem: r => parseFloat(r.cena_celkem)||0, stav: 'stav' };
+  const faktury = sortF.sortFn(fakturyRaw, SORT_ACC_F);
 
   const fmtC = (n) => n != null ? Number(n).toLocaleString('cs-CZ', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) + ' Kč' : '—';
   const fmtD = (d) => d ? new Date(d).toLocaleDateString('cs-CZ') : '—';
@@ -2231,8 +2272,8 @@ export function FakturyPage() {
           <table className="w-full">
             <thead>
               <tr className="bg-stone-50 border-b border-stone-100">
-                {['Číslo','Klient','Zakázka','Vystavena','Splatnost','Celkem','Stav'].map(h =>
-                  <th key={h} className="px-4 py-3 text-left text-xs font-medium text-stone-500">{h}</th>)}
+                {[['Číslo','cislo'],['Klient','klient'],['Zakázka','zakazka'],['Vystavena','vystavena'],['Splatnost','splatnost'],['Celkem','celkem'],['Stav','stav']].map(([l,k]) =>
+                  <SortTh key={k} label={l} sortKey={k} active={sortF.sortKey===k} dir={sortF.sortDir} onSort={sortF.toggle}/>)}
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-50">

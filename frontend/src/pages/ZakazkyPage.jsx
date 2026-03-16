@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { zakazkyApi } from '../api';
-import { PageHeader, StavBadge, TypBadge, formatCena, formatDatum, Spinner, EmptyState, ExportMenu } from '../components/ui';
-import { Plus, Search, ClipboardList, ArrowUpDown, Printer } from 'lucide-react';
+import { PageHeader, StavBadge, TypBadge, formatCena, formatDatum, Spinner, EmptyState, ExportMenu, useSort, SortTh } from '../components/ui';
+import { Plus, Search, ClipboardList, Printer } from 'lucide-react';
 import { printKomandoPdf } from '../utils/print';
 
 const STAVY  = ['nova_poptavka','rozpracovano','nabidka_pripravena','nabidka_odeslana','ceka_na_vyjadreni','potvrzeno','ve_priprave','realizovano','uzavreno','stornovano'];
@@ -20,8 +20,15 @@ export default function ZakazkyPage() {
     queryFn: () => zakazkyApi.list({ ...filters, limit: 15 }),
   });
 
-  const rows  = data?.data?.data  || [];
-  const meta  = data?.data?.meta  || {};
+  const rowsRaw = data?.data?.data  || [];
+  const meta    = data?.data?.meta  || {};
+
+  const sort = useSort();
+  const SORT_ACC = {
+    nazev: 'nazev', klient: r => r.klient_firma || `${r.klient_jmeno||''} ${r.klient_prijmeni||''}`,
+    typ: 'typ', stav: 'stav', datum: 'datum_akce', cena: r => parseFloat(r.cena_celkem) || 0,
+  };
+  const rows = sort.sortFn(rowsRaw, SORT_ACC);
 
   const setF = (k, v) => setFilters(f => ({ ...f, [k]: v, page: 1 }));
 
@@ -132,9 +139,10 @@ export default function ZakazkyPage() {
                   <th className="pl-4 pr-2 py-3 w-8">
                     <input type="checkbox" checked={allChecked} onChange={toggleAll} className="rounded cursor-pointer"/>
                   </th>
-                  {['Zakázka','Klient','Typ','Stav','Datum','Cena',''].map(h => (
-                    <th key={h} className="px-4 py-3 text-left text-xs font-medium text-stone-500 whitespace-nowrap">{h}</th>
+                  {[['Zakázka','nazev'],['Klient','klient'],['Typ','typ'],['Stav','stav'],['Datum','datum'],['Cena','cena']].map(([label,key]) => (
+                    <SortTh key={key} label={label} sortKey={key} active={sort.sortKey===key} dir={sort.sortDir} onSort={sort.toggle}/>
                   ))}
+                  <th className="px-4 py-3"></th>
                 </tr>
               </thead>
               <tbody>

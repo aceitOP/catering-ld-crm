@@ -1,7 +1,7 @@
 // ── Shared UI components ─────────────────────────────────────
 
-import { useState, useRef, useEffect } from 'react';
-import { X, Loader2, Download } from 'lucide-react';
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import { X, Loader2, Download, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 // Stavové badge – zakázky
@@ -189,6 +189,53 @@ export function formatDatum(d) {
 }
 
 export { STAV_LABELS, TYP_LABELS, TYP_STYLES, KLIENT_TYP };
+
+// ── Řazení tabulek ─────────────────────────────────────────────
+export function useSort(defaultKey = null, defaultDir = 'asc') {
+  const [sortKey, setSortKey] = useState(defaultKey);
+  const [sortDir, setSortDir] = useState(defaultDir);
+
+  const toggle = useCallback((key) => {
+    setSortKey(prev => {
+      if (prev === key) {
+        setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+        return key;
+      }
+      setSortDir('asc');
+      return key;
+    });
+  }, []);
+
+  const sortFn = useCallback((data, accessors) => {
+    if (!sortKey || !accessors[sortKey]) return data;
+    const acc = accessors[sortKey];
+    return [...data].sort((a, b) => {
+      let va = typeof acc === 'function' ? acc(a) : a[acc];
+      let vb = typeof acc === 'function' ? acc(b) : b[acc];
+      if (va == null) va = '';
+      if (vb == null) vb = '';
+      if (typeof va === 'number' && typeof vb === 'number') return sortDir === 'asc' ? va - vb : vb - va;
+      const sa = String(va).toLowerCase(), sb = String(vb).toLowerCase();
+      return sortDir === 'asc' ? sa.localeCompare(sb, 'cs') : sb.localeCompare(sa, 'cs');
+    });
+  }, [sortKey, sortDir]);
+
+  return { sortKey, sortDir, toggle, sortFn };
+}
+
+export function SortTh({ label, sortKey, active, dir, onSort, className = '' }) {
+  const icon = !active ? <ArrowUpDown size={10} className="text-stone-300" />
+    : dir === 'asc' ? <ArrowUp size={10} className="text-stone-700" />
+    : <ArrowDown size={10} className="text-stone-700" />;
+  return (
+    <th
+      className={`px-4 py-3 text-left text-xs font-medium text-stone-500 whitespace-nowrap select-none cursor-pointer hover:text-stone-800 transition-colors ${className}`}
+      onClick={() => onSort(sortKey)}
+    >
+      <span className="inline-flex items-center gap-1">{label} {icon}</span>
+    </th>
+  );
+}
 
 // ── Export menu (PDF / CSV / XLS) ─────────────────────────────
 // columns: [{ header: string, accessor: string | (row) => any }]
