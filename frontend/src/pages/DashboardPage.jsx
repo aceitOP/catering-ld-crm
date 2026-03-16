@@ -84,12 +84,22 @@ export default function DashboardPage() {
         title="Dashboard"
         subtitle={now.toLocaleDateString('cs-CZ', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
         actions={
-          <button
-            onClick={() => navigate('/zakazky/nova')}
-            className="inline-flex items-center gap-2 bg-brand-600 text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-brand-700 shadow-md shadow-brand-600/20 transition-all"
-          >
-            <Plus size={16} /> Nová zakázka
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={() => navigate('/klienti')}
+              className="inline-flex items-center gap-1.5 bg-white border border-stone-200 text-stone-600 text-xs font-semibold px-3 py-2.5 rounded-xl hover:bg-surface shadow-sm transition-all">
+              <Plus size={13} /> Nový klient
+            </button>
+            <button onClick={() => navigate('/nabidky/nova')}
+              className="inline-flex items-center gap-1.5 bg-white border border-stone-200 text-stone-600 text-xs font-semibold px-3 py-2.5 rounded-xl hover:bg-surface shadow-sm transition-all">
+              <Plus size={13} /> Nová nabídka
+            </button>
+            <button
+              onClick={() => navigate('/zakazky/nova')}
+              className="inline-flex items-center gap-2 bg-brand-600 text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-brand-700 shadow-md shadow-brand-600/20 transition-all"
+            >
+              <Plus size={16} /> Nová zakázka
+            </button>
+          </div>
         }
       />
 

@@ -1,9 +1,22 @@
 // Changelog – Catering LD CRM
 // Typy změn: 'new' | 'improvement' | 'fix' | 'security'
 
-export const APP_VERSION = '2.0.0';
+export const APP_VERSION = '2.1.0';
 
 export const CHANGELOG = [
+  {
+    version: '2.1.0',
+    date: '2026-03-17',
+    changes: [
+      { type: 'new', text: 'Víceúrovňové boční menu – Obchod, Správa, Data s rozbalovacími sekcemi' },
+      { type: 'new', text: 'Dashboard – tlačítka „Nová nabídka" a „Nový klient" vedle „Nová zakázka"' },
+      { type: 'improvement', text: 'Kalendář měsíc – dny s akcemi výrazně zvýrazněny (barevný pruh, tmavé číslo, počet akcí)' },
+      { type: 'improvement', text: 'Timeline den – překrývající se akce se zobrazují vedle sebe ve sloupcích (podpora 6+ akcí)' },
+      { type: 'improvement', text: 'Timeline týden – překrývající se Gantt bary se řadí do řádků, dynamická výška dne' },
+      { type: 'fix', text: 'Fakturace – opravena chyba při vytváření nové faktury (crash stránky)' },
+      { type: 'fix', text: 'Fakturace – vyhledávání v ceníku nyní funguje při vystavení faktury' },
+    ],
+  },
   {
     version: '2.0.0',
     date: '2026-03-16',

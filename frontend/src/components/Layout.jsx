@@ -1,11 +1,12 @@
-import { useState } from 'react';
-import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../context/AuthContext';
 import {
   LayoutDashboard, ClipboardList, Users, FileText,
   Calendar, UserCheck, FolderOpen, Tag, Settings, LogOut, BarChart2,
   Bell, X, Globe, Info, Trash2, CheckCheck, Inbox, Receipt,
+  ChevronDown,
 } from 'lucide-react';
 import { APP_VERSION, CHANGELOG } from '../data/changelog';
 import { notifikaceApi, zakazkyApi } from '../api';
@@ -37,20 +38,35 @@ function timeAgo(ts) {
   return new Date(ts).toLocaleDateString('cs-CZ', { day: 'numeric', month: 'short' });
 }
 
-// ── Nav items ────────────────────────────────────────────────
+// ── Nav items (multi-level) ────────────────────────────────────
 const NAV = [
-  { to: '/dashboard',  label: 'Dashboard',   icon: LayoutDashboard },
-  { to: '/poptavky',   label: 'Poptávky',     icon: Inbox },
-  { to: '/nabidky',    label: 'Nabídky',      icon: FileText },
-  { to: '/zakazky',    label: 'Zakázky',      icon: ClipboardList },
-  { to: '/klienti',    label: 'Klienti',      icon: Users },
-  { to: '/kalendar',   label: 'Kalendář',     icon: Calendar },
-  { to: '/personal',   label: 'Personál',     icon: UserCheck },
-  { to: '/dokumenty',  label: 'Dokumenty',    icon: FolderOpen },
-  { to: '/cenik',      label: 'Ceníky',       icon: Tag },
-  { to: '/faktury',    label: 'Fakturace',    icon: Receipt },
-  { to: '/reporty',    label: 'Reporty',      icon: BarChart2 },
-  { to: '/nastaveni',  label: 'Nastavení',    icon: Settings },
+  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  {
+    label: 'Obchod', icon: ClipboardList,
+    children: [
+      { to: '/poptavky', label: 'Poptávky',  icon: Inbox,         badge: 'poptavky' },
+      { to: '/nabidky',  label: 'Nabídky',   icon: FileText },
+      { to: '/zakazky',  label: 'Zakázky',   icon: ClipboardList },
+      { to: '/faktury',  label: 'Fakturace', icon: Receipt },
+    ],
+  },
+  {
+    label: 'Správa', icon: Users,
+    children: [
+      { to: '/klienti',  label: 'Klienti',   icon: Users },
+      { to: '/personal', label: 'Personál',  icon: UserCheck },
+      { to: '/kalendar', label: 'Kalendář',  icon: Calendar },
+    ],
+  },
+  {
+    label: 'Data', icon: BarChart2,
+    children: [
+      { to: '/dokumenty', label: 'Dokumenty', icon: FolderOpen },
+      { to: '/cenik',     label: 'Ceníky',    icon: Tag },
+      { to: '/reporty',   label: 'Reporty',   icon: BarChart2 },
+    ],
+  },
+  { to: '/nastaveni', label: 'Nastavení', icon: Settings },
 ];
 
 // ── Brand logo ───────────────────────────────────────────────
@@ -69,6 +85,32 @@ export default function Layout() {
   const qc = useQueryClient();
   const [changelogOpen, setChangelogOpen] = useState(false);
   const [notifOpen, setNotifOpen]         = useState(false);
+
+  const location = useLocation();
+  const [openSections, setOpenSections] = useState(() => {
+    // Auto-open sections that contain the current route
+    const open = new Set();
+    NAV.forEach(item => {
+      if (item.children?.some(c => location.pathname.startsWith(c.to))) {
+        open.add(item.label);
+      }
+    });
+    return open;
+  });
+  const toggleSection = (label) => setOpenSections(s => {
+    const n = new Set(s);
+    n.has(label) ? n.delete(label) : n.add(label);
+    return n;
+  });
+
+  // Auto-open section when navigating to a child route
+  useEffect(() => {
+    NAV.forEach(item => {
+      if (item.children?.some(c => location.pathname.startsWith(c.to))) {
+        setOpenSections(s => { const n = new Set(s); n.add(item.label); return n; });
+      }
+    });
+  }, [location.pathname]);
 
   const handleLogout = () => { logout(); navigate('/login'); };
 
@@ -140,27 +182,77 @@ export default function Layout() {
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto py-4 px-3">
-          {NAV.map(({ to, label, icon: Icon }) => (
-            <NavLink
-              key={to}
-              to={to}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] mb-1 transition-all duration-200 ${
-                  isActive
-                    ? 'bg-brand-600 text-white font-semibold shadow-md shadow-brand-600/25'
-                    : 'text-stone-500 hover:text-stone-800 hover:bg-surface font-medium'
-                }`
-              }
-            >
-              <Icon size={18} className="flex-shrink-0" />
-              <span className="flex-1">{label}</span>
-              {to === '/poptavky' && poptavkyCount > 0 && (
-                <span className="min-w-[20px] h-5 bg-accent text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1.5 leading-none">
-                  {poptavkyCount}
-                </span>
-              )}
-            </NavLink>
-          ))}
+          {NAV.map((item) => {
+            if (item.children) {
+              const Icon = item.icon;
+              const isOpen = openSections.has(item.label);
+              const hasActive = item.children.some(c => location.pathname.startsWith(c.to));
+              return (
+                <div key={item.label} className="mb-1">
+                  <button
+                    onClick={() => toggleSection(item.label)}
+                    className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] transition-all duration-200 ${
+                      hasActive && !isOpen
+                        ? 'text-brand-600 font-semibold bg-brand-50'
+                        : 'text-stone-500 hover:text-stone-800 hover:bg-surface font-medium'
+                    }`}
+                  >
+                    <Icon size={18} className="flex-shrink-0" />
+                    <span className="flex-1 text-left">{item.label}</span>
+                    {item.children.some(c => c.badge === 'poptavky') && poptavkyCount > 0 && !isOpen && (
+                      <span className="min-w-[20px] h-5 bg-accent text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1.5 leading-none">
+                        {poptavkyCount}
+                      </span>
+                    )}
+                    <ChevronDown size={14} className={`flex-shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+                  </button>
+                  {isOpen && (
+                    <div className="ml-4 mt-0.5 pl-3 border-l-2 border-stone-100 space-y-0.5">
+                      {item.children.map(({ to, label, icon: CIcon, badge }) => (
+                        <NavLink
+                          key={to}
+                          to={to}
+                          className={({ isActive }) =>
+                            `flex items-center gap-2.5 px-3 py-2 rounded-lg text-[12px] transition-all duration-200 ${
+                              isActive
+                                ? 'bg-brand-600 text-white font-semibold shadow-sm shadow-brand-600/25'
+                                : 'text-stone-500 hover:text-stone-800 hover:bg-surface font-medium'
+                            }`
+                          }
+                        >
+                          <CIcon size={15} className="flex-shrink-0" />
+                          <span className="flex-1">{label}</span>
+                          {badge === 'poptavky' && poptavkyCount > 0 && (
+                            <span className="min-w-[20px] h-5 bg-accent text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1.5 leading-none">
+                              {poptavkyCount}
+                            </span>
+                          )}
+                        </NavLink>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+            // Top-level item (Dashboard, Nastavení)
+            const Icon = item.icon;
+            return (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] mb-1 transition-all duration-200 ${
+                    isActive
+                      ? 'bg-brand-600 text-white font-semibold shadow-md shadow-brand-600/25'
+                      : 'text-stone-500 hover:text-stone-800 hover:bg-surface font-medium'
+                  }`
+                }
+              >
+                <Icon size={18} className="flex-shrink-0" />
+                <span className="flex-1">{item.label}</span>
+              </NavLink>
+            );
+          })}
         </nav>
 
         {/* User footer */}

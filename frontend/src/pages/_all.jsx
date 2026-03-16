@@ -116,6 +116,46 @@ export function KalendarPage() {
   const CZ_DAYS_SHORT = ['Ne', 'Po', 'Út', 'St', 'Čt', 'Pá', 'So'];
   const todayStr = now.toISOString().slice(0, 10);
 
+  // ── Overlap layout algorithm for day view ──
+  // Assigns column index + total columns for each event to avoid visual stacking
+  const computeOverlapLayout = (timedEvents) => {
+    if (!timedEvents.length) return new Map();
+    const sorted = [...timedEvents].sort((a, b) =>
+      (timeToMin(a.cas_zacatek) || 0) - (timeToMin(b.cas_zacatek) || 0)
+    );
+    // Group overlapping events into clusters
+    const clusters = [];
+    let current = [sorted[0]];
+    let clusterEnd = timeToMin(sorted[0].cas_konec) || (timeToMin(sorted[0].cas_zacatek) || 0) + 60;
+    for (let i = 1; i < sorted.length; i++) {
+      const start = timeToMin(sorted[i].cas_zacatek) || 0;
+      if (start < clusterEnd) {
+        current.push(sorted[i]);
+        clusterEnd = Math.max(clusterEnd, timeToMin(sorted[i].cas_konec) || start + 60);
+      } else {
+        clusters.push(current);
+        current = [sorted[i]];
+        clusterEnd = timeToMin(sorted[i].cas_konec) || start + 60;
+      }
+    }
+    clusters.push(current);
+    // Assign columns within each cluster
+    const layout = new Map();
+    for (const cluster of clusters) {
+      const cols = []; // each col = endTime of last placed event
+      for (const evt of cluster) {
+        const s = timeToMin(evt.cas_zacatek) || 0;
+        const e = timeToMin(evt.cas_konec) || s + 60;
+        let col = cols.findIndex(end => end <= s);
+        if (col === -1) { col = cols.length; cols.push(e); } else { cols[col] = e; }
+        layout.set(evt, { col, total: 0 });
+      }
+      const total = cols.length;
+      for (const evt of cluster) layout.get(evt).total = total;
+    }
+    return layout;
+  };
+
   // Týden: horizontal bar view – all 7 days (Mon–Sun) always visible
   const nowPct = ((now.getHours() * 60 + now.getMinutes() - TL_MIN_START) / TL_MIN_RANGE) * 100;
   const weekDays = Array.from({ length: 7 }, (_, i) => {
@@ -148,6 +188,10 @@ export function KalendarPage() {
     .map(e => ({ ...e, _google: true, cas_zacatek: gcTimeStr(e.start), cas_konec: gcTimeStr(e.end) }));
   const gcDenAllDay = gcDenEvts.filter(e => !e.cas_zacatek || !e.cas_konec || timeToMin(e.cas_zacatek) === null);
   const gcDenTimed  = gcDenEvts.filter(e => e.cas_zacatek && e.cas_konec && timeToMin(e.cas_zacatek) !== null);
+
+  // Compute overlap layouts for day view
+  const allDenTimed = [...denTimed, ...gcDenTimed];
+  const denLayout = computeOverlapLayout(allDenTimed);
 
   return (
     <div>
@@ -247,34 +291,41 @@ export function KalendarPage() {
                 const gcEvs     = ds ? gcEventsForDay(ds) : [];
                 const isToday   = d && year === now.getFullYear() && month === now.getMonth() && d === now.getDate();
                 const isWeekend = i % 7 >= 5;
+                const hasEvents = evs.length > 0 || gcEvs.length > 0;
                 return (
-                  <div key={i} className={`min-h-[120px] p-1.5 ${!d ? 'bg-stone-50/50' : isWeekend ? 'bg-stone-50/40' : 'bg-white'}`}>
+                  <div key={i} className={`min-h-[120px] p-1.5 relative transition-colors
+                    ${!d ? 'bg-stone-50/50' : isToday ? 'bg-brand-50/40' : hasEvents ? 'bg-amber-50/30' : isWeekend ? 'bg-stone-50/40' : 'bg-white'}`}>
+                    {/* Colored top bar for days with events */}
+                    {d && hasEvents && (
+                      <div className="absolute top-0 left-0 right-0 h-[3px] flex">
+                        {evs.slice(0, 6).map((e, idx) => (
+                          <div key={idx} className={`flex-1 ${TYP_DOT[e.typ] || 'bg-stone-400'}`} />
+                        ))}
+                        {gcEvs.length > 0 && <div className="flex-1 bg-blue-500" />}
+                      </div>
+                    )}
                     {d && (
                       <>
-                        <div className="mb-1 px-0.5">
-                          <span className={`text-xs font-semibold inline-flex items-center justify-center w-7 h-7 rounded-full select-none ${isToday ? 'bg-brand-900 text-white' : evs.length > 0 ? 'text-stone-800 ring-2 ring-accent-DEFAULT/25' : isWeekend ? 'text-stone-400' : 'text-stone-600'}`}>{d}</span>
-                          {(evs.length > 0 || gcEvs.length > 0) && (
-                            <div className="flex gap-0.5 mt-0.5 ml-0.5">
-                              {evs.slice(0, 3).map((e, i) => (
-                                <span key={i} className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${TYP_DOT[e.typ] || 'bg-stone-400'}`} />
-                              ))}
-                              {gcEvs.length > 0 && <span className="w-1.5 h-1.5 rounded-full flex-shrink-0 bg-blue-500" />}
-                            </div>
+                        <div className="mb-1 px-0.5 flex items-center gap-1.5">
+                          <span className={`text-xs font-bold inline-flex items-center justify-center w-7 h-7 rounded-full select-none
+                            ${isToday ? 'bg-brand-600 text-white shadow-sm shadow-brand-600/30' : hasEvents ? 'bg-stone-800 text-white' : isWeekend ? 'text-stone-400' : 'text-stone-600'}`}>{d}</span>
+                          {hasEvents && (
+                            <span className="text-[10px] font-bold text-stone-400">{evs.length + gcEvs.length}</span>
                           )}
                         </div>
                         <div className="space-y-0.5">
                           {evs.map(e => (
                             <div key={e.id} onClick={() => navigate(`/zakazky/${e.id}`)} title={e.nazev}
                               className={`flex items-center gap-1 text-xs px-1.5 py-0.5 rounded cursor-pointer hover:opacity-75 transition-opacity ${TYP_CHIP[e.typ] || 'bg-stone-100 text-stone-700 border border-stone-200'}`}>
-                              <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${TYP_DOT[e.typ] || 'bg-stone-400'}`} />
-                              <span className="truncate">{e.cas_zacatek ? e.cas_zacatek.slice(0, 5) + ' ' : ''}{e.nazev}</span>
+                              <span className={`w-2 h-2 rounded-full flex-shrink-0 ${TYP_DOT[e.typ] || 'bg-stone-400'}`} />
+                              <span className="truncate font-medium">{e.cas_zacatek ? e.cas_zacatek.slice(0, 5) + ' ' : ''}{e.nazev}</span>
                             </div>
                           ))}
                           {gcEvs.map(e => (
                             <div key={'gc-' + e.id} title={e.summary}
                               className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">
-                              <span className="w-1.5 h-1.5 rounded-full flex-shrink-0 bg-blue-500" />
-                              <span className="truncate">{gcTimeStr(e.start) ? gcTimeStr(e.start) + ' ' : ''}{e.summary}</span>
+                              <span className="w-2 h-2 rounded-full flex-shrink-0 bg-blue-500" />
+                              <span className="truncate font-medium">{gcTimeStr(e.start) ? gcTimeStr(e.start) + ' ' : ''}{e.summary}</span>
                             </div>
                           ))}
                         </div>
@@ -367,43 +418,42 @@ export function KalendarPage() {
                   </div>
                 )}
 
-                {/* Timed event blocks */}
-                {denTimed.map(e => {
-                  const sMin    = timeToMin(e.cas_zacatek);
-                  const eMin    = timeToMin(e.cas_konec);
-                  const topPx   = Math.max((sMin - TL_MIN_START) / 60 * SLOT_H, 0);
+                {/* Timed event blocks with overlap columns */}
+                {allDenTimed.map(e => {
+                  const isGc = !!e._google;
+                  const sMin = timeToMin(e.cas_zacatek);
+                  const eMin = timeToMin(e.cas_konec);
+                  const topPx = Math.max((sMin - TL_MIN_START) / 60 * SLOT_H, 0);
                   const heightPx = Math.max((eMin - sMin) / 60 * SLOT_H, 32);
+                  const info = denLayout.get(e) || { col: 0, total: 1 };
+                  const MARGIN = 10; // px margin on sides
+                  const widthPct = (1 / info.total) * 100 - 1;
+                  const chipCls = isGc ? 'bg-blue-50 text-blue-700 border-blue-200' : (TYP_CHIP[e.typ] || 'bg-stone-100 text-stone-700 border border-stone-200');
+                  const label = isGc ? e.summary : e.nazev;
+                  const location = isGc ? e.location : e.misto;
                   return (
-                    <div key={e.id} onClick={() => navigate(`/zakazky/${e.id}`)}
-                      style={{ top: `${topPx}px`, height: `${heightPx}px`, left: '10px', right: '10px' }}
-                      className={`absolute rounded-lg border cursor-pointer hover:shadow-md hover:brightness-95 transition-all px-3 py-1.5 overflow-hidden z-10
-                        ${TYP_CHIP[e.typ] || 'bg-stone-100 text-stone-700 border border-stone-200'}`}>
-                      <div className="text-xs font-semibold leading-tight truncate">{e.nazev}</div>
-                      <div className="text-xs opacity-70 mt-0.5">{e.cas_zacatek?.slice(0,5)} – {e.cas_konec?.slice(0,5)}</div>
-                      {e.misto && heightPx > 60 && <div className="text-xs opacity-60 truncate mt-0.5">{e.misto}</div>}
-                    </div>
-                  );
-                })}
-
-                {/* Google timed event blocks */}
-                {gcDenTimed.map(e => {
-                  const sMin     = timeToMin(e.cas_zacatek);
-                  const eMin     = timeToMin(e.cas_konec);
-                  const topPx    = Math.max((sMin - TL_MIN_START) / 60 * SLOT_H, 0);
-                  const heightPx = Math.max((eMin - sMin) / 60 * SLOT_H, 32);
-                  return (
-                    <div key={'gc-' + e.id}
-                      style={{ top: `${topPx}px`, height: `${heightPx}px`, left: '10px', right: '10px' }}
-                      className="absolute rounded-lg border bg-blue-50 text-blue-700 border-blue-200 px-3 py-1.5 overflow-hidden z-10">
-                      <div className="text-xs font-semibold leading-tight truncate">{e.summary}</div>
-                      <div className="text-xs opacity-70 mt-0.5">{e.cas_zacatek?.slice(0,5)} – {e.cas_konec?.slice(0,5)}</div>
-                      {e.location && heightPx > 60 && <div className="text-xs opacity-60 truncate mt-0.5">{e.location}</div>}
+                    <div key={(isGc ? 'gc-' : '') + e.id}
+                      onClick={isGc ? undefined : () => navigate(`/zakazky/${e.id}`)}
+                      style={{
+                        top: `${topPx}px`,
+                        height: `${heightPx}px`,
+                        left: `calc(${(info.col / info.total) * 100}% + ${MARGIN}px)`,
+                        width: `calc(${widthPct}% - ${MARGIN}px)`,
+                      }}
+                      className={`absolute rounded-lg border ${isGc ? '' : 'cursor-pointer'} hover:shadow-md hover:brightness-95 transition-all px-2.5 py-1.5 overflow-hidden z-10 ${chipCls}`}>
+                      <div className="text-xs font-semibold leading-tight truncate">{label}</div>
+                      <div className="text-[11px] opacity-70 mt-0.5">{e.cas_zacatek?.slice(0,5)} – {e.cas_konec?.slice(0,5)}</div>
+                      {location && heightPx > 60 && <div className="text-[11px] opacity-60 truncate mt-0.5">{location}</div>}
+                      {heightPx > 80 && !isGc && e.pocet_hostu && (
+                        <div className="text-[11px] opacity-50 mt-0.5">{e.pocet_hostu} hostů</div>
+                      )}
+                      {isGc && <div className="text-[10px] font-medium opacity-50 mt-0.5">Google</div>}
                     </div>
                   );
                 })}
 
                 {/* Empty state */}
-                {events.length === 0 && gcDenTimed.length === 0 && gcDenAllDay.length === 0 && (
+                {allDenTimed.length === 0 && denAllDay.length === 0 && gcDenAllDay.length === 0 && (
                   <div className="absolute inset-0 flex items-center justify-center">
                     <span className="text-sm text-stone-400">Žádné akce</span>
                   </div>
@@ -441,7 +491,7 @@ export function KalendarPage() {
                 const isToday   = date === todayStr;
                 const isWeekend = d.getDay() === 0 || d.getDay() === 6;
                 const dateLbl = (
-                  <div className={`text-xs font-bold leading-tight ${isToday ? 'text-blue-600' : isWeekend ? 'text-stone-400' : 'text-stone-700'}`}>
+                  <div className={`text-xs font-bold leading-tight ${isToday ? 'text-brand-600' : isWeekend ? 'text-stone-400' : 'text-stone-700'}`}>
                     {CZ_DAYS_SHORT[d.getDay()]} {d.getDate()}. {d.toLocaleString('cs-CZ', { month: 'short' })}
                   </div>
                 );
@@ -451,14 +501,34 @@ export function KalendarPage() {
                     className="absolute top-0 h-full border-l border-stone-100 pointer-events-none" />
                 ));
                 const nowLine = isToday && nowPct >= 0 && nowPct <= 100 && (
-                  <div style={{ left: `${nowPct}%` }}
+                  <div key="now" style={{ left: `${nowPct}%` }}
                     className="absolute top-0 h-full border-l-2 border-red-400/70 z-10 pointer-events-none" />
                 );
+                // Compute bar rows to handle overlap – bars on same day that overlap in time go into separate rows
+                const ROW_H = 32; // px per row
+                const ROW_GAP = 3;
+                const barRows = []; // each entry = { endPct, row }
+                const evtRows = evts.map(e => {
+                  const sMin     = timeToMin(e.cas_zacatek);
+                  const eMin     = timeToMin(e.cas_konec);
+                  const hasTimes = sMin !== null && eMin !== null && eMin > sMin;
+                  const barS     = hasTimes ? Math.max(sMin, TL_MIN_START) : TL_MIN_START;
+                  const barE     = hasTimes ? Math.min(eMin, TL_MIN_START + TL_MIN_RANGE) : TL_MIN_START + TL_MIN_RANGE;
+                  const leftPct  = ((barS - TL_MIN_START) / TL_MIN_RANGE) * 100;
+                  const widthPct = Math.max(((barE - barS) / TL_MIN_RANGE) * 100, 0.8);
+                  // Find first row where this bar doesn't overlap
+                  let row = barRows.findIndex(r => r.endPct <= leftPct + 0.3);
+                  if (row === -1) { row = barRows.length; barRows.push({ endPct: leftPct + widthPct }); }
+                  else { barRows[row].endPct = leftPct + widthPct; }
+                  return { e, hasTimes, leftPct, widthPct, row };
+                });
+                const totalRows = Math.max(barRows.length, 1);
+                const dayHeight = totalRows * (ROW_H + ROW_GAP) + ROW_GAP;
 
                 if (evts.length === 0) {
                   return (
                     <div key={date}
-                      className={`flex items-center border-b border-stone-100 last:border-b-0 min-h-[40px] ${isToday ? 'bg-blue-50/20' : isWeekend ? 'bg-stone-50/60' : ''}`}>
+                      className={`flex items-center border-b border-stone-100 last:border-b-0 min-h-[40px] ${isToday ? 'bg-brand-50/20' : isWeekend ? 'bg-stone-50/60' : ''}`}>
                       <div className="w-[152px] flex-shrink-0 border-r border-stone-100 px-4 py-2 self-stretch flex items-center">
                         {dateLbl}
                       </div>
@@ -470,61 +540,48 @@ export function KalendarPage() {
                 }
 
                 return (
-                  <div key={date} className={`border-b border-stone-100 last:border-b-0 ${isToday ? 'bg-blue-50/20' : isWeekend ? 'bg-stone-50/40' : ''}`}>
-                    {evts.map((e, ei) => {
-                      const isGc     = !!e._google;
-                      const sMin     = timeToMin(e.cas_zacatek);
-                      const eMin     = timeToMin(e.cas_konec);
-                      const hasTimes = sMin !== null && eMin !== null && eMin > sMin;
-                      const barS     = hasTimes ? Math.max(sMin, TL_MIN_START) : TL_MIN_START;
-                      const barE     = hasTimes ? Math.min(eMin, TL_MIN_START + TL_MIN_RANGE) : TL_MIN_START + TL_MIN_RANGE;
-                      const leftPct  = ((barS - TL_MIN_START) / TL_MIN_RANGE) * 100;
-                      const widthPct = Math.max(((barE - barS) / TL_MIN_RANGE) * 100, 0.8);
-                      const chipCls  = isGc ? 'bg-blue-50 text-blue-700 border border-blue-200' : (TYP_CHIP[e.typ] || 'bg-stone-100 text-stone-700 border border-stone-200');
-                      const dotCls   = isGc ? 'bg-blue-500' : (TYP_DOT[e.typ] || 'bg-stone-400');
-                      const label    = isGc ? e.summary : e.nazev;
-                      return (
-                        <div key={(isGc ? 'gc-' : '') + e.id}
-                          onClick={isGc ? undefined : () => navigate(`/zakazky/${e.id}`)}
-                          className={`flex items-center min-h-[48px] transition-colors group ${isGc ? '' : 'cursor-pointer hover:bg-white/60'}`}>
-                          <div className="w-[152px] flex-shrink-0 border-r border-stone-100 px-4 py-2 self-stretch flex items-center">
-                            {ei === 0 ? (
-                              <div>
-                                {dateLbl}
-                                <div className="flex items-center gap-1 mt-0.5">
-                                  {evts.length > 1 && <span className="text-xs text-stone-400">{evts.length}×</span>}
-                                  {!isGc && <StavBadge stav={e.stav} />}
-                                  {isGc && <span className="text-xs text-blue-500 font-medium">Google</span>}
-                                </div>
-                              </div>
+                  <div key={date}
+                    className={`flex border-b border-stone-100 last:border-b-0 ${isToday ? 'bg-brand-50/20' : isWeekend ? 'bg-stone-50/40' : ''}`}>
+                    <div className="w-[152px] flex-shrink-0 border-r border-stone-100 px-4 py-2 flex flex-col justify-center">
+                      {dateLbl}
+                      <div className="flex items-center gap-1 mt-1 flex-wrap">
+                        <span className="text-[11px] font-bold text-stone-400">{evts.length} {evts.length === 1 ? 'akce' : evts.length < 5 ? 'akce' : 'akcí'}</span>
+                      </div>
+                    </div>
+                    <div className="flex-1 relative" style={{ height: `${dayHeight}px` }}>
+                      {gridLines}{nowLine}
+                      {evtRows.map(({ e, hasTimes, leftPct, widthPct, row }) => {
+                        const isGc    = !!e._google;
+                        const chipCls = isGc ? 'bg-blue-50 text-blue-700 border border-blue-200' : (TYP_CHIP[e.typ] || 'bg-stone-100 text-stone-700 border border-stone-200');
+                        const dotCls  = isGc ? 'bg-blue-500' : (TYP_DOT[e.typ] || 'bg-stone-400');
+                        const label   = isGc ? e.summary : e.nazev;
+                        const topPx   = ROW_GAP + row * (ROW_H + ROW_GAP);
+                        return (
+                          <div key={(isGc ? 'gc-' : '') + e.id}
+                            onClick={isGc ? undefined : () => navigate(`/zakazky/${e.id}`)}
+                            style={{ left: `${leftPct}%`, width: `${widthPct}%`, top: `${topPx}px`, height: `${ROW_H}px` }}
+                            title={`${label}${hasTimes ? ` · ${e.cas_zacatek?.slice(0,5)}–${e.cas_konec?.slice(0,5)}` : ''}`}
+                            className={`absolute rounded-md flex items-center px-2 overflow-hidden transition-all z-10
+                              ${isGc ? '' : 'cursor-pointer'} hover:opacity-85 hover:shadow-md
+                              ${hasTimes ? 'shadow-sm' : 'opacity-40'}
+                              ${chipCls}`}>
+                            {hasTimes ? (
+                              <>
+                                <span className={`w-2 h-2 rounded-full flex-shrink-0 mr-1.5 ${dotCls}`} />
+                                <span className="text-xs font-semibold truncate whitespace-nowrap">
+                                  {e.cas_zacatek?.slice(0,5)}–{e.cas_konec?.slice(0,5)}&nbsp;·&nbsp;{label}
+                                </span>
+                                {!isGc && e.stav && (
+                                  <span className="ml-auto pl-2 flex-shrink-0"><StavBadge stav={e.stav} /></span>
+                                )}
+                              </>
                             ) : (
-                              <div className="ml-auto">
-                                {!isGc && <StavBadge stav={e.stav} />}
-                                {isGc && <span className="text-xs text-blue-500 font-medium">Google</span>}
-                              </div>
+                              <span className="text-xs font-medium truncate">{label}</span>
                             )}
                           </div>
-                          <div className="flex-1 relative" style={{ height: '48px' }}>
-                            {gridLines}{nowLine}
-                            <div
-                              style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
-                              title={`${label}${hasTimes ? ` · ${e.cas_zacatek?.slice(0,5)}–${e.cas_konec?.slice(0,5)}` : ''}`}
-                              className={`absolute top-1/2 -translate-y-1/2 rounded flex items-center px-2 overflow-hidden transition-all group-hover:opacity-85 group-hover:shadow-md
-                                ${hasTimes ? 'h-7 shadow-sm' : 'h-2.5 opacity-40 rounded-full'}
-                                ${chipCls}`}>
-                              {hasTimes && (
-                                <>
-                                  <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 mr-1.5 ${dotCls}`} />
-                                  <span className="text-xs font-medium truncate whitespace-nowrap">
-                                    {e.cas_zacatek?.slice(0,5)}–{e.cas_konec?.slice(0,5)}&nbsp;·&nbsp;{label}
-                                  </span>
-                                </>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
                 );
               })}
@@ -2635,7 +2692,7 @@ export function NovaFakturaPage() {
   const [klientSelected, setKlientSelected] = useState(null);
   const [klientOpen, setKlientOpen] = useState(false);
   const [polozky, setPolozky] = useState([]);
-  const [cenikFilter, setCenikFilterN] = useState('');
+  const [cenikFilterN, setCenikFilterN] = useState('');
   const [form, setForm] = useState({
     datum_splatnosti: '',
     zpusob_platby: 'převod',

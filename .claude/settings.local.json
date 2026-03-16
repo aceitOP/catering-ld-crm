@@ -35,7 +35,9 @@
       "Bash(curl -s -X POST https://catering-ld-backend.onrender.com/api/auth/login -H \"Content-Type: application/json\" -d '{\"\"email\"\":\"\"test@test.cz\"\",\"\"heslo\"\":\"\"test\"\"}')",
       "Bash(curl -s -X POST https://catering-ld-backend.onrender.com/api/auth/login -H \"Content-Type: application/json\" -d '{\"\"email\"\":\"\"l.dvorackova@catering-ld.cz\"\",\"\"heslo\"\":\"\"Demo1234!\"\"}')",
       "Bash(curl -s -X POST https://catering-ld-backend.onrender.com/api/auth/login -H \"Content-Type: application/json\" -d '{\"\"email\"\":\"\"l.dvorackova@catering-ld.cz\"\",\"\"heslo\"\":\"\"Demo1234\"\"}')",
-      "WebFetch(domain:catering-ld-frontend.onrender.com)"
+      "WebFetch(domain:catering-ld-frontend.onrender.com)",
+      "Bash(export PATH=\"/usr/local/bin:/opt/homebrew/bin:$PATH\")",
+      "Bash(echo $SHELL)"
     ]
   }
 }
