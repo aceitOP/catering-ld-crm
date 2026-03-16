@@ -122,4 +122,13 @@ export const reportyApi = {
   get: (params) => api.get('/reporty', { params }),
 };
 
+// ── Notifikace ───────────────────────────────────────────────
+export const notifikaceApi = {
+  list:       ()   => api.get('/notifikace'),
+  read:       (id) => api.patch(`/notifikace/${id}/read`),
+  readAll:    ()   => api.patch('/notifikace/read-all'),
+  delete:     (id) => api.delete(`/notifikace/${id}`),
+  deleteRead: ()   => api.delete('/notifikace'),
+};
+
 export default api;

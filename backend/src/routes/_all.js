@@ -3,6 +3,7 @@ const express = require('express');
 const { query } = require('../db');
 const { auth, requireRole } = require('../middleware/auth');
 const { sendNabidka } = require('../emailService');
+const { createNotif } = require('../notifHelper');
 
 const klientiRouter = express.Router();
 
@@ -52,6 +53,12 @@ klientiRouter.post('/', auth, async (req, res, next) => {
       `INSERT INTO klienti (jmeno,prijmeni,firma,typ,email,telefon,adresa,ico,dic,zdroj,poznamka,obchodnik_id)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
       [jmeno, prijmeni, firma, typ || 'soukromy', email, telefon, adresa, ico, dic, zdroj, poznamka, obchodnik_id || req.user.id]);
+    createNotif({
+      typ: 'nova_klient',
+      titulek: `Nový klient — ${jmeno} ${prijmeni || ''}${firma ? ` (${firma})` : ''}`.trim(),
+      zprava: email ? `E-mail: ${email}` : null,
+      odkaz: `/klienti`,
+    });
     res.status(201).json(rows[0]);
   } catch (err) { next(err); }
 });
@@ -286,6 +293,13 @@ nabidkyRouter.post('/', auth, async (req, res, next) => {
          VALUES ($1,$2,$3,$4,$5,$6,$7)`,
         [rows[0].id, pol.kategorie, pol.nazev, pol.jednotka, pol.mnozstvi, pol.cena_jednotka, i]);
     }
+
+    createNotif({
+      typ: 'nova_nabidka',
+      titulek: `Nová nabídka — ${nazev || 'bez názvu'} (v${verze})`,
+      zprava: `Celkem: ${celkem.toLocaleString('cs-CZ', { style: 'currency', currency: 'CZK' })}`,
+      odkaz: `/nabidky/${rows[0].id}`,
+    });
 
     res.status(201).json(rows[0]);
   } catch (err) { next(err); }

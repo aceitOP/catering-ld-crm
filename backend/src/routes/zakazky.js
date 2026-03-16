@@ -2,6 +2,7 @@ const router = require('express').Router();
 const { query, withTransaction } = require('../db');
 const { auth, requireRole } = require('../middleware/auth');
 const { sendKomando, sendDekujeme } = require('../emailService');
+const { createNotif } = require('../notifHelper');
 
 // Generátor čísla zakázky
 async function genCislo() {
@@ -137,6 +138,13 @@ router.post('/', auth, async (req, res, next) => {
     await query(`INSERT INTO zakazky_history (zakazka_id, stav_po, uzivatel_id, poznamka)
                  VALUES ($1, 'nova_poptavka', $2, 'Zakázka vytvořena')`,
       [rows[0].id, req.user.id]);
+
+    createNotif({
+      typ: 'nova_zakazka',
+      titulek: `Nová zakázka — ${rows[0].nazev}`,
+      zprava: `Číslo: ${rows[0].cislo}${misto ? ` · Místo: ${misto}` : ''}`,
+      odkaz: `/zakazky/${rows[0].id}`,
+    });
 
     res.status(201).json(rows[0]);
   } catch (err) { next(err); }

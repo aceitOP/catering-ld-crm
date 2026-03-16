@@ -31,8 +31,9 @@ app.use('/api/dokumenty',  require('./routes/dokumenty'));
 app.use('/api/cenik',      require('./routes/cenik'));
 app.use('/api/uzivatele',  require('./routes/uzivatele'));
 app.use('/api/nastaveni',  require('./routes/nastaveni'));
-app.use('/api/kalendar',   require('./routes/kalendar'));
-app.use('/api/reporty',   require('./routes/reporty'));
+app.use('/api/kalendar',    require('./routes/kalendar'));
+app.use('/api/reporty',    require('./routes/reporty'));
+app.use('/api/notifikace', require('./routes/notifikace'));
 
 // ── Health check ─────────────────────────────────────────────
 app.get('/api/health', (_req, res) => {
