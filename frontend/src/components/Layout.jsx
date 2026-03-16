@@ -5,10 +5,10 @@ import { useAuth } from '../context/AuthContext';
 import {
   LayoutDashboard, ClipboardList, Users, FileText,
   Calendar, UserCheck, FolderOpen, Tag, Settings, LogOut, BarChart2,
-  Bell, X, Globe, Info, Trash2, CheckCheck,
+  Bell, X, Globe, Info, Trash2, CheckCheck, Inbox,
 } from 'lucide-react';
 import { APP_VERSION, CHANGELOG } from '../data/changelog';
-import { notifikaceApi } from '../api';
+import { notifikaceApi, zakazkyApi } from '../api';
 
 // ── Changelog type badges ────────────────────────────────────
 const TYPE_STYLE = {
@@ -40,6 +40,7 @@ function timeAgo(ts) {
 // ── Nav items ────────────────────────────────────────────────
 const NAV = [
   { to: '/dashboard',  label: 'Dashboard',   icon: LayoutDashboard },
+  { to: '/poptavky',   label: 'Poptávky',     icon: Inbox },
   { to: '/zakazky',    label: 'Zakázky',      icon: ClipboardList },
   { to: '/klienti',    label: 'Klienti',      icon: Users },
   { to: '/nabidky',    label: 'Nabídky',      icon: FileText },
@@ -69,6 +70,15 @@ export default function Layout() {
   const [notifOpen, setNotifOpen]         = useState(false);
 
   const handleLogout = () => { logout(); navigate('/login'); };
+
+  // Poptávky count – poll every 60 s
+  const { data: poptavkyData } = useQuery({
+    queryKey: ['poptavky'],
+    queryFn:  () => zakazkyApi.list({ stav: 'nova_poptavka', limit: 1 }),
+    refetchInterval: 60_000,
+    select: (res) => res.data?.meta?.total ?? 0,
+  });
+  const poptavkyCount = poptavkyData ?? 0;
 
   // Notifications – poll every 30 s
   const { data: notifData } = useQuery({
@@ -137,7 +147,12 @@ export default function Layout() {
               }
             >
               <Icon size={15} className="flex-shrink-0" />
-              {label}
+              <span className="flex-1">{label}</span>
+              {to === '/poptavky' && poptavkyCount > 0 && (
+                <span className="min-w-[18px] h-[18px] bg-orange-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1 leading-none">
+                  {poptavkyCount}
+                </span>
+              )}
             </NavLink>
           ))}
         </nav>

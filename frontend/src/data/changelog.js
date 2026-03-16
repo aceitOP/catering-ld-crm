@@ -8,6 +8,8 @@ export const CHANGELOG = [
     version: '1.7.0',
     date: '2026-03-16',
     changes: [
+      { type: 'new',         text: 'Modul Poptávky – seznam nových poptávek s akcemi Přijmout / Stornovat / Detail' },
+      { type: 'new',         text: 'Sidebar – oranžový počítadlo badge na Poptávky při nových záznamech' },
       { type: 'new',         text: 'Tally.so integrace – poptávky z webového formuláře se automaticky ukládají jako zakázka (stav: Nová poptávka)' },
       { type: 'new',         text: 'Nastavení – záložka „Integrace" s návodem a webhookem URL pro Tally.so' },
     ],

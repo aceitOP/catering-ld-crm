@@ -44,12 +44,16 @@ app.get('/api/health', (_req, res) => {
 
 // ── Frontend SPA (production) ─────────────────────────────────
 const frontendDist = path.join(__dirname, '../../frontend/dist');
-if (fs.existsSync(frontendDist)) {
-  app.use(express.static(frontendDist));
-  app.get(/^(?!\/api).*/, (_req, res) => {
-    res.sendFile(path.join(frontendDist, 'index.html'));
-  });
-}
+const indexHtml    = path.join(frontendDist, 'index.html');
+app.use(express.static(frontendDist));
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api/')) return next();
+  if (fs.existsSync(indexHtml)) {
+    res.sendFile(indexHtml);
+  } else {
+    next();
+  }
+});
 
 // ── 404 ──────────────────────────────────────────────────────
 app.use((_req, res) => {
