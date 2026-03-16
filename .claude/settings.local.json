@@ -29,7 +29,13 @@
       "Bash(ls -la \"/Users/op/Library/CloudStorage/Dropbox/Work/catering Landa&Dvořák/CRM/catering-ld-crm/catering-ld-crm/backend/src/routes/\")",
       "Bash(wc -l \"/Users/op/Library/CloudStorage/Dropbox/Work/catering Landa&Dvořák/CRM/catering-ld-crm/catering-ld-crm/frontend/src/pages/_all.jsx\")",
       "Bash(wc -l \"/Users/op/Library/CloudStorage/Dropbox/Work/catering Landa&Dvořák/CRM/catering-ld-crm/catering-ld-crm/backend/src/routes/faktury.js\")",
-      "Bash(npx vite:*)"
+      "Bash(npx vite:*)",
+      "Bash(node -e \"require\\(''./src/routes/google''\\)\")",
+      "WebFetch(domain:catering-ld-backend.onrender.com)",
+      "Bash(curl -s -X POST https://catering-ld-backend.onrender.com/api/auth/login -H \"Content-Type: application/json\" -d '{\"\"email\"\":\"\"test@test.cz\"\",\"\"heslo\"\":\"\"test\"\"}')",
+      "Bash(curl -s -X POST https://catering-ld-backend.onrender.com/api/auth/login -H \"Content-Type: application/json\" -d '{\"\"email\"\":\"\"l.dvorackova@catering-ld.cz\"\",\"\"heslo\"\":\"\"Demo1234!\"\"}')",
+      "Bash(curl -s -X POST https://catering-ld-backend.onrender.com/api/auth/login -H \"Content-Type: application/json\" -d '{\"\"email\"\":\"\"l.dvorackova@catering-ld.cz\"\",\"\"heslo\"\":\"\"Demo1234\"\"}')",
+      "WebFetch(domain:catering-ld-frontend.onrender.com)"
     ]
   }
 }

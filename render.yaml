@@ -41,4 +41,4 @@ services:
     plan: free
     envVars:
       - key: VITE_API_URL
-        value: https://catering-ld-backend.onrender.com
+        value: https://catering-ld-backend.onrender.com/api
