@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { klientiApi } from '../api';
 import { PageHeader, KlientTypBadge, StavBadge, formatCena, formatDatum, Spinner, EmptyState, Btn, Modal, ExportMenu } from '../components/ui';
 import toast from 'react-hot-toast';
-import { Plus, Search, Users, X } from 'lucide-react';
+import { Plus, Pencil, Search, Users, X } from 'lucide-react';
 
 const TYPY = [{v:'soukromy',l:'Soukromý'},{v:'firemni',l:'Firemní'},{v:'vip',l:'VIP'}];
 
@@ -16,8 +16,10 @@ export default function KlientiPage() {
   const [q, setQ] = useState('');
   const [typ, setTyp] = useState('');
   const [selected, setSelected] = useState(null);
-  const [modal, setModal]   = useState(false);
-  const [form, setForm]     = useState(emptyForm);
+  const [modal, setModal]       = useState(false);
+  const [form, setForm]         = useState(emptyForm);
+  const [editModal, setEditModal] = useState(false);
+  const [editForm, setEditForm]   = useState(emptyForm);
 
   const { data, isLoading } = useQuery({
     queryKey: ['klienti', q, typ],
@@ -34,6 +36,23 @@ export default function KlientiPage() {
     onSuccess: () => { qc.invalidateQueries(['klienti']); toast.success('Klient přidán'); setModal(false); setForm(emptyForm); },
     onError: () => toast.error('Chyba při ukládání'),
   });
+
+  const updateMut = useMutation({
+    mutationFn: ({ id, data }) => klientiApi.update(id, data),
+    onSuccess: () => { qc.invalidateQueries(['klienti']); qc.invalidateQueries(['klient', selected]); toast.success('Klient uložen'); setEditModal(false); },
+    onError: () => toast.error('Chyba při ukládání'),
+  });
+
+  const openEdit = () => {
+    if (!detail) return;
+    setEditForm({ jmeno: detail.jmeno||'', prijmeni: detail.prijmeni||'', firma: detail.firma||'',
+      typ: detail.typ||'soukromy', email: detail.email||'', telefon: detail.telefon||'',
+      adresa: detail.adresa||'', ico: detail.ico||'', dic: detail.dic||'',
+      zdroj: detail.zdroj||'', poznamka: detail.poznamka||'' });
+    setEditModal(true);
+  };
+
+  const setE = (k, v) => setEditForm(f => ({ ...f, [k]: v }));
 
   const klienti = data?.data?.data || [];
   const detail  = detailData?.data;
@@ -123,8 +142,9 @@ export default function KlientiPage() {
                 </div>
                 {detail.firma && <div className="text-xs text-stone-500 mt-0.5">{detail.jmeno} {detail.prijmeni}</div>}
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 items-center">
                 <Btn size="sm" onClick={() => navigate('/zakazky/nova')}>+ Zakázka</Btn>
+                <button onClick={openEdit} className="text-stone-400 hover:text-stone-700 p-1" title="Upravit klienta"><Pencil size={14}/></button>
                 <button onClick={() => setSelected(null)} className="text-stone-400 hover:text-stone-700 p-1"><X size={14}/></button>
               </div>
             </div>
@@ -186,6 +206,49 @@ export default function KlientiPage() {
           </div>
         )}
       </div>
+
+      {/* Modal edit klienta */}
+      <Modal open={editModal} onClose={() => setEditModal(false)} title="Upravit klienta"
+        footer={<>
+          <Btn onClick={() => setEditModal(false)}>Zrušit</Btn>
+          <Btn variant="primary" onClick={() => updateMut.mutate({ id: selected, data: editForm })} disabled={!editForm.jmeno || updateMut.isPending}>
+            {updateMut.isPending ? 'Ukládám…' : 'Uložit'}
+          </Btn>
+        </>}>
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div><label className="text-xs text-stone-500 block mb-1">Jméno *</label>
+              <input className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" value={editForm.jmeno} onChange={e=>setE('jmeno',e.target.value)}/></div>
+            <div><label className="text-xs text-stone-500 block mb-1">Příjmení</label>
+              <input className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" value={editForm.prijmeni} onChange={e=>setE('prijmeni',e.target.value)}/></div>
+          </div>
+          <div><label className="text-xs text-stone-500 block mb-1">Typ</label>
+            <select className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" value={editForm.typ} onChange={e=>setE('typ',e.target.value)}>
+              {TYPY.map(t=><option key={t.v} value={t.v}>{t.l}</option>)}
+            </select>
+          </div>
+          {editForm.typ === 'firemni' && <>
+            <div><label className="text-xs text-stone-500 block mb-1">Název firmy</label>
+              <input className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" value={editForm.firma} onChange={e=>setE('firma',e.target.value)}/></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><label className="text-xs text-stone-500 block mb-1">IČO</label>
+                <input className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" value={editForm.ico} onChange={e=>setE('ico',e.target.value)}/></div>
+              <div><label className="text-xs text-stone-500 block mb-1">DIČ</label>
+                <input className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" value={editForm.dic} onChange={e=>setE('dic',e.target.value)}/></div>
+            </div>
+          </>}
+          <div className="grid grid-cols-2 gap-3">
+            <div><label className="text-xs text-stone-500 block mb-1">E-mail</label>
+              <input type="email" className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" value={editForm.email} onChange={e=>setE('email',e.target.value)}/></div>
+            <div><label className="text-xs text-stone-500 block mb-1">Telefon</label>
+              <input className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" value={editForm.telefon} onChange={e=>setE('telefon',e.target.value)}/></div>
+          </div>
+          <div><label className="text-xs text-stone-500 block mb-1">Adresa</label>
+            <input className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" value={editForm.adresa} onChange={e=>setE('adresa',e.target.value)}/></div>
+          <div><label className="text-xs text-stone-500 block mb-1">Interní poznámka</label>
+            <textarea className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none resize-none" rows={2} value={editForm.poznamka} onChange={e=>setE('poznamka',e.target.value)}/></div>
+        </div>
+      </Modal>
 
       {/* Modal nový klient */}
       <Modal open={modal} onClose={() => setModal(false)} title="Nový klient"

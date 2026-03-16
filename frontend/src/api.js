@@ -39,8 +39,9 @@ export const zakazkyApi = {
   update:    (id, d)  => api.patch(`/zakazky/${id}`, d),
   setStav:   (id, d)  => api.patch(`/zakazky/${id}/stav`, d),
   delete:    (id)     => api.delete(`/zakazky/${id}`),
-  komando:   (id, d)  => api.post(`/zakazky/${id}/komando`, d),
-  dekujeme:  (id, d)  => api.post(`/zakazky/${id}/dekujeme`, d),
+  komando:        (id, d)   => api.post(`/zakazky/${id}/komando`, d),
+  dekujeme:       (id, d)   => api.post(`/zakazky/${id}/dekujeme`, d),
+  removePersonal: (id, pid) => api.delete(`/zakazky/${id}/personal/${pid}`),
 };
 
 // ── Klienti ──────────────────────────────────────────────────

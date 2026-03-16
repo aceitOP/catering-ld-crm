@@ -244,6 +244,15 @@ router.post('/:id/dekujeme', auth, async (req, res, next) => {
   }
 });
 
+// DELETE /api/zakazky/:id/personal/:pid – odebrat personál ze zakázky
+router.delete('/:id/personal/:pid', auth, async (req, res, next) => {
+  try {
+    await query('DELETE FROM zakazky_personal WHERE zakazka_id = $1 AND personal_id = $2',
+      [req.params.id, req.params.pid]);
+    res.json({ message: 'Personál odebrán' });
+  } catch (err) { next(err); }
+});
+
 // DELETE /api/zakazky/:id (pouze admin)
 router.delete('/:id', auth, requireRole('admin'), async (req, res, next) => {
   try {

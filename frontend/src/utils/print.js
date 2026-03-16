@@ -191,6 +191,16 @@ export function printKomandoPdf(z) {
       .accent-bar { width:40px; height:4px; background:${ACCENT}; border-radius:2px; margin-bottom:14px; }
       .notes { background:#fffbeb; border:1px solid #fcd34d; border-radius:6px; padding:12px 16px; margin-top:18px; font-size:11px; line-height:1.6; color:#444; }
       .footer { margin-top:24px; padding-top:12px; border-top:1px solid #ddd; display:flex; justify-content:space-between; font-size:9px; color:#999; }
+      /* Komando – větší text */
+      body { font-size:14px; }
+      td { padding:10px 14px; font-size:13px; }
+      th { padding:9px 14px; font-size:12px; }
+      h2 { font-size:18px; }
+      .label { font-size:11px; }
+      .value { font-size:16px; }
+      .value-sm { font-size:14px; }
+      .notes { font-size:13px; }
+      .header-sub { font-size:14px; }
     </style>
   </head><body>
 
