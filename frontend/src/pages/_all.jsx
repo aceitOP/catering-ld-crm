@@ -16,21 +16,51 @@ export function KalendarPage() {
   const [view, setView]             = useState('mesic');
   const [collapsed, setCollapsed]   = useState(new Set());
 
-  const getMondayISO = (d = new Date()) => {
-    const tmp = new Date(d); const dow = tmp.getDay();
-    tmp.setDate(tmp.getDate() + (dow === 0 ? -6 : 1 - dow));
-    return tmp.toISOString().slice(0, 10);
-  };
-  const [tlStartISO, setTlStartISO] = useState(() => getMondayISO());
-  const WEEKS_SHOWN = 12;
+  const [tlStartISO, setTlStartISO] = useState(() => now.toISOString().slice(0, 10));
+  const [tlView, setTlView]         = useState('tyden'); // 'den' | 'tyden' | 'mesic' | 'rok'
 
-  const tlEnd = new Date(tlStartISO + 'T00:00:00');
-  tlEnd.setDate(tlEnd.getDate() + WEEKS_SHOWN * 7 - 1);
+  const getTlAlignedStart = (iso, tv) => {
+    const d = new Date(iso + 'T00:00:00');
+    if (tv === 'den')   return iso;
+    if (tv === 'tyden') { const dow = d.getDay(); d.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1)); return d.toISOString().slice(0, 10); }
+    if (tv === 'mesic') return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+    if (tv === 'rok')   return `${d.getFullYear()}-01-01`;
+    return iso;
+  };
+  const tlWinStart = getTlAlignedStart(tlStartISO, tlView);
+  const getTlWinEnd = (startISO, tv) => {
+    const d = new Date(startISO + 'T00:00:00');
+    if (tv === 'den')   return startISO;
+    if (tv === 'tyden') { d.setDate(d.getDate() + 6); return d.toISOString().slice(0, 10); }
+    if (tv === 'mesic') return new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().slice(0, 10);
+    if (tv === 'rok')   return `${d.getFullYear()}-12-31`;
+    return startISO;
+  };
+  const tlWinEnd = getTlWinEnd(tlWinStart, tlView);
+
+  const navigateTl = (dir) => {
+    const d = new Date(tlWinStart + 'T00:00:00');
+    if (tlView === 'den')        d.setDate(d.getDate() + dir);
+    else if (tlView === 'tyden') d.setDate(d.getDate() + dir * 7);
+    else if (tlView === 'mesic') d.setMonth(d.getMonth() + dir);
+    else if (tlView === 'rok')   d.setFullYear(d.getFullYear() + dir);
+    setTlStartISO(d.toISOString().slice(0, 10));
+  };
+  const getTlLabel = () => {
+    const s = new Date(tlWinStart + 'T00:00:00');
+    const e = new Date(tlWinEnd + 'T00:00:00');
+    if (tlView === 'den')   return s.toLocaleDateString('cs-CZ', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    if (tlView === 'tyden') return `${s.getDate()}. – ${e.getDate()}. ${s.toLocaleString('cs-CZ', { month: 'long' })} ${s.getFullYear()}`;
+    if (tlView === 'mesic') return s.toLocaleDateString('cs-CZ', { month: 'long', year: 'numeric' });
+    if (tlView === 'rok')   return String(s.getFullYear());
+    return '';
+  };
+
   const od  = view === 'timeline'
-    ? tlStartISO
+    ? tlWinStart
     : new Date(year, month, 1).toISOString().slice(0, 10);
   const doo = view === 'timeline'
-    ? tlEnd.toISOString().slice(0, 10)
+    ? tlWinEnd
     : new Date(year, month + 1, 0).toISOString().slice(0, 10);
 
   const { data } = useQuery({
@@ -72,41 +102,6 @@ export function KalendarPage() {
     svatba: 'bg-blue-500', soukroma_akce: 'bg-orange-500',
     firemni_akce: 'bg-emerald-500', zavoz: 'bg-violet-500', bistro: 'bg-amber-500',
   };
-
-  // ── Timeline helpers ──
-  const getISOWeek = (d) => {
-    const tmp = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-    tmp.setUTCDate(tmp.getUTCDate() + 4 - (tmp.getUTCDay() || 7));
-    const y1 = new Date(Date.UTC(tmp.getUTCFullYear(), 0, 1));
-    return Math.ceil(((tmp - y1) / 86400000 + 1) / 7);
-  };
-  const tlWeeks = Array.from({ length: WEEKS_SHOWN }, (_, i) => {
-    const mon = new Date(tlStartISO + 'T00:00:00');
-    mon.setDate(mon.getDate() + i * 7);
-    const sun = new Date(mon); sun.setDate(sun.getDate() + 6);
-    return { mon, sun, wn: getISOWeek(mon) };
-  });
-  const monthSpans = [];
-  tlWeeks.forEach(w => {
-    const lbl = w.mon.toLocaleString('cs-CZ', { month: 'long', year: 'numeric' });
-    if (!monthSpans.length || monthSpans[monthSpans.length - 1].lbl !== lbl)
-      monthSpans.push({ lbl, count: 1 });
-    else monthSpans[monthSpans.length - 1].count++;
-  });
-  const getEventWeekIdx = (dateStr) => {
-    const d = new Date(dateStr + 'T00:00:00');
-    return tlWeeks.findIndex(w => d >= w.mon && d <= w.sun);
-  };
-  const todayWeekIdx = getEventWeekIdx(now.toISOString().slice(0, 10));
-  const STAV_ORDER = ['potvrzeno','nabidka_odeslana','ceka_na_vyjadreni','nabidka_pripravena','probehlo','storno'];
-  const STAV_LABEL = {
-    potvrzeno: 'Potvrzeno', nabidka_odeslana: 'Nabídka odeslána',
-    ceka_na_vyjadreni: 'Čeká na vyjádření', nabidka_pripravena: 'Nabídka – připravena',
-    probehlo: 'Proběhlo', storno: 'Storno',
-  };
-  const tlGroups = STAV_ORDER
-    .map(s => ({ stav: s, label: STAV_LABEL[s], items: events.filter(e => e.stav === s) }))
-    .filter(g => g.items.length > 0);
 
   // ── Day-based timeline ──────────────────────────────────────
   const timeToMin = (t) => { if (!t) return null; const p = t.split(':'); return parseInt(p[0]) * 60 + parseInt(p[1]); };
@@ -172,13 +167,19 @@ export function KalendarPage() {
             </div>
           )}
 
-          {/* Timeline date range label */}
-          {view === 'timeline' && tlWeeks.length > 0 && (
-            <span className="text-sm font-semibold text-stone-700">
-              {tlWeeks[0].mon.toLocaleDateString('cs-CZ', { month: 'short', year: 'numeric' })}
-              {' – '}
-              {tlWeeks[WEEKS_SHOWN - 1].sun.toLocaleDateString('cs-CZ', { month: 'short', year: 'numeric' })}
-            </span>
+          {/* Timeline sub-view toggle + period label */}
+          {view === 'timeline' && (
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-0.5 bg-stone-100 rounded-lg p-0.5">
+                {[['den','Den'],['tyden','Týden'],['mesic','Měsíc'],['rok','Rok']].map(([v, lbl]) => (
+                  <button key={v} onClick={() => setTlView(v)}
+                    className={`px-2.5 py-1.5 text-xs rounded-md font-medium transition-colors ${tlView === v ? 'bg-white shadow-sm text-stone-800' : 'text-stone-500 hover:text-stone-700'}`}>
+                    {lbl}
+                  </button>
+                ))}
+              </div>
+              <span className="text-sm font-semibold text-stone-700">{getTlLabel()}</span>
+            </div>
           )}
         </div>
 
@@ -192,9 +193,9 @@ export function KalendarPage() {
             </>
           ) : (
             <>
-              <button onClick={() => { const d = new Date(tlStartISO + 'T00:00:00'); d.setDate(d.getDate() - 28); setTlStartISO(d.toISOString().slice(0, 10)); }} className="p-2 hover:bg-stone-100 rounded-lg text-stone-600 text-sm transition-colors">←</button>
-              <button onClick={() => setTlStartISO(getMondayISO())} className="px-3 py-1.5 text-xs border border-stone-200 rounded-lg hover:bg-stone-50 transition-colors">Dnes</button>
-              <button onClick={() => { const d = new Date(tlStartISO + 'T00:00:00'); d.setDate(d.getDate() + 28); setTlStartISO(d.toISOString().slice(0, 10)); }} className="p-2 hover:bg-stone-100 rounded-lg text-stone-600 text-sm transition-colors">→</button>
+              <button onClick={() => navigateTl(-1)} className="p-2 hover:bg-stone-100 rounded-lg text-stone-600 text-sm transition-colors">←</button>
+              <button onClick={() => setTlStartISO(now.toISOString().slice(0, 10))} className="px-3 py-1.5 text-xs border border-stone-200 rounded-lg hover:bg-stone-50 transition-colors">Dnes</button>
+              <button onClick={() => navigateTl(1)} className="p-2 hover:bg-stone-100 rounded-lg text-stone-600 text-sm transition-colors">→</button>
             </>
           )}
         </div>
@@ -268,8 +269,8 @@ export function KalendarPage() {
         </div>
       )}
 
-      {/* ── TIMELINE VIEW ── */}
-      {view === 'timeline' && (
+      {/* ── TIMELINE VIEW (Den / Týden / Měsíc) ── */}
+      {view === 'timeline' && tlView !== 'rok' && (
         <div className="p-6">
           <div className="bg-white rounded-xl border border-stone-200 overflow-hidden overflow-x-auto">
             <div style={{ minWidth: '640px' }}>
@@ -375,6 +376,54 @@ export function KalendarPage() {
               })}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ── YEAR VIEW ── */}
+      {view === 'timeline' && tlView === 'rok' && (
+        <div className="p-6">
+          {events.length === 0 ? (
+            <div className="py-16 text-center text-sm text-stone-400">Žádné akce v roce {new Date(tlWinStart + 'T00:00:00').getFullYear()}</div>
+          ) : (
+            <div className="space-y-6">
+              {Array.from({ length: 12 }, (_, mi) => {
+                const yearNum = new Date(tlWinStart + 'T00:00:00').getFullYear();
+                const monthEvents = events.filter(e => {
+                  const d = new Date(e.datum_akce + 'T00:00:00');
+                  return d.getFullYear() === yearNum && d.getMonth() === mi;
+                });
+                if (!monthEvents.length) return null;
+                return (
+                  <div key={mi}>
+                    <h3 className="text-xs font-semibold text-stone-400 uppercase tracking-wider mb-2 px-1">{MONTHS[mi]}</h3>
+                    <div className="space-y-1.5">
+                      {[...monthEvents].sort((a, b) => a.datum_akce.localeCompare(b.datum_akce)).map(e => {
+                        const d = new Date(e.datum_akce + 'T00:00:00');
+                        const isToday = e.datum_akce === todayStr;
+                        return (
+                          <div key={e.id} onClick={() => navigate(`/zakazky/${e.id}`)}
+                            className={`flex items-center gap-3 bg-white rounded-lg border px-4 py-3 cursor-pointer hover:bg-stone-50 transition-colors ${isToday ? 'border-blue-200 bg-blue-50/20' : 'border-stone-200'}`}>
+                            <div className={`w-1 self-stretch rounded-full flex-shrink-0 ${TYP_DOT[e.typ] || 'bg-stone-400'}`} />
+                            <div className={`text-xs font-semibold w-8 flex-shrink-0 ${isToday ? 'text-blue-600' : 'text-stone-400'}`}>{d.getDate()}.</div>
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm font-medium text-stone-800 truncate">{e.nazev}</div>
+                              {(e.misto || e.pocet_hostu) && (
+                                <div className="text-xs text-stone-400 mt-0.5 truncate">{e.misto || ''}{e.misto && e.pocet_hostu ? ' · ' : ''}{e.pocet_hostu ? `${e.pocet_hostu} hostů` : ''}</div>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1.5 flex-shrink-0">
+                              <TypBadge typ={e.typ} />
+                              <StavBadge stav={e.stav} />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              }).filter(Boolean)}
+            </div>
+          )}
         </div>
       )}
     </div>

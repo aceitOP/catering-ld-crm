@@ -4,6 +4,7 @@ const cors    = require('cors');
 const helmet  = require('helmet');
 const morgan  = require('morgan');
 const path    = require('path');
+const fs      = require('fs');
 const { initDb } = require('./initDb');
 
 const app = express();
@@ -39,6 +40,15 @@ app.use('/api/notifikace', require('./routes/notifikace'));
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', version: '1.0.0', time: new Date().toISOString() });
 });
+
+// ── Frontend SPA (production) ─────────────────────────────────
+const frontendDist = path.join(__dirname, '../../frontend/dist');
+if (fs.existsSync(frontendDist)) {
+  app.use(express.static(frontendDist));
+  app.get(/^(?!\/api).*/, (_req, res) => {
+    res.sendFile(path.join(frontendDist, 'index.html'));
+  });
+}
 
 // ── 404 ──────────────────────────────────────────────────────
 app.use((_req, res) => {
