@@ -17,43 +17,36 @@ export function KalendarPage() {
   const [collapsed, setCollapsed]   = useState(new Set());
 
   const [tlStartISO, setTlStartISO] = useState(() => now.toISOString().slice(0, 10));
-  const [tlView, setTlView]         = useState('tyden'); // 'den' | 'tyden' | 'mesic' | 'rok'
+  const [tlView, setTlView]         = useState('tyden'); // 'den' | 'tyden'
 
   const getTlAlignedStart = (iso, tv) => {
+    if (tv === 'den') return iso;
     const d = new Date(iso + 'T00:00:00');
-    if (tv === 'den')   return iso;
-    if (tv === 'tyden') { const dow = d.getDay(); d.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1)); return d.toISOString().slice(0, 10); }
-    if (tv === 'mesic') return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
-    if (tv === 'rok')   return `${d.getFullYear()}-01-01`;
-    return iso;
+    const dow = d.getDay();
+    d.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1));
+    return d.toISOString().slice(0, 10);
   };
   const tlWinStart = getTlAlignedStart(tlStartISO, tlView);
   const getTlWinEnd = (startISO, tv) => {
+    if (tv === 'den') return startISO;
     const d = new Date(startISO + 'T00:00:00');
-    if (tv === 'den')   return startISO;
-    if (tv === 'tyden') { d.setDate(d.getDate() + 6); return d.toISOString().slice(0, 10); }
-    if (tv === 'mesic') return new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().slice(0, 10);
-    if (tv === 'rok')   return `${d.getFullYear()}-12-31`;
-    return startISO;
+    d.setDate(d.getDate() + 6);
+    return d.toISOString().slice(0, 10);
   };
   const tlWinEnd = getTlWinEnd(tlWinStart, tlView);
 
   const navigateTl = (dir) => {
     const d = new Date(tlWinStart + 'T00:00:00');
-    if (tlView === 'den')        d.setDate(d.getDate() + dir);
-    else if (tlView === 'tyden') d.setDate(d.getDate() + dir * 7);
-    else if (tlView === 'mesic') d.setMonth(d.getMonth() + dir);
-    else if (tlView === 'rok')   d.setFullYear(d.getFullYear() + dir);
+    if (tlView === 'den') d.setDate(d.getDate() + dir);
+    else                  d.setDate(d.getDate() + dir * 7);
     setTlStartISO(d.toISOString().slice(0, 10));
   };
   const getTlLabel = () => {
     const s = new Date(tlWinStart + 'T00:00:00');
     const e = new Date(tlWinEnd + 'T00:00:00');
-    if (tlView === 'den')   return s.toLocaleDateString('cs-CZ', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-    if (tlView === 'tyden') return `${s.getDate()}. – ${e.getDate()}. ${s.toLocaleString('cs-CZ', { month: 'long' })} ${s.getFullYear()}`;
-    if (tlView === 'mesic') return s.toLocaleDateString('cs-CZ', { month: 'long', year: 'numeric' });
-    if (tlView === 'rok')   return String(s.getFullYear());
-    return '';
+    if (tlView === 'den')
+      return s.toLocaleDateString('cs-CZ', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    return `${s.getDate()}. – ${e.getDate()}. ${s.toLocaleString('cs-CZ', { month: 'long' })} ${s.getFullYear()}`;
   };
 
   const od  = view === 'timeline'
@@ -103,21 +96,39 @@ export function KalendarPage() {
     firemni_akce: 'bg-emerald-500', zavoz: 'bg-violet-500', bistro: 'bg-amber-500',
   };
 
-  // ── Day-based timeline ──────────────────────────────────────
+  // ── Timeline helpers ──────────────────────────────────────────
   const timeToMin = (t) => { if (!t) return null; const p = t.split(':'); return parseInt(p[0]) * 60 + parseInt(p[1]); };
-  const TL_MIN_START = 6 * 60;    // 6:00 = 360 min
-  const TL_MIN_RANGE = 18 * 60;   // 6:00–24:00 = 1080 min
-  const HOUR_MARKS   = [6, 8, 10, 12, 14, 16, 18, 20, 22];
+  const TL_MIN_START  = 6 * 60;   // 6:00 = 360 min
+  const TL_MIN_RANGE  = 18 * 60;  // 6:00–24:00 = 1080 min
+  const HOUR_MARKS    = [6, 8, 10, 12, 14, 16, 18, 20, 22];
   const CZ_DAYS_SHORT = ['Ne', 'Po', 'Út', 'St', 'Čt', 'Pá', 'So'];
-  const tlDateGroups = Object.entries(
-    events.reduce((acc, e) => { (acc[e.datum_akce] = acc[e.datum_akce] || []).push(e); return acc; }, {})
-  ).sort(([a], [b]) => a.localeCompare(b))
-   .map(([date, evts]) => ({
-     date,
-     evts: [...evts].sort((a, b) => (timeToMin(a.cas_zacatek) ?? 0) - (timeToMin(b.cas_zacatek) ?? 0)),
-   }));
   const todayStr = now.toISOString().slice(0, 10);
-  const nowPct   = ((now.getHours() * 60 + now.getMinutes() - TL_MIN_START) / TL_MIN_RANGE) * 100;
+
+  // Týden: horizontal bar view – all 7 days (Mon–Sun) always visible
+  const nowPct = ((now.getHours() * 60 + now.getMinutes() - TL_MIN_START) / TL_MIN_RANGE) * 100;
+  const weekDays = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(tlWinStart + 'T00:00:00');
+    d.setDate(d.getDate() + i);
+    const iso = d.toISOString().slice(0, 10);
+    return {
+      date: iso, d,
+      evts: [...events.filter(e => e.datum_akce === iso)]
+        .sort((a, b) => (timeToMin(a.cas_zacatek) ?? 0) - (timeToMin(b.cas_zacatek) ?? 0)),
+    };
+  });
+
+  // Den: vertical day-planner view
+  const SLOT_H    = 56;  // px per hour
+  const DEN_HOURS = Array.from({ length: 18 }, (_, i) => i + 6); // 6..23
+  const nowTopDen = (now.getHours() * 60 + now.getMinutes() - TL_MIN_START) / 60 * SLOT_H;
+  const denAllDay = events.filter(e => {
+    const s = timeToMin(e.cas_zacatek); const en = timeToMin(e.cas_konec);
+    return s === null || en === null || en <= s;
+  });
+  const denTimed = events.filter(e => {
+    const s = timeToMin(e.cas_zacatek); const en = timeToMin(e.cas_konec);
+    return s !== null && en !== null && en > s;
+  });
 
   return (
     <div>
@@ -171,9 +182,9 @@ export function KalendarPage() {
           {view === 'timeline' && (
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-0.5 bg-stone-100 rounded-lg p-0.5">
-                {[['den','Den'],['tyden','Týden'],['mesic','Měsíc'],['rok','Rok']].map(([v, lbl]) => (
+                {[['den','Den'],['tyden','Týden']].map(([v, lbl]) => (
                   <button key={v} onClick={() => setTlView(v)}
-                    className={`px-2.5 py-1.5 text-xs rounded-md font-medium transition-colors ${tlView === v ? 'bg-white shadow-sm text-stone-800' : 'text-stone-500 hover:text-stone-700'}`}>
+                    className={`px-3 py-1.5 text-xs rounded-md font-medium transition-colors ${tlView === v ? 'bg-white shadow-sm text-stone-800' : 'text-stone-500 hover:text-stone-700'}`}>
                     {lbl}
                   </button>
                 ))}
@@ -269,8 +280,89 @@ export function KalendarPage() {
         </div>
       )}
 
-      {/* ── TIMELINE VIEW (Den / Týden / Měsíc) ── */}
-      {view === 'timeline' && tlView !== 'rok' && (
+      {/* ── DEN VIEW — vertical day planner ── */}
+      {view === 'timeline' && tlView === 'den' && (
+        <div className="p-6">
+          <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
+            {/* All-day strip */}
+            {denAllDay.length > 0 && (
+              <div className="flex border-b border-stone-200 bg-stone-50/60">
+                <div className="w-16 flex-shrink-0 border-r border-stone-100 px-3 py-2.5 flex items-center justify-end">
+                  <span className="text-xs text-stone-400 leading-tight text-right">celý<br/>den</span>
+                </div>
+                <div className="flex-1 px-3 py-2 flex flex-wrap gap-1.5">
+                  {denAllDay.map(e => (
+                    <div key={e.id} onClick={() => navigate(`/zakazky/${e.id}`)}
+                      className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded cursor-pointer hover:opacity-75 transition-opacity ${TYP_CHIP[e.typ] || 'bg-stone-100 text-stone-700 border border-stone-200'}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${TYP_DOT[e.typ] || 'bg-stone-400'}`} />
+                      {e.nazev}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Time grid */}
+            <div className="flex overflow-y-auto" style={{ maxHeight: 'calc(100vh - 300px)' }}>
+              {/* Hour labels */}
+              <div className="w-16 flex-shrink-0 border-r border-stone-100 select-none bg-stone-50/30">
+                {DEN_HOURS.map(h => (
+                  <div key={h} style={{ height: `${SLOT_H}px` }}
+                    className="border-b border-stone-50 flex items-start px-3 pt-1.5">
+                    <span className="text-xs text-stone-400 leading-none">{h}:00</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Events area */}
+              <div className="flex-1 relative">
+                {/* Grid lines */}
+                {DEN_HOURS.map((h, i) => (
+                  <div key={h} style={{ height: `${SLOT_H}px` }}
+                    className={`border-b ${i % 2 === 0 ? 'border-stone-100' : 'border-stone-50'}`} />
+                ))}
+
+                {/* "Now" line — only on today */}
+                {tlWinStart === todayStr && nowTopDen >= 0 && nowTopDen <= DEN_HOURS.length * SLOT_H && (
+                  <div style={{ top: `${nowTopDen}px` }}
+                    className="absolute left-0 right-0 z-20 pointer-events-none flex items-center">
+                    <div className="w-2.5 h-2.5 rounded-full bg-red-500 -ml-1.5 flex-shrink-0" />
+                    <div className="flex-1 border-t-2 border-red-500" />
+                  </div>
+                )}
+
+                {/* Timed event blocks */}
+                {denTimed.map(e => {
+                  const sMin    = timeToMin(e.cas_zacatek);
+                  const eMin    = timeToMin(e.cas_konec);
+                  const topPx   = Math.max((sMin - TL_MIN_START) / 60 * SLOT_H, 0);
+                  const heightPx = Math.max((eMin - sMin) / 60 * SLOT_H, 32);
+                  return (
+                    <div key={e.id} onClick={() => navigate(`/zakazky/${e.id}`)}
+                      style={{ top: `${topPx}px`, height: `${heightPx}px`, left: '10px', right: '10px' }}
+                      className={`absolute rounded-lg border cursor-pointer hover:shadow-md hover:brightness-95 transition-all px-3 py-1.5 overflow-hidden z-10
+                        ${TYP_CHIP[e.typ] || 'bg-stone-100 text-stone-700 border border-stone-200'}`}>
+                      <div className="text-xs font-semibold leading-tight truncate">{e.nazev}</div>
+                      <div className="text-xs opacity-70 mt-0.5">{e.cas_zacatek?.slice(0,5)} – {e.cas_konec?.slice(0,5)}</div>
+                      {e.misto && heightPx > 60 && <div className="text-xs opacity-60 truncate mt-0.5">{e.misto}</div>}
+                    </div>
+                  );
+                })}
+
+                {/* Empty state */}
+                {events.length === 0 && (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="text-sm text-stone-400">Žádné akce</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── TÝDEN VIEW — horizontal Gantt, all 7 days ── */}
+      {view === 'timeline' && tlView === 'tyden' && (
         <div className="p-6">
           <div className="bg-white rounded-xl border border-stone-200 overflow-hidden overflow-x-auto">
             <div style={{ minWidth: '640px' }}>
@@ -291,17 +383,41 @@ export function KalendarPage() {
                 </div>
               </div>
 
-              {/* Empty state */}
-              {tlDateGroups.length === 0 && (
-                <div className="py-16 text-center text-sm text-stone-400">Žádné akce v tomto období</div>
-              )}
+              {/* 7 day rows (Mon–Sun), always rendered */}
+              {weekDays.map(({ date, d, evts }) => {
+                const isToday   = date === todayStr;
+                const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+                const dateLbl = (
+                  <div className={`text-xs font-bold leading-tight ${isToday ? 'text-blue-600' : isWeekend ? 'text-stone-400' : 'text-stone-700'}`}>
+                    {CZ_DAYS_SHORT[d.getDay()]} {d.getDate()}. {d.toLocaleString('cs-CZ', { month: 'short' })}
+                  </div>
+                );
+                const gridLines = HOUR_MARKS.map(h => (
+                  <div key={h}
+                    style={{ left: `${((h * 60 - TL_MIN_START) / TL_MIN_RANGE) * 100}%` }}
+                    className="absolute top-0 h-full border-l border-stone-100 pointer-events-none" />
+                ));
+                const nowLine = isToday && nowPct >= 0 && nowPct <= 100 && (
+                  <div style={{ left: `${nowPct}%` }}
+                    className="absolute top-0 h-full border-l-2 border-red-400/70 z-10 pointer-events-none" />
+                );
 
-              {/* Date rows */}
-              {tlDateGroups.map(({ date, evts }, gi) => {
-                const d = new Date(date + 'T00:00:00');
-                const isToday = date === todayStr;
+                if (evts.length === 0) {
+                  return (
+                    <div key={date}
+                      className={`flex items-center border-b border-stone-100 last:border-b-0 min-h-[40px] ${isToday ? 'bg-blue-50/20' : isWeekend ? 'bg-stone-50/60' : ''}`}>
+                      <div className="w-[152px] flex-shrink-0 border-r border-stone-100 px-4 py-2 self-stretch flex items-center">
+                        {dateLbl}
+                      </div>
+                      <div className="flex-1 relative" style={{ height: '40px' }}>
+                        {gridLines}{nowLine}
+                      </div>
+                    </div>
+                  );
+                }
+
                 return (
-                  <div key={date} className={`border-b border-stone-100 last:border-b-0 ${isToday ? 'bg-blue-50/25' : gi % 2 === 1 ? 'bg-stone-50/50' : ''}`}>
+                  <div key={date} className={`border-b border-stone-100 last:border-b-0 ${isToday ? 'bg-blue-50/20' : isWeekend ? 'bg-stone-50/40' : ''}`}>
                     {evts.map((e, ei) => {
                       const sMin     = timeToMin(e.cas_zacatek);
                       const eMin     = timeToMin(e.cas_konec);
@@ -312,46 +428,22 @@ export function KalendarPage() {
                       const widthPct = Math.max(((barE - barS) / TL_MIN_RANGE) * 100, 0.8);
                       return (
                         <div key={e.id} onClick={() => navigate(`/zakazky/${e.id}`)}
-                          className="flex items-center min-h-[48px] hover:bg-white/70 transition-colors cursor-pointer group">
-
-                          {/* Date label — only on first sub-row */}
+                          className="flex items-center min-h-[48px] hover:bg-white/60 transition-colors cursor-pointer group">
                           <div className="w-[152px] flex-shrink-0 border-r border-stone-100 px-4 py-2 self-stretch flex items-center">
-                            {ei === 0 && (
+                            {ei === 0 ? (
                               <div>
-                                <div className={`text-xs font-bold leading-tight ${isToday ? 'text-blue-600' : 'text-stone-700'}`}>
-                                  {CZ_DAYS_SHORT[d.getDay()]} {d.getDate()}. {d.toLocaleString('cs-CZ', { month: 'short' })}
-                                </div>
+                                {dateLbl}
                                 <div className="flex items-center gap-1 mt-0.5">
-                                  {evts.length > 1 && (
-                                    <span className="text-xs text-stone-400">{evts.length}×</span>
-                                  )}
+                                  {evts.length > 1 && <span className="text-xs text-stone-400">{evts.length}×</span>}
                                   <StavBadge stav={e.stav} />
                                 </div>
                               </div>
-                            )}
-                            {ei > 0 && (
-                              <div className="ml-auto">
-                                <StavBadge stav={e.stav} />
-                              </div>
+                            ) : (
+                              <div className="ml-auto"><StavBadge stav={e.stav} /></div>
                             )}
                           </div>
-
-                          {/* Bar area */}
                           <div className="flex-1 relative" style={{ height: '48px' }}>
-                            {/* Hour grid lines */}
-                            {HOUR_MARKS.map(h => (
-                              <div key={h}
-                                style={{ left: `${((h * 60 - TL_MIN_START) / TL_MIN_RANGE) * 100}%` }}
-                                className="absolute top-0 h-full border-l border-stone-100 pointer-events-none" />
-                            ))}
-
-                            {/* "Now" indicator on today's rows */}
-                            {isToday && nowPct >= 0 && nowPct <= 100 && (
-                              <div style={{ left: `${nowPct}%` }}
-                                className="absolute top-0 h-full border-l-2 border-red-400/70 z-10 pointer-events-none" />
-                            )}
-
-                            {/* Colored event bar */}
+                            {gridLines}{nowLine}
                             <div
                               style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
                               title={`${e.nazev}${hasTimes ? ` · ${e.cas_zacatek?.slice(0,5)}–${e.cas_konec?.slice(0,5)}` : ''}`}
@@ -376,54 +468,6 @@ export function KalendarPage() {
               })}
             </div>
           </div>
-        </div>
-      )}
-
-      {/* ── YEAR VIEW ── */}
-      {view === 'timeline' && tlView === 'rok' && (
-        <div className="p-6">
-          {events.length === 0 ? (
-            <div className="py-16 text-center text-sm text-stone-400">Žádné akce v roce {new Date(tlWinStart + 'T00:00:00').getFullYear()}</div>
-          ) : (
-            <div className="space-y-6">
-              {Array.from({ length: 12 }, (_, mi) => {
-                const yearNum = new Date(tlWinStart + 'T00:00:00').getFullYear();
-                const monthEvents = events.filter(e => {
-                  const d = new Date(e.datum_akce + 'T00:00:00');
-                  return d.getFullYear() === yearNum && d.getMonth() === mi;
-                });
-                if (!monthEvents.length) return null;
-                return (
-                  <div key={mi}>
-                    <h3 className="text-xs font-semibold text-stone-400 uppercase tracking-wider mb-2 px-1">{MONTHS[mi]}</h3>
-                    <div className="space-y-1.5">
-                      {[...monthEvents].sort((a, b) => a.datum_akce.localeCompare(b.datum_akce)).map(e => {
-                        const d = new Date(e.datum_akce + 'T00:00:00');
-                        const isToday = e.datum_akce === todayStr;
-                        return (
-                          <div key={e.id} onClick={() => navigate(`/zakazky/${e.id}`)}
-                            className={`flex items-center gap-3 bg-white rounded-lg border px-4 py-3 cursor-pointer hover:bg-stone-50 transition-colors ${isToday ? 'border-blue-200 bg-blue-50/20' : 'border-stone-200'}`}>
-                            <div className={`w-1 self-stretch rounded-full flex-shrink-0 ${TYP_DOT[e.typ] || 'bg-stone-400'}`} />
-                            <div className={`text-xs font-semibold w-8 flex-shrink-0 ${isToday ? 'text-blue-600' : 'text-stone-400'}`}>{d.getDate()}.</div>
-                            <div className="flex-1 min-w-0">
-                              <div className="text-sm font-medium text-stone-800 truncate">{e.nazev}</div>
-                              {(e.misto || e.pocet_hostu) && (
-                                <div className="text-xs text-stone-400 mt-0.5 truncate">{e.misto || ''}{e.misto && e.pocet_hostu ? ' · ' : ''}{e.pocet_hostu ? `${e.pocet_hostu} hostů` : ''}</div>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-1.5 flex-shrink-0">
-                              <TypBadge typ={e.typ} />
-                              <StavBadge stav={e.stav} />
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              }).filter(Boolean)}
-            </div>
-          )}
         </div>
       )}
     </div>

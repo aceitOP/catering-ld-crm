@@ -1,16 +1,31 @@
 // Changelog – Catering LD CRM
 // Typy změn: 'new' | 'improvement' | 'fix' | 'security'
 
-export const APP_VERSION = '1.5.0';
+export const APP_VERSION = '1.6.0';
 
 export const CHANGELOG = [
+  {
+    version: '1.6.0',
+    date: '2026-03-16',
+    changes: [
+      { type: 'new',         text: 'Dashboard – mini timeline nejbližšího dne s akcemi (Gantt s časovými bary)' },
+      { type: 'improvement', text: 'Kalendář Timeline – přepracován: Den = vertikální denní plánovač, Týden = Gantt se všemi 7 dny' },
+      { type: 'improvement', text: 'Kalendář Timeline – zobrazuje všechny dny týdne vč. prázdných, víkendy odlišeny pozadím' },
+      { type: 'fix',         text: 'Ctrl+F5 (hard reload) již nezpůsobuje chybu 404 na podstránkách' },
+      { type: 'security',    text: 'Heslo povinné při vytváření uživatele (min. 8 znaků), odstraněno výchozí heslo' },
+      { type: 'security',    text: 'Opravena validace stavu nabídky – zamítnuty neplatné hodnoty' },
+      { type: 'security',    text: 'Paginace v modulu Klienti – omezení maximálního limitu záznamu' },
+    ],
+  },
   {
     version: '1.5.0',
     date: '2026-03-16',
     changes: [
-      { type: 'new',         text: 'Kalendář – Timeline view s přepínáním Měsíc / Timeline' },
-      { type: 'new',         text: 'Timeline zobrazuje zakázky grouped by stav s collapsible sekcemi' },
-      { type: 'improvement', text: 'Timeline – navigace po 4 týdnech, zvýraznění aktuálního týdne' },
+      { type: 'new',         text: 'Notifikační centrum – bell ikona s slide-out panelem, polling každých 30 s' },
+      { type: 'new',         text: 'Webhook pro nové poptávky z webu (POST /api/notifikace/poptavka)' },
+      { type: 'new',         text: 'Nastavení – záložka „Změna hesla" pro přihlášeného uživatele' },
+      { type: 'new',         text: 'Patička – info o verzi + modal s historií změn' },
+      { type: 'improvement', text: 'Vymazat cache – opraveno (neznámá chyba 404 odstraněna)' },
     ],
   },
   {

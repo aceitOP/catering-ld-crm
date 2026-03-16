@@ -10,13 +10,16 @@ const klientiRouter = express.Router();
 klientiRouter.get('/', auth, async (req, res, next) => {
   try {
     const { typ, q, sort = 'jmeno', page = 1, limit = 50 } = req.query;
+    if (q && q.length > 200) return res.status(400).json({ error: 'Hledaný výraz je příliš dlouhý' });
+    const safeLimit = Math.min(Math.max(parseInt(limit) || 50, 1), 200);
+    const safePage  = Math.max(parseInt(page) || 1, 1);
     const where = []; const params = []; let p = 1;
     if (typ) { where.push(`typ = $${p++}`); params.push(typ); }
     if (q)   { where.push(`(jmeno ILIKE $${p} OR prijmeni ILIKE $${p} OR firma ILIKE $${p} OR email ILIKE $${p})`); params.push(`%${q}%`); p++; }
     const wc = where.length ? 'WHERE ' + where.join(' AND ') : '';
     const orderMap = { jmeno: 'jmeno ASC', obrat: 'jmeno ASC', datum: 'created_at DESC' };
     const order = orderMap[sort] || 'jmeno ASC';
-    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const offset = (safePage - 1) * safeLimit;
     const { rows } = await query(
       `SELECT k.*, u.jmeno AS obchodnik_jmeno, u.prijmeni AS obchodnik_prijmeni,
               COUNT(z.id) AS pocet_zakazek,
@@ -27,7 +30,7 @@ klientiRouter.get('/', auth, async (req, res, next) => {
        LEFT JOIN zakazky z ON z.klient_id = k.id
        ${wc} GROUP BY k.id, u.jmeno, u.prijmeni
        ORDER BY ${order} LIMIT $${p++} OFFSET $${p++}`,
-      [...params, parseInt(limit), offset]);
+      [...params, safeLimit, offset]);
     res.json({ data: rows });
   } catch (err) { next(err); }
 });
@@ -366,6 +369,10 @@ nabidkyRouter.post('/:id/odeslat', auth, async (req, res, next) => {
 nabidkyRouter.patch('/:id/stav', auth, async (req, res, next) => {
   try {
     const { stav } = req.body;
+    const validStavy = ['koncept', 'odeslano', 'prijato', 'zamitnuto', 'expirováno'];
+    if (!validStavy.includes(stav)) {
+      return res.status(400).json({ error: 'Neplatný stav nabídky' });
+    }
     const extra = stav === 'odeslano' ? ', odeslano_at = NOW()' : '';
     const { rows } = await query(
       `UPDATE nabidky SET stav = $1${extra} WHERE id = $2 RETURNING *`, [stav, req.params.id]);
@@ -466,7 +473,10 @@ uzivateleRouter.get('/', auth, requireRole('admin'), async (req, res, next) => {
 uzivateleRouter.post('/', auth, requireRole('admin'), async (req, res, next) => {
   try {
     const { jmeno, prijmeni, email, heslo, role, telefon } = req.body;
-    const hash = await bcrypt.hash(heslo || 'CateringLD2026!', 12);
+    if (!heslo || heslo.length < 8) {
+      return res.status(400).json({ error: 'Heslo je povinné a musí mít alespoň 8 znaků' });
+    }
+    const hash = await bcrypt.hash(heslo, 12);
     const { rows } = await query(
       `INSERT INTO uzivatele (jmeno,prijmeni,email,heslo_hash,role,telefon)
        VALUES ($1,$2,$3,$4,$5,$6) RETURNING id,jmeno,prijmeni,email,role,telefon`,

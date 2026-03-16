@@ -9,7 +9,17 @@
       "Bash(ls -la \"/e/Dropbox/Work/catering Landa&Dvořák/CRM/catering-ld-crm/catering-ld-crm/frontend\")",
       "Bash(wc -l \"e:/Dropbox/Work/catering Landa&Dvořák/CRM/catering-ld-crm/catering-ld-crm/frontend/src/pages/_all.jsx\")",
       "Bash(npm install:*)",
-      "Bash(npm audit:*)"
+      "Bash(npm audit:*)",
+      "Bash(find \"/e/Dropbox/Work/catering Landa&Dvořák/CRM/catering-ld-crm/catering-ld-crm/backend/src/routes\" -name \"*.js\" -type f)",
+      "Bash(find \"/e/Dropbox/Work/catering Landa&Dvořák/CRM/catering-ld-crm/catering-ld-crm/backend/src\" -type f -name \"*.js\")",
+      "Bash(find \"/e/Dropbox/Work/catering Landa&Dvořák/CRM/catering-ld-crm/catering-ld-crm/backend/src\" -name \"initDb.js\" -o -name \"init.js\")",
+      "Bash(find \"/e/Dropbox/Work/catering Landa&Dvořák/CRM/catering-ld-crm/catering-ld-crm/backend/src\" -name \"notifHelper*\" -o -name \"index.js\" -o -name \"app.js\")",
+      "Bash(find \"/e/Dropbox/Work/catering Landa&Dvořák/CRM/catering-ld-crm/catering-ld-crm/backend/db\" -type f -name *.sql)",
+      "Bash(head -200 \"/e/Dropbox/Work/catering Landa&Dvořák/CRM/catering-ld-crm/catering-ld-crm/backend/db/schema.sql\")",
+      "Bash(find \"/e/Dropbox/Work/catering Landa&Dvořák/CRM/catering-ld-crm/catering-ld-crm\" -maxdepth 2 -name package.json -o -name .env*)",
+      "Bash(grep -r \"TODO\\\\|FIXME\\\\|BUG\\\\|HACK\\\\|XXX\" \"/e/Dropbox/Work/catering Landa&Dvořák/CRM/catering-ld-crm/catering-ld-crm/backend/src\" --include=*.js)",
+      "Bash(tail -20 \"/e/Dropbox/Work/catering Landa&Dvořák/CRM/catering-ld-crm/catering-ld-crm/backend/.env.example\")",
+      "Bash(git -C \"/e/Dropbox/Work/catering Landa&Dvořák/CRM/catering-ld-crm/catering-ld-crm\" diff frontend/src/pages/_all.jsx)"
     ]
   }
 }
