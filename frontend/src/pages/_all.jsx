@@ -1587,7 +1587,7 @@ export function NovaNabidka() {
 }
 
 // ── NastaveniPage.jsx ─────────────────────────────────────────
-import { nastaveniApi, uzivateleApi, authApi, googleCalendarApi } from '../api';
+import { nastaveniApi, uzivateleApi, authApi } from '../api';
 import { Settings } from 'lucide-react';
 
 export function NastaveniPage() {
@@ -1856,9 +1856,7 @@ export function NastaveniPage() {
 }
 
 // ── PoptavkyPage.jsx ──────────────────────────────────────────
-import { zakazkyApi } from '../api';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Inbox, Check, X as XIcon, Phone, Mail, MapPin, Users, Banknote } from 'lucide-react';
+import { Inbox, Check, X as XIcon, Phone, MapPin, Users, Banknote } from 'lucide-react';
 
 const TYP_LABELS_P = { svatba:'Svatba', soukroma_akce:'Soukromá akce', firemni_akce:'Firemní akce', zavoz:'Závoz', bistro:'Bistro' };
 const TYP_CHIP_P   = { svatba:'bg-blue-50 text-blue-700', soukroma_akce:'bg-orange-50 text-orange-700', firemni_akce:'bg-emerald-50 text-emerald-700', zavoz:'bg-violet-50 text-violet-700', bistro:'bg-amber-50 text-amber-700' };
