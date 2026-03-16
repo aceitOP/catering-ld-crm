@@ -2225,7 +2225,7 @@ export function FakturyPage() {
       {isLoading ? (
         <div className="flex justify-center py-16"><Spinner /></div>
       ) : faktury.length === 0 ? (
-        <EmptyState icon={Receipt} title="Žádné faktury" desc="Vystavte první fakturu kliknutím na „Nová faktura"." />
+        <EmptyState icon={Receipt} title="Žádné faktury" desc={'Vystavte první fakturu kliknutím na \u201eNová faktura\u201c.'} />
       ) : (
         <div className="bg-white border border-stone-200 rounded-xl overflow-hidden">
           <table className="w-full">
