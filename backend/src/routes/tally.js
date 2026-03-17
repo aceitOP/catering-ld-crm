@@ -60,7 +60,7 @@ function mapTyp(raw) {
 async function genCislo(client) {
   const rok = new Date().getFullYear();
   const { rows } = await client.query(
-    `SELECT cislo FROM zakazky WHERE cislo LIKE $1 ORDER BY cislo DESC LIMIT 1`,
+    `SELECT cislo FROM zakazky WHERE cislo LIKE $1 ORDER BY cislo DESC LIMIT 1 FOR UPDATE`,
     [`ZAK-${rok}-%`]
   );
   if (!rows.length) return `ZAK-${rok}-001`;
@@ -172,12 +172,6 @@ router.post('/webhook', webhookLimiter, async (req, res, next) => {
 
       res.status(201).json({ ok: true, zakazka_id: zakázka.id, cislo: zakázka.cislo });
     });
-
-    // Fire-and-forget po transakci: auto-followup task + potvrzovací email
-    // (zakázka.id musí být dostupné – viz zakRes.rows[0].id uvnitř transakce)
-    // Re-fetch id z odpovědi – provedeno asynchronně mimo withTransaction
-    query('SELECT z.id, z.nazev, z.datum_akce, z.misto, z.pocet_hostu, k.email AS klient_email, k.jmeno FROM zakazky z LEFT JOIN klienti k ON k.id = z.klient_id WHERE z.cislo = $1', [])
-      .catch(() => {}); // fallback – skutečný kód níže
 
     // Použijeme email + jmeno z parsovaných polí formuláře
     if (email) {

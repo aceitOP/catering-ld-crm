@@ -593,7 +593,11 @@ nastaveniRouter.get('/', auth, async (req, res, next) => {
 nastaveniRouter.patch('/', auth, requireRole('admin'), async (req, res, next) => {
   try {
     for (const [klic, hodnota] of Object.entries(req.body)) {
-      await query('UPDATE nastaveni SET hodnota = $1 WHERE klic = $2', [String(hodnota), klic]);
+      await query(
+        `INSERT INTO nastaveni (klic, hodnota) VALUES ($1, $2)
+         ON CONFLICT (klic) DO UPDATE SET hodnota = EXCLUDED.hodnota`,
+        [klic, String(hodnota)]
+      );
     }
     res.json({ message: 'Nastavení uloženo' });
   } catch (err) { next(err); }
