@@ -122,19 +122,24 @@ export function KalendarPage() {
   // Kapacity helpers
   const kapDataForDay = (ds) => kapDays.find(d => (d.datum || '').slice(0, 10) === ds) || null;
   const kapColor = (akce, hoste) => {
-    if (!kapMaxAkci && !kapMaxHoste) return 'stone';
-    const akciLoad  = kapMaxAkci  ? akce  / kapMaxAkci  : 0;
-    const hosteLoad = kapMaxHoste ? hoste / kapMaxHoste : 0;
-    const load = Math.max(akciLoad, hosteLoad);
-    if (load >= 0.85) return 'red';
-    if (load >= 0.60) return 'amber';
+    if (kapMaxAkci || kapMaxHoste) {
+      // Limity nastaveny → barva podle % vytížení
+      const akciLoad  = kapMaxAkci  ? akce  / kapMaxAkci  : 0;
+      const hosteLoad = kapMaxHoste ? hoste / kapMaxHoste : 0;
+      const load = Math.max(akciLoad, hosteLoad);
+      if (load >= 0.85) return 'red';
+      if (load >= 0.60) return 'amber';
+      return 'green';
+    }
+    // Bez limitů → barva podle počtu akcí
+    if (akce >= 3) return 'red';
+    if (akce >= 2) return 'amber';
     return 'green';
   };
   const kapColorCls = {
-    stone: { bar: 'bg-stone-300',  bg: '',              badge: 'bg-stone-100 text-stone-600' },
-    green: { bar: 'bg-green-500',  bg: 'bg-green-50/40', badge: 'bg-green-50 text-green-700' },
-    amber: { bar: 'bg-amber-500',  bg: 'bg-amber-50/50', badge: 'bg-amber-50 text-amber-700' },
-    red:   { bar: 'bg-red-500',    bg: 'bg-red-50/50',   badge: 'bg-red-50 text-red-700' },
+    green: { bar: 'bg-green-500',  bg: 'bg-green-50/50',  badge: 'bg-green-50 text-green-700' },
+    amber: { bar: 'bg-amber-500',  bg: 'bg-amber-50/60',  badge: 'bg-amber-50 text-amber-700' },
+    red:   { bar: 'bg-red-500',    bg: 'bg-red-50/60',    badge: 'bg-red-50 text-red-700' },
   };
   const [kapLimitForm, setKapLimitForm] = useState({ kapacity_max_akci_den: '', kapacity_max_hoste_den: '' });
 
