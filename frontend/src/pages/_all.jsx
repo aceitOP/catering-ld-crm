@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation as useMutationKal, useQueryClient as useQueryClientKal } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { kalendarApi, googleCalendarApi, kapacityApi, nastaveniApi } from '../api';
+import { kalendarApi, googleCalendarApi, kapacityApi } from '../api';
 import { TypBadge, StavBadge, formatDatum, formatCena } from '../components/ui';
 import { ChevronDown } from 'lucide-react';
 

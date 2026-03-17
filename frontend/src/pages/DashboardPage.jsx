@@ -28,7 +28,7 @@ function vocative(jmeno) {
     'Jaroslav':'Jaroslave','František':'Františku','Libor':'Libore','Vojtěch':'Vojtěchu',
     'Patrik':'Patriku','Daniel':'Danieli','Matěj':'Matěji','Adam':'Adame',
     'Dominik':'Dominiku','Robert':'Roberte','Milan':'Milane','Aleš':'Aleši',
-    'Radoslav':'Radoslave','Jakub':'Jakube','Matyáš':'Matyáši',
+    'Radoslav':'Radoslave','Matyáš':'Matyáši',
   };
   if (map[n]) return map[n];
   // Fallback pravidla: jméno končí na 'a' nebo 'á' → -o
