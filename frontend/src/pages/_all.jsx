@@ -3850,8 +3850,8 @@ export function SablonyPage() {
         {isLoading && <div className="text-sm text-stone-500">Načítám…</div>}
 
         {!isLoading && sablony.length === 0 && (
-          <EmptyState icon="📋" title="Žádné šablony"
-            description="Vytvořte šablonu pro opakující se typy akcí a ušetřete čas při zakládání zakázek." />
+          <EmptyState icon={FileText} title="Žádné šablony"
+            desc="Vytvořte šablonu pro opakující se typy akcí a ušetřete čas při zakládání zakázek." />
         )}
 
         {!isLoading && sablony.length > 0 && (
