@@ -24,6 +24,7 @@ import FakturyPage     from './pages/FakturyPage';
 import FakturaDetail   from './pages/FakturaDetail';
 import NovaFakturaPage  from './pages/NovaFakturaPage';
 import VyrobniListPage  from './pages/VyrobniListPage';
+import ClientProposalPage from './pages/ClientProposalPage';
 import Layout           from './components/Layout';
 
 const qc = new QueryClient({
@@ -50,6 +51,7 @@ function App() {
           }} />
           <Routes>
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/nabidka/:token" element={<ClientProposalPage />} />
             <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
               <Route index element={<Navigate to="/dashboard" replace />} />
               <Route path="dashboard"         element={<DashboardPage />} />

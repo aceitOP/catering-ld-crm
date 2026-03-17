@@ -153,4 +153,36 @@ export const productionApi = {
   sheet:     (zakazkaId) => api.get(`/production/sheet/${zakazkaId}`),
 };
 
+// ── Proposals (admin, auth required) ─────────────────────────
+export const proposalsApi = {
+  list:           (params)          => api.get('/proposals', { params }),
+  get:            (id)              => api.get(`/proposals/${id}`),
+  create:         (data)            => api.post('/proposals', data),
+  update:         (id, d)           => api.patch(`/proposals/${id}`, d),
+  delete:         (id)              => api.delete(`/proposals/${id}`),
+  send:           (id, d)           => api.post(`/proposals/${id}/send`, d),
+  log:            (id)              => api.get(`/proposals/${id}/log`),
+  // sekce
+  addSekce:       (id, d)           => api.post(`/proposals/${id}/sekce`, d),
+  updateSekce:    (id, sid, d)      => api.patch(`/proposals/${id}/sekce/${sid}`, d),
+  deleteSekce:    (id, sid)         => api.delete(`/proposals/${id}/sekce/${sid}`),
+  // polozky
+  addPolozka:     (sekceId, d)      => api.post(`/proposals/sekce/${sekceId}/polozky`, d),
+  updatePolozka:  (pid, d)          => api.patch(`/proposals/polozky/${pid}`, d),
+  deletePolozka:  (pid)             => api.delete(`/proposals/polozky/${pid}`),
+};
+
+// ── Public Proposals (no auth, token-based) ───────────────────
+const pubApi = axios.create({
+  baseURL: import.meta.env.VITE_API_URL || '/api',
+  timeout: 15000,
+});
+
+export const publicProposalApi = {
+  get:     (token)            => pubApi.get(`/pub/proposals/${token}`),
+  select:  (token, d)         => pubApi.patch(`/pub/proposals/${token}/select`, d),
+  note:    (token, d)         => pubApi.patch(`/pub/proposals/${token}/note`, d),
+  confirm: (token, d)         => pubApi.post(`/pub/proposals/${token}/confirm`, d),
+};
+
 export default api;

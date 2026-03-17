@@ -1,9 +1,22 @@
 // Changelog – Catering LD CRM
 // Typy změn: 'new' | 'improvement' | 'fix' | 'security'
 
-export const APP_VERSION = '2.3.1';
+export const APP_VERSION = '2.4.0';
 
 export const CHANGELOG = [
+  {
+    version: '2.4.0',
+    date: '2026-03-17',
+    changes: [
+      { type: 'new',         text: 'Klientský výběr menu – generování unikátních odkazů pro výběr menu přímo klientem' },
+      { type: 'new',         text: 'Klientský výběr – sekce s typy „vyberte 1" (single) nebo „vyberte N" (multi), povinné sekce' },
+      { type: 'new',         text: 'Klientský výběr – živý výpočet ceny za osobu a celkové ceny při výběru' },
+      { type: 'new',         text: 'Klientský výběr – speciální požadavky klienta u každé položky (alergie, úpravy)' },
+      { type: 'new',         text: 'Klientský výběr – digitální potvrzení s jménem a souhlasem, zamknutí 14 dní před akcí' },
+      { type: 'new',         text: 'Klientský výběr – potvrzovací email s přehledem výběru odeslaný firmě i klientovi' },
+      { type: 'new',         text: 'Záložka „Výběr menu\" v detailu zakázky – správa výběrů, kopírování odkazu, odeslání emailem' },
+    ],
+  },
   {
     version: '2.3.1',
     date: '2026-03-17',

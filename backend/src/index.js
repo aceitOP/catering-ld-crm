@@ -39,6 +39,8 @@ app.use('/api/tally',           require('./routes/tally'));
 app.use('/api/google-calendar', require('./routes/google'));
 app.use('/api/faktury',         require('./routes/faktury'));
 app.use('/api/production',      require('./routes/production'));
+app.use('/api/proposals',       require('./routes/proposals'));
+app.use('/api/pub/proposals',   require('./routes/publicProposals'));
 
 // ── Health check ─────────────────────────────────────────────
 app.get('/api/health', (_req, res) => {

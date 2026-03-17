@@ -1,10 +1,10 @@
 import { useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { zakazkyApi, personalApi, dokumentyApi } from '../api';
+import { zakazkyApi, personalApi, dokumentyApi, proposalsApi } from '../api';
 import { StavBadge, TypBadge, formatCena, formatDatum, Spinner, Btn, Modal } from '../components/ui';
 import toast from 'react-hot-toast';
-import { ArrowLeft, ChevronRight, Send, Heart, Printer, Pencil, Upload, UserPlus, Trash2, Search, Receipt, ChefHat } from 'lucide-react';
+import { ArrowLeft, ChevronRight, Send, Heart, Printer, Pencil, Upload, UserPlus, Trash2, Search, Receipt, ChefHat, Link, Plus, ExternalLink, Copy } from 'lucide-react';
 import { printKomandoPdf } from '../utils/print';
 
 const WORKFLOW = [
@@ -39,6 +39,12 @@ export default function ZakazkaDetail() {
   const [dekujemeModal, setDekujemeModal] = useState(false);
   const [dekujemeForm, setDekujemeForm] = useState({ to: '', text: '' });
 
+  // Klientský výběr (proposals)
+  const [proposalModal, setProposalModal] = useState(false);
+  const [proposalForm, setProposalForm] = useState({ nazev: '', uvodni_text: '', expires_at: '' });
+  const [sendLinkModal, setSendLinkModal] = useState(null); // proposal object
+  const [sendEmail, setSendEmail] = useState('');
+
   // Edit zakázka
   const [editModal, setEditModal] = useState(false);
   const [editForm, setEditForm] = useState({});
@@ -57,6 +63,29 @@ export default function ZakazkaDetail() {
     queryKey: ['personal-list', personalSearch],
     queryFn: () => personalApi.list({ q: personalSearch, limit: 50 }),
     enabled: personalModal,
+  });
+
+  const { data: proposalsData, refetch: refetchProposals } = useQuery({
+    queryKey: ['proposals', id],
+    queryFn: () => proposalsApi.list({ zakazka_id: id }),
+    enabled: tab === 'vybermenu',
+  });
+
+  const createProposalMut = useMutation({
+    mutationFn: (d) => proposalsApi.create(d),
+    onSuccess: () => { refetchProposals(); toast.success('Výběr menu vytvořen'); setProposalModal(false); setProposalForm({ nazev: '', uvodni_text: '', expires_at: '' }); },
+    onError: () => toast.error('Chyba při vytváření'),
+  });
+
+  const deleteProposalMut = useMutation({
+    mutationFn: (pid) => proposalsApi.delete(pid),
+    onSuccess: () => { refetchProposals(); toast.success('Odstraněno'); },
+  });
+
+  const sendProposalMut = useMutation({
+    mutationFn: ({ pid, email }) => proposalsApi.send(pid, { email }),
+    onSuccess: (res) => { toast.success('Odkaz odeslán'); setSendLinkModal(null); setSendEmail(''); },
+    onError: (err) => toast.error(err?.response?.data?.error || 'Chyba při odesílání'),
   });
 
   const stavMut = useMutation({
@@ -208,7 +237,7 @@ export default function ZakazkaDetail() {
 
       {/* Tabs */}
       <div className="bg-white border-b border-stone-100 px-6 flex gap-0">
-        {[['detaily','Detaily'],['historie','Historie'],['personal','Personál'],['dokumenty','Dokumenty']].map(([k,l]) => (
+        {[['detaily','Detaily'],['historie','Historie'],['personal','Personál'],['dokumenty','Dokumenty'],['vybermenu','Výběr menu']].map(([k,l]) => (
           <button key={k} onClick={() => setTab(k)}
             className={`px-4 py-3 text-sm border-b-2 transition-colors ${
               tab === k ? 'border-stone-900 text-stone-900 font-medium' : 'border-transparent text-stone-500 hover:text-stone-700'
@@ -376,6 +405,91 @@ export default function ZakazkaDetail() {
             </div>
           </div>
         )}
+
+        {tab === 'vybermenu' && (
+          <div className="max-w-3xl space-y-4">
+            <div className="flex justify-between items-center">
+              <div>
+                <h3 className="text-sm font-semibold text-stone-700">Klientský výběr menu</h3>
+                <p className="text-xs text-stone-400 mt-0.5">Generuj unikátní odkaz pro klienta – vybere si menu a závazně potvrdí.</p>
+              </div>
+              <Btn size="sm" variant="primary" onClick={() => { setProposalForm({ nazev: z.nazev || '', uvodni_text: '', expires_at: '', guest_count: z.pocet_hostu || 1 }); setProposalModal(true); }}>
+                <Plus size={12}/> Nový výběr
+              </Btn>
+            </div>
+
+            {(proposalsData?.data?.data || []).length === 0 && (
+              <div className="bg-white rounded-xl border border-stone-200 py-12 text-center text-sm text-stone-400">
+                Zatím žádný výběr menu. Klikněte na „Nový výběr" pro vytvoření.
+              </div>
+            )}
+
+            {(proposalsData?.data?.data || []).map(pr => {
+              const statusColors = {
+                draft: 'bg-stone-100 text-stone-600',
+                sent: 'bg-blue-100 text-blue-700',
+                signed: 'bg-green-100 text-green-700',
+              };
+              return (
+                <div key={pr.id} className="bg-white rounded-xl border border-stone-200 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-stone-800">{pr.nazev || 'Bez názvu'}</span>
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColors[pr.status] || 'bg-stone-100 text-stone-600'}`}>
+                          {pr.status === 'draft' ? 'Koncept' : pr.status === 'sent' ? 'Odesláno' : pr.status === 'signed' ? 'Potvrzeno' : pr.status}
+                        </span>
+                      </div>
+                      <div className="text-xs text-stone-400 mt-1 flex flex-wrap gap-3">
+                        <span>👥 {pr.guest_count} hostů</span>
+                        {pr.total_price > 0 && <span>💰 {new Intl.NumberFormat('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 }).format(pr.total_price)} celkem</span>}
+                        {pr.signed_by && <span>✅ Potvrdil(a): {pr.signed_by}</span>}
+                        {pr.expires_at && <span>⏰ Platnost do: {new Date(pr.expires_at).toLocaleDateString('cs-CZ')}</span>}
+                      </div>
+                    </div>
+                    <div className="flex gap-1.5 flex-shrink-0">
+                      <button
+                        onClick={() => { navigator.clipboard.writeText(pr.url); toast.success('Odkaz zkopírován'); }}
+                        className="p-1.5 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded-lg transition-colors" title="Kopírovat odkaz">
+                        <Copy size={13}/>
+                      </button>
+                      <a href={pr.url} target="_blank" rel="noreferrer"
+                        className="p-1.5 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded-lg transition-colors" title="Otevřít jako klient">
+                        <ExternalLink size={13}/>
+                      </a>
+                      {pr.status !== 'signed' && (
+                        <button
+                          onClick={() => { setSendLinkModal(pr); setSendEmail(z.klient_email || ''); }}
+                          className="p-1.5 text-stone-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Odeslat odkaz emailem">
+                          <Send size={13}/>
+                        </button>
+                      )}
+                      <button
+                        onClick={() => navigate(`/nabidky/${pr.id}/vybermenu`)}
+                        className="p-1.5 text-stone-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors" title="Upravit menu">
+                        <Pencil size={13}/>
+                      </button>
+                      {pr.status !== 'signed' && (
+                        <button
+                          onClick={() => { if (confirm('Odstranit tento výběr menu?')) deleteProposalMut.mutate(pr.id); }}
+                          className="p-1.5 text-stone-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Odstranit">
+                          <Trash2 size={13}/>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="mt-3 pt-3 border-t border-stone-50 flex items-center gap-2">
+                    <Link size={10} className="text-stone-300 flex-shrink-0"/>
+                    <a href={pr.url} target="_blank" rel="noreferrer"
+                      className="text-xs text-stone-400 hover:text-purple-600 truncate transition-colors">
+                      {pr.url}
+                    </a>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Modal: změna stavu */}
@@ -523,6 +637,63 @@ export default function ZakazkaDetail() {
           <div><label className="text-xs text-stone-500 block mb-1">Interní poznámka</label>
             <textarea className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none resize-none" rows={2}
               value={editForm.poznamka_interni || ''} onChange={e => setEF('poznamka_interni', e.target.value)}/></div>
+        </div>
+      </Modal>
+
+      {/* Modal: Nový výběr menu */}
+      <Modal open={proposalModal} onClose={() => setProposalModal(false)} title="Nový výběr menu"
+        footer={<>
+          <Btn onClick={() => setProposalModal(false)}>Zrušit</Btn>
+          <Btn variant="primary" onClick={() => createProposalMut.mutate({ ...proposalForm, zakazka_id: id })} disabled={createProposalMut.isPending}>
+            {createProposalMut.isPending ? 'Vytvářím…' : 'Vytvořit'}
+          </Btn>
+        </>}>
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs text-stone-500 block mb-1">Název výběru *</label>
+            <input className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+              placeholder="Výběr menu – Novákovi"
+              value={proposalForm.nazev} onChange={e => setProposalForm(f => ({ ...f, nazev: e.target.value }))} autoFocus/>
+          </div>
+          <div>
+            <label className="text-xs text-stone-500 block mb-1">Úvodní text pro klienta</label>
+            <textarea className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none resize-none" rows={3}
+              placeholder="Vážení hosté, připravili jsme pro vás výběr z našeho menu…"
+              value={proposalForm.uvodni_text} onChange={e => setProposalForm(f => ({ ...f, uvodni_text: e.target.value }))}/>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-stone-500 block mb-1">Počet hostů</label>
+              <input type="number" className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                value={proposalForm.guest_count || ''} onChange={e => setProposalForm(f => ({ ...f, guest_count: e.target.value }))}/>
+            </div>
+            <div>
+              <label className="text-xs text-stone-500 block mb-1">Platnost do</label>
+              <input type="date" className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                value={proposalForm.expires_at} onChange={e => setProposalForm(f => ({ ...f, expires_at: e.target.value }))}/>
+            </div>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Modal: Odeslat odkaz */}
+      <Modal open={!!sendLinkModal} onClose={() => { setSendLinkModal(null); setSendEmail(''); }} title="Odeslat odkaz klientovi"
+        footer={<>
+          <Btn onClick={() => { setSendLinkModal(null); setSendEmail(''); }}>Zrušit</Btn>
+          <Btn variant="primary" onClick={() => sendProposalMut.mutate({ pid: sendLinkModal?.id, email: sendEmail })}
+            disabled={!sendEmail || sendProposalMut.isPending}>
+            {sendProposalMut.isPending ? 'Odesílám…' : 'Odeslat'}
+          </Btn>
+        </>}>
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs text-stone-500 block mb-1">E-mail příjemce</label>
+            <input type="email" className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+              placeholder="klient@email.cz" value={sendEmail} onChange={e => setSendEmail(e.target.value)} autoFocus/>
+          </div>
+          <div className="text-xs text-stone-400 bg-stone-50 rounded-lg px-3 py-2">
+            Klient obdrží email s odkazem na výběr menu. Odkaz si také můžete zkopírovat tlačítkem vpravo.
+          </div>
         </div>
       </Modal>
 

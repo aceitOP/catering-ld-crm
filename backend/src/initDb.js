@@ -54,7 +54,66 @@ async function initDb() {
           poradi SMALLINT DEFAULT 0
         )
       `);
-      console.log('✅  Migrace OK (google_event_id, faktury).');
+      // Proposals – klientský výběr menu
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS proposals (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          zakazka_id INTEGER REFERENCES zakazky(id) ON DELETE CASCADE,
+          token VARCHAR(64) NOT NULL UNIQUE,
+          status VARCHAR(20) NOT NULL DEFAULT 'draft',
+          nazev VARCHAR(300),
+          uvodni_text TEXT,
+          guest_count INTEGER NOT NULL DEFAULT 1,
+          total_price NUMERIC(12,2) DEFAULT 0,
+          expires_at TIMESTAMPTZ,
+          signed_by VARCHAR(200),
+          signed_at TIMESTAMPTZ,
+          signed_ip VARCHAR(50),
+          created_by INTEGER REFERENCES uzivatele(id) ON DELETE SET NULL,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+      `);
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS proposal_sekce (
+          id SERIAL PRIMARY KEY,
+          proposal_id UUID NOT NULL REFERENCES proposals(id) ON DELETE CASCADE,
+          nazev VARCHAR(200) NOT NULL,
+          popis TEXT,
+          typ VARCHAR(30) NOT NULL DEFAULT 'single',
+          min_vyberu SMALLINT DEFAULT 1,
+          max_vyberu SMALLINT DEFAULT 1,
+          povinne BOOLEAN DEFAULT true,
+          poradi SMALLINT DEFAULT 0
+        )
+      `);
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS proposal_polozky (
+          id SERIAL PRIMARY KEY,
+          sekce_id INTEGER NOT NULL REFERENCES proposal_sekce(id) ON DELETE CASCADE,
+          nazev VARCHAR(300) NOT NULL,
+          popis TEXT,
+          obrazek_url TEXT,
+          alergeny INTEGER[] DEFAULT '{}',
+          cena_os NUMERIC(10,2) NOT NULL DEFAULT 0,
+          je_vybrana BOOLEAN DEFAULT false,
+          poznamka_klienta TEXT,
+          poradi SMALLINT DEFAULT 0
+        )
+      `);
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS proposal_selection_log (
+          id SERIAL PRIMARY KEY,
+          proposal_id UUID NOT NULL REFERENCES proposals(id) ON DELETE CASCADE,
+          polozka_id INTEGER REFERENCES proposal_polozky(id) ON DELETE SET NULL,
+          akce VARCHAR(50) NOT NULL,
+          old_value TEXT,
+          new_value TEXT,
+          ip_adresa VARCHAR(50),
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+      `);
+      console.log('✅  Migrace OK (google_event_id, faktury, proposals).');
       return;
     }
 
