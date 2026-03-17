@@ -3950,7 +3950,7 @@ export function SablonyPage() {
 
 // ── ArchivPage ─────────────────────────────────────────────────
 import { archivApi, zakazkyApi as zakazkyApiArchiv, klientiApi as klientiApiArchiv, personalApi as personalApiArchiv } from '../api';
-import { RotateCcw } from 'lucide-react';
+import { RotateCcw, Archive as ArchiveIcon, UserX, HardHat } from 'lucide-react';
 
 export function ArchivPage() {
   const qc = useQueryClient();
@@ -4010,7 +4010,7 @@ export function ArchivPage() {
         {/* Zakázky */}
         {tab === 'zakazky' && !isLoading && (
           zakazky.length === 0 ? (
-            <EmptyState icon="📦" title="Žádné archivované zakázky" />
+            <EmptyState icon={ArchiveIcon} title="Žádné archivované zakázky" />
           ) : (
             <div className="space-y-2">
               {zakazky.map(z => (
@@ -4037,7 +4037,7 @@ export function ArchivPage() {
         {/* Klienti */}
         {tab === 'klienti' && !isLoading && (
           klienti.length === 0 ? (
-            <EmptyState icon="👤" title="Žádní archivovaní klienti" />
+            <EmptyState icon={UserX} title="Žádní archivovaní klienti" />
           ) : (
             <div className="space-y-2">
               {klienti.map(k => (
@@ -4061,7 +4061,7 @@ export function ArchivPage() {
         {/* Personál */}
         {tab === 'personal' && !isLoading && (
           personal.length === 0 ? (
-            <EmptyState icon="👷" title="Žádní archivovaní pracovníci" />
+            <EmptyState icon={HardHat} title="Žádní archivovaní pracovníci" />
           ) : (
             <div className="space-y-2">
               {personal.map(p => (
