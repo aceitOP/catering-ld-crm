@@ -48,6 +48,8 @@ const TYP_LABELS = {
   firemni_akce:  'Firemní akce',
   zavoz:         'Závoz',
   bistro:        'Bistro',
+  pohreb:        'Pohřeb',
+  ostatni:       'Ostatní',
 };
 
 const TYP_STYLES = {
@@ -56,6 +58,8 @@ const TYP_STYLES = {
   firemni_akce:  'bg-emerald-50 text-emerald-700',
   zavoz:         'bg-purple-50 text-purple-700',
   bistro:        'bg-stone-100 text-stone-600',
+  pohreb:        'bg-slate-100 text-slate-600',
+  ostatni:       'bg-stone-100 text-stone-500',
 };
 
 const KLIENT_TYP = {

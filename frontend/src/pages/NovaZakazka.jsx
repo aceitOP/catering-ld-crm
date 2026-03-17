@@ -12,6 +12,8 @@ const TYPY = [
   { v:'firemni_akce', l:'Firemní akce',   e:'🏢' },
   { v:'zavoz',        l:'Závoz / vyzvednutí', e:'🚚' },
   { v:'bistro',       l:'Bistro / pronájem',  e:'☕' },
+  { v:'pohreb',       l:'Pohřeb',             e:'🕯️' },
+  { v:'ostatni',      l:'Ostatní',            e:'📋' },
 ];
 
 export default function NovaZakazka() {

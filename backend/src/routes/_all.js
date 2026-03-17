@@ -1,6 +1,6 @@
 // ── routes/klienti.js ─────────────────────────────────────────
 const express = require('express');
-const { query } = require('../db');
+const { query, withTransaction } = require('../db');
 const { auth, requireRole } = require('../middleware/auth');
 const { sendNabidka } = require('../emailService');
 const { createNotif } = require('../notifHelper');
@@ -270,41 +270,47 @@ nabidkyRouter.get('/:id', auth, async (req, res, next) => {
 nabidkyRouter.post('/', auth, async (req, res, next) => {
   try {
     const { zakazka_id, nazev, uvodni_text, zaverecny_text, platnost_do, sleva_procent, polozky } = req.body;
-    // Zjistit max verzi pro zakázku
-    const maxVer = await query('SELECT COALESCE(MAX(verze),0) AS v FROM nabidky WHERE zakazka_id = $1', [zakazka_id]);
-    const verze = maxVer.rows[0].v + 1;
 
-    // Deaktivovat předchozí verze
-    await query('UPDATE nabidky SET aktivni = false WHERE zakazka_id = $1', [zakazka_id]);
-
-    const totalBezDph = (polozky || []).reduce((s, p) => s + (p.mnozstvi * p.cena_jednotka), 0);
-    const sleva = totalBezDph * ((sleva_procent || 0) / 100);
-    const dph = (totalBezDph - sleva) * 0.12;
+    const totalBezDph = (polozky || []).reduce(
+      (s, p) => s + (parseFloat(p.mnozstvi) || 0) * (parseFloat(p.cena_jednotka) || 0), 0);
+    const sleva  = totalBezDph * ((parseFloat(sleva_procent) || 0) / 100);
+    const dph    = (totalBezDph - sleva) * 0.12;
     const celkem = totalBezDph - sleva + dph;
 
-    const { rows } = await query(
-      `INSERT INTO nabidky (zakazka_id, verze, nazev, uvodni_text, zaverecny_text, platnost_do,
-        sleva_procent, cena_bez_dph, dph, cena_celkem)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
-      [zakazka_id, verze, nazev, uvodni_text, zaverecny_text, platnost_do,
-       sleva_procent || 0, totalBezDph, dph, celkem]);
+    let newRow;
+    await withTransaction(async (client) => {
+      // Zjistit max verzi uvnitř transakce – zabrání race condition
+      const maxVer = await client.query(
+        'SELECT COALESCE(MAX(verze),0) AS v FROM nabidky WHERE zakazka_id = $1', [zakazka_id]);
+      const verze = maxVer.rows[0].v + 1;
 
-    // Uložit položky
-    for (const [i, pol] of (polozky || []).entries()) {
-      await query(
-        `INSERT INTO nabidky_polozky (nabidka_id, kategorie, nazev, jednotka, mnozstvi, cena_jednotka, poradi)
-         VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-        [rows[0].id, pol.kategorie, pol.nazev, pol.jednotka, pol.mnozstvi, pol.cena_jednotka, i]);
-    }
+      await client.query('UPDATE nabidky SET aktivni = false WHERE zakazka_id = $1', [zakazka_id]);
+
+      const { rows } = await client.query(
+        `INSERT INTO nabidky (zakazka_id, verze, nazev, uvodni_text, zaverecny_text, platnost_do,
+          sleva_procent, cena_bez_dph, dph, cena_celkem)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+        [zakazka_id, verze, nazev, uvodni_text, zaverecny_text, platnost_do,
+         sleva_procent || 0, totalBezDph, dph, celkem]);
+      newRow = rows[0];
+
+      for (const [i, pol] of (polozky || []).entries()) {
+        await client.query(
+          `INSERT INTO nabidky_polozky (nabidka_id, kategorie, nazev, jednotka, mnozstvi, cena_jednotka, poradi)
+           VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+          [newRow.id, pol.kategorie || 'jidlo', pol.nazev || '', pol.jednotka || 'os.',
+           parseFloat(pol.mnozstvi) || 1, parseFloat(pol.cena_jednotka) || 0, i]);
+      }
+    });
 
     createNotif({
       typ: 'nova_nabidka',
-      titulek: `Nová nabídka — ${nazev || 'bez názvu'} (v${verze})`,
+      titulek: `Nová nabídka — ${nazev || 'bez názvu'} (v${newRow.verze})`,
       zprava: `Celkem: ${celkem.toLocaleString('cs-CZ', { style: 'currency', currency: 'CZK' })}`,
-      odkaz: `/nabidky/${rows[0].id}`,
+      odkaz: `/nabidky/${newRow.id}`,
     });
 
-    res.status(201).json(rows[0]);
+    res.status(201).json(newRow);
   } catch (err) { next(err); }
 });
 
@@ -324,7 +330,7 @@ nabidkyRouter.patch('/:id', auth, async (req, res, next) => {
       for (const [i,pol] of polozky.entries()) {
         await query(
           `INSERT INTO nabidky_polozky (nabidka_id,kategorie,nazev,jednotka,mnozstvi,cena_jednotka,poradi) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-          [req.params.id, pol.kategorie||'jidlo', pol.nazev, pol.jednotka, pol.mnozstvi, pol.cena_jednotka, i]);
+          [req.params.id, pol.kategorie||'jidlo', pol.nazev||'', pol.jednotka||'os.', parseFloat(pol.mnozstvi)||1, parseFloat(pol.cena_jednotka)||0, i]);
       }
     }
     const newPol = await query('SELECT * FROM nabidky_polozky WHERE nabidka_id=$1 ORDER BY poradi,id', [req.params.id]);
@@ -493,6 +499,16 @@ uzivateleRouter.patch('/:id', auth, requireRole('admin'), async (req, res, next)
     const { rows } = await query(`UPDATE uzivatele SET ${sets} WHERE id = $1 RETURNING id,jmeno,prijmeni,email,role,aktivni`,
       [req.params.id, ...fields.map(f => req.body[f])]);
     res.json(rows[0]);
+  } catch (err) { next(err); }
+});
+
+uzivateleRouter.delete('/:id', auth, requireRole('admin'), async (req, res, next) => {
+  try {
+    if (String(req.user.id) === String(req.params.id))
+      return res.status(400).json({ error: 'Nemůžete smazat svůj vlastní účet' });
+    const { rows } = await query('DELETE FROM uzivatele WHERE id=$1 RETURNING id', [req.params.id]);
+    if (!rows[0]) return res.status(404).json({ error: 'Uživatel nenalezen' });
+    res.json({ message: 'Uživatel smazán' });
   } catch (err) { next(err); }
 });
 

@@ -7,9 +7,9 @@ import { Plus, Search, ClipboardList, Printer } from 'lucide-react';
 import { printKomandoPdf } from '../utils/print';
 
 const STAVY  = ['nova_poptavka','rozpracovano','nabidka_pripravena','nabidka_odeslana','ceka_na_vyjadreni','potvrzeno','ve_priprave','realizovano','uzavreno','stornovano'];
-const TYPY   = ['svatba','soukroma_akce','firemni_akce','zavoz','bistro'];
+const TYPY   = ['svatba','soukroma_akce','firemni_akce','zavoz','bistro','pohreb','ostatni'];
 const STAV_LABELS = { nova_poptavka:'Nová poptávka',rozpracovano:'Rozpracováno',nabidka_pripravena:'Nabídka připravena',nabidka_odeslana:'Nabídka odeslána',ceka_na_vyjadreni:'Čeká na vyjádření',potvrzeno:'Potvrzeno',ve_priprave:'Ve přípravě',realizovano:'Realizováno',uzavreno:'Uzavřeno',stornovano:'Stornováno' };
-const TYP_LABELS = { svatba:'Svatba',soukroma_akce:'Soukromá akce',firemni_akce:'Firemní akce',zavoz:'Závoz',bistro:'Bistro' };
+const TYP_LABELS = { svatba:'Svatba',soukroma_akce:'Soukromá akce',firemni_akce:'Firemní akce',zavoz:'Závoz',bistro:'Bistro',pohreb:'Pohřeb',ostatni:'Ostatní' };
 
 export default function ZakazkyPage() {
   const navigate = useNavigate();

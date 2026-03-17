@@ -5,9 +5,18 @@
  *
  * Tally payload: { data: { fields: [{ key, label, type, value }] } }
  */
-const router = require('express').Router();
+const router    = require('express').Router();
+const rateLimit = require('express-rate-limit');
 const { query, withTransaction } = require('../db');
 const { createNotif } = require('../notifHelper');
+
+const webhookLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minuta
+  max: 20,             // max 20 poptávek za minutu z jedné IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Příliš mnoho požadavků, zkuste to za chvíli' },
+});
 
 // Pomocník: najde hodnotu pole podle regex shody s label
 function getField(fields, regex) {
@@ -58,7 +67,7 @@ async function genCislo(client) {
 }
 
 // POST /api/tally/webhook
-router.post('/webhook', async (req, res, next) => {
+router.post('/webhook', webhookLimiter, async (req, res, next) => {
   try {
     // Ověření API klíče
     const secret = process.env.TALLY_KEY;

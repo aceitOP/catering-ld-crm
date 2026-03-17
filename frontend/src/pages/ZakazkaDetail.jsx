@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { zakazkyApi, personalApi, dokumentyApi, proposalsApi } from '../api';
+import { zakazkyApi, personalApi, dokumentyApi, proposalsApi, nabidkyApi, uzivateleApi } from '../api';
 import { StavBadge, TypBadge, formatCena, formatDatum, Spinner, Btn, Modal } from '../components/ui';
 import toast from 'react-hot-toast';
 import { ArrowLeft, ChevronRight, Send, Heart, Printer, Pencil, Upload, UserPlus, Trash2, Search, Receipt, ChefHat, Link, Plus, ExternalLink, Copy } from 'lucide-react';
@@ -21,7 +21,7 @@ const WORKFLOW = [
 
 const TYP_OPTIONS = [
   {v:'svatba',l:'Svatba'},{v:'soukroma_akce',l:'Soukromá akce'},{v:'firemni_akce',l:'Firemní akce'},
-  {v:'zavoz',l:'Závoz'},{v:'bistro',l:'Bistro'},
+  {v:'zavoz',l:'Závoz'},{v:'bistro',l:'Bistro'},{v:'pohreb',l:'Pohřeb'},{v:'ostatni',l:'Ostatní'},
 ];
 
 export default function ZakazkaDetail() {
@@ -44,6 +44,11 @@ export default function ZakazkaDetail() {
   const [proposalForm, setProposalForm] = useState({ nazev: '', uvodni_text: '', expires_at: '' });
   const [sendLinkModal, setSendLinkModal] = useState(null); // proposal object
   const [sendEmail, setSendEmail] = useState('');
+  const [editingProposalId, setEditingProposalId] = useState(null);
+  const [sectionModal, setSectionModal] = useState(false);
+  const [sectionForm, setSectionForm] = useState({ nazev: '', typ: 'single', povinne: true });
+  const [itemModal, setItemModal] = useState(null); // { sekceId }
+  const [itemForm, setItemForm] = useState({ nazev: '', popis: '', cena_os: '' });
 
   // Edit zakázka
   const [editModal, setEditModal] = useState(false);
@@ -65,10 +70,27 @@ export default function ZakazkaDetail() {
     enabled: personalModal,
   });
 
+  const { data: nabidkyData } = useQuery({
+    queryKey: ['nabidky-zakazka', id],
+    queryFn: () => nabidkyApi.list({ zakazka_id: id }),
+  });
+
+  const { data: uzivateleData } = useQuery({
+    queryKey: ['uzivatele'],
+    queryFn: () => uzivateleApi.list(),
+    enabled: editModal,
+  });
+
   const { data: proposalsData, refetch: refetchProposals } = useQuery({
     queryKey: ['proposals', id],
     queryFn: () => proposalsApi.list({ zakazka_id: id }),
     enabled: tab === 'vybermenu',
+  });
+
+  const { data: editingProposalData, refetch: refetchEditingProposal } = useQuery({
+    queryKey: ['proposal-detail', editingProposalId],
+    queryFn: () => proposalsApi.get(editingProposalId),
+    enabled: !!editingProposalId,
   });
 
   const createProposalMut = useMutation({
@@ -86,6 +108,28 @@ export default function ZakazkaDetail() {
     mutationFn: ({ pid, email }) => proposalsApi.send(pid, { email }),
     onSuccess: (res) => { toast.success('Odkaz odeslán'); setSendLinkModal(null); setSendEmail(''); },
     onError: (err) => toast.error(err?.response?.data?.error || 'Chyba při odesílání'),
+  });
+
+  const addSekseMut = useMutation({
+    mutationFn: (d) => proposalsApi.addSekce(editingProposalId, d),
+    onSuccess: () => { refetchEditingProposal(); toast.success('Sekce přidána'); setSectionModal(false); setSectionForm({ nazev: '', typ: 'single', povinne: true }); },
+    onError: () => toast.error('Chyba při přidávání sekce'),
+  });
+
+  const deleteSekseMut = useMutation({
+    mutationFn: (sekceId) => proposalsApi.deleteSekce(editingProposalId, sekceId),
+    onSuccess: () => refetchEditingProposal(),
+  });
+
+  const addPolozkyMut = useMutation({
+    mutationFn: ({ sekceId, data }) => proposalsApi.addPolozka(sekceId, data),
+    onSuccess: () => { refetchEditingProposal(); toast.success('Položka přidána'); setItemModal(null); setItemForm({ nazev: '', popis: '', cena_os: '' }); },
+    onError: () => toast.error('Chyba při přidávání položky'),
+  });
+
+  const deletePolozkyMut = useMutation({
+    mutationFn: (polozkaId) => proposalsApi.deletePolozka(polozkaId),
+    onSuccess: () => refetchEditingProposal(),
   });
 
   const stavMut = useMutation({
@@ -150,6 +194,7 @@ export default function ZakazkaDetail() {
       cena_celkem: z.cena_celkem || '', cena_naklady: z.cena_naklady || '',
       zaloha: z.zaloha || '', doplatek: z.doplatek || '',
       poznamka_klient: z.poznamka_klient || '', poznamka_interni: z.poznamka_interni || '',
+      obchodnik_id: z.obchodnik_id || '',
     });
     setEditModal(true);
   };
@@ -185,23 +230,12 @@ export default function ZakazkaDetail() {
             <Btn size="sm" onClick={() => { setNovyStav(z.stav); setStavModal(true); }}>
               Změnit stav
             </Btn>
-            <Btn size="sm" onClick={() => { setKomandoPozn(''); setKomandoModal(true); }}>
-              <Send size={12}/> Komando e-mail
-            </Btn>
-            <Btn size="sm" onClick={() => printKomandoPdf(z)}>
-              <Printer size={12}/> Komando PDF
-            </Btn>
-            <Btn size="sm" onClick={() => { setDekujemeForm({ to: z.klient_email || '', text: '' }); setDekujemeModal(true); }}>
-              <Heart size={12}/> Děkovací email
-            </Btn>
-            <Btn size="sm" variant="primary" onClick={() => navigate(`/nabidky/${id}/edit`)}>
+            <Btn size="sm" variant="primary" onClick={() => {
+              const list = nabidkyData?.data?.data || [];
+              if (list.length > 0) navigate(`/nabidky/${list[0].id}/edit`);
+              else navigate(`/nabidky/nova?zakazka_id=${id}`);
+            }}>
               Nabídka
-            </Btn>
-            <Btn size="sm" onClick={() => navigate(`/faktury/nova?zakazka_id=${id}`)}>
-              <Receipt size={12}/> Vystavit fakturu
-            </Btn>
-            <Btn size="sm" onClick={() => navigate(`/zakazky/${id}/vyrobni-list`)}>
-              <ChefHat size={12}/> Výrobní list
             </Btn>
           </div>
         </div>
@@ -318,6 +352,27 @@ export default function ZakazkaDetail() {
                   <div className="text-sm font-medium text-stone-700">{z.obchodnik_jmeno} {z.obchodnik_prijmeni}</div>
                 </div>
               )}
+
+              <div className="bg-white rounded-xl border border-stone-200 p-4">
+                <h3 className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-3">Akce</h3>
+                <div className="flex flex-col gap-2">
+                  <Btn size="sm" onClick={() => { setDekujemeForm({ to: z.klient_email || '', text: '' }); setDekujemeModal(true); }}>
+                    <Heart size={12}/> Děkovací email
+                  </Btn>
+                  <Btn size="sm" onClick={() => { setKomandoPozn(''); setKomandoModal(true); }}>
+                    <Send size={12}/> Komando e-mail
+                  </Btn>
+                  <Btn size="sm" onClick={() => printKomandoPdf(z)}>
+                    <Printer size={12}/> Komando PDF
+                  </Btn>
+                  <Btn size="sm" onClick={() => navigate(`/faktury/nova?zakazka_id=${id}`)}>
+                    <Receipt size={12}/> Vystavit fakturu
+                  </Btn>
+                  <Btn size="sm" onClick={() => navigate(`/zakazky/${id}/vyrobni-list`)}>
+                    <ChefHat size={12}/> Výrobní list
+                  </Btn>
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -465,8 +520,8 @@ export default function ZakazkaDetail() {
                         </button>
                       )}
                       <button
-                        onClick={() => navigate(`/nabidky/${pr.id}/vybermenu`)}
-                        className="p-1.5 text-stone-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors" title="Upravit menu">
+                        onClick={() => setEditingProposalId(editingProposalId === pr.id ? null : pr.id)}
+                        className={`p-1.5 rounded-lg transition-colors ${editingProposalId === pr.id ? 'bg-purple-100 text-purple-700' : 'text-stone-400 hover:text-purple-600 hover:bg-purple-50'}`} title="Upravit menu">
                         <Pencil size={13}/>
                       </button>
                       {pr.status !== 'signed' && (
@@ -485,6 +540,49 @@ export default function ZakazkaDetail() {
                       {pr.url}
                     </a>
                   </div>
+
+                  {editingProposalId === pr.id && (() => {
+                    const ep = editingProposalData?.data || editingProposalData;
+                    const sekce = ep?.sekce || [];
+                    return (
+                      <div className="mt-4 pt-4 border-t border-stone-100 space-y-3">
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs font-semibold text-stone-600">Sekce a položky menu</span>
+                          <Btn size="sm" onClick={() => setSectionModal(true)}><Plus size={11}/> Přidat sekci</Btn>
+                        </div>
+                        {sekce.length === 0 && (
+                          <p className="text-xs text-stone-400 text-center py-4">Žádné sekce. Přidejte sekci (např. „Předkrm", „Hlavní chod").</p>
+                        )}
+                        {sekce.map(s => (
+                          <div key={s.id} className="border border-stone-100 rounded-lg overflow-hidden">
+                            <div className="flex items-center justify-between px-3 py-2 bg-stone-50">
+                              <div>
+                                <span className="text-xs font-semibold text-stone-700">{s.nazev}</span>
+                                <span className="ml-2 text-xs text-stone-400">{s.typ === 'single' ? 'Výběr 1' : `Výběr ${s.min_vyberu}–${s.max_vyberu}`}</span>
+                              </div>
+                              <div className="flex gap-1">
+                                <Btn size="sm" onClick={() => setItemModal({ sekceId: s.id })}><Plus size={11}/> Položka</Btn>
+                                <button onClick={() => { if (confirm('Smazat sekci i se všemi položkami?')) deleteSekseMut.mutate(s.id); }}
+                                  className="p-1 text-stone-300 hover:text-red-500 transition-colors"><Trash2 size={12}/></button>
+                              </div>
+                            </div>
+                            {(s.polozky || []).map(pol => (
+                              <div key={pol.id} className="flex items-center justify-between px-3 py-2 border-t border-stone-50">
+                                <div>
+                                  <span className="text-xs font-medium text-stone-700">{pol.nazev}</span>
+                                  {pol.cena_os > 0 && <span className="ml-2 text-xs text-stone-400">+{new Intl.NumberFormat('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 }).format(pol.cena_os)}/os.</span>}
+                                  {pol.popis && <div className="text-xs text-stone-400">{pol.popis}</div>}
+                                </div>
+                                <button onClick={() => deletePolozkyMut.mutate(pol.id)}
+                                  className="p-1 text-stone-300 hover:text-red-500 transition-colors flex-shrink-0"><Trash2 size={12}/></button>
+                              </div>
+                            ))}
+                            {(s.polozky || []).length === 0 && <div className="px-3 py-2 text-xs text-stone-300">Žádné položky</div>}
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </div>
               );
             })}
@@ -596,6 +694,15 @@ export default function ZakazkaDetail() {
               {TYP_OPTIONS.map(t => <option key={t.v} value={t.v}>{t.l}</option>)}
             </select>
           </div>
+          <div><label className="text-xs text-stone-500 block mb-1">Odpovědná osoba</label>
+            <select className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+              value={editForm.obchodnik_id || ''} onChange={e => setEF('obchodnik_id', e.target.value || null)}>
+              <option value="">— nepřiřazeno —</option>
+              {(uzivateleData?.data?.data || uzivateleData?.data || []).map(u => (
+                <option key={u.id} value={u.id}>{u.jmeno} {u.prijmeni}</option>
+              ))}
+            </select>
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <div><label className="text-xs text-stone-500 block mb-1">Datum akce</label>
               <input type="date" className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
@@ -693,6 +800,64 @@ export default function ZakazkaDetail() {
           </div>
           <div className="text-xs text-stone-400 bg-stone-50 rounded-lg px-3 py-2">
             Klient obdrží email s odkazem na výběr menu. Odkaz si také můžete zkopírovat tlačítkem vpravo.
+          </div>
+        </div>
+      </Modal>
+
+      {/* Modal: Přidat sekci */}
+      <Modal open={sectionModal} onClose={() => setSectionModal(false)} title="Přidat sekci"
+        footer={<>
+          <Btn onClick={() => setSectionModal(false)}>Zrušit</Btn>
+          <Btn variant="primary" onClick={() => addSekseMut.mutate(sectionForm)} disabled={!sectionForm.nazev || addSekseMut.isPending}>
+            {addSekseMut.isPending ? 'Přidávám…' : 'Přidat sekci'}
+          </Btn>
+        </>}>
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs text-stone-500 block mb-1">Název sekce *</label>
+            <input className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+              placeholder="Předkrm, Hlavní chod, Dezert…"
+              value={sectionForm.nazev} onChange={e => setSectionForm(f => ({ ...f, nazev: e.target.value }))} autoFocus/>
+          </div>
+          <div>
+            <label className="text-xs text-stone-500 block mb-1">Typ výběru</label>
+            <select className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+              value={sectionForm.typ} onChange={e => setSectionForm(f => ({ ...f, typ: e.target.value }))}>
+              <option value="single">Výběr 1 možnosti</option>
+              <option value="multi">Výběr více možností</option>
+            </select>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Modal: Přidat položku */}
+      <Modal open={!!itemModal} onClose={() => { setItemModal(null); setItemForm({ nazev: '', popis: '', cena_os: '' }); }} title="Přidat položku"
+        footer={<>
+          <Btn onClick={() => { setItemModal(null); setItemForm({ nazev: '', popis: '', cena_os: '' }); }}>Zrušit</Btn>
+          <Btn variant="primary"
+            onClick={() => addPolozkyMut.mutate({ sekceId: itemModal?.sekceId, data: { ...itemForm, cena_os: parseFloat(itemForm.cena_os) || 0 } })}
+            disabled={!itemForm.nazev || addPolozkyMut.isPending}>
+            {addPolozkyMut.isPending ? 'Přidávám…' : 'Přidat'}
+          </Btn>
+        </>}>
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs text-stone-500 block mb-1">Název položky *</label>
+            <input className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+              placeholder="Svíčková na smetaně, Losos…"
+              value={itemForm.nazev} onChange={e => setItemForm(f => ({ ...f, nazev: e.target.value }))} autoFocus/>
+          </div>
+          <div>
+            <label className="text-xs text-stone-500 block mb-1">Popis (volitelné)</label>
+            <input className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+              placeholder="Složení, alergie…"
+              value={itemForm.popis} onChange={e => setItemForm(f => ({ ...f, popis: e.target.value }))}/>
+          </div>
+          <div>
+            <label className="text-xs text-stone-500 block mb-1">Příplatek za osobu (Kč)</label>
+            <input type="number" className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+              placeholder="0"
+              value={itemForm.cena_os} onChange={e => setItemForm(f => ({ ...f, cena_os: e.target.value }))}/>
           </div>
         </div>
       </Modal>

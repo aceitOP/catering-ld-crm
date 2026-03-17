@@ -106,6 +106,7 @@ export function KalendarPage() {
   const TYP_DOT = {
     svatba: 'bg-blue-500', soukroma_akce: 'bg-orange-500',
     firemni_akce: 'bg-emerald-500', zavoz: 'bg-violet-500', bistro: 'bg-amber-500',
+    pohreb: 'bg-slate-400', ostatni: 'bg-stone-400',
   };
 
   // ── Timeline helpers ──────────────────────────────────────────
@@ -1678,10 +1679,12 @@ export function NovaNabidka() {
 
 // ── NastaveniPage.jsx ─────────────────────────────────────────
 import { nastaveniApi, uzivateleApi, authApi } from '../api';
-import { Settings } from 'lucide-react';
+import { useAuth as useAuthNS } from '../context/AuthContext';
+import { Settings, Trash2 as Trash2NS } from 'lucide-react';
 
 export function NastaveniPage() {
   const qc = useQueryClient();
+  const { user: currentUser } = useAuthNS();
   const [tab, setTab] = useState('firma');
   const [form, setForm] = useState({});
   const [userModal, setUserModal] = useState(false);
@@ -1693,9 +1696,14 @@ export function NastaveniPage() {
 
   useEffect(() => { if (nastavData?.data) setForm(nastavData.data); }, [nastavData]);
 
-  const saveMut  = useMutation({ mutationFn: nastaveniApi.update, onSuccess: () => toast.success('Nastavení uloženo') });
-  const userMut  = useMutation({ mutationFn: uzivateleApi.create, onSuccess: () => { qc.invalidateQueries({ queryKey: ['uzivatele'] }); toast.success('Uživatel přidán'); setUserModal(false); } });
+  const saveMut   = useMutation({ mutationFn: nastaveniApi.update, onSuccess: () => toast.success('Nastavení uloženo') });
+  const userMut   = useMutation({ mutationFn: uzivateleApi.create, onSuccess: () => { qc.invalidateQueries({ queryKey: ['uzivatele'] }); toast.success('Uživatel přidán'); setUserModal(false); } });
   const toggleMut = useMutation({ mutationFn: ({id,aktivni}) => uzivateleApi.update(id,{aktivni}), onSuccess: () => qc.invalidateQueries({ queryKey: ['uzivatele'] }) });
+  const deleteMut = useMutation({
+    mutationFn: (id) => uzivateleApi.delete(id),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['uzivatele'] }); toast.success('Uživatel smazán'); },
+    onError: (e) => toast.error(e?.response?.data?.error || 'Chyba při mazání'),
+  });
   const passMut  = useMutation({
     mutationFn: (d) => authApi.changePassword({ stare_heslo: d.stare_heslo, nove_heslo: d.nove_heslo }),
     onSuccess: () => { toast.success('Heslo bylo úspěšně změněno'); setPassForm({ stare_heslo:'', nove_heslo:'', nove_heslo2:'' }); },
@@ -1764,6 +1772,12 @@ export function NastaveniPage() {
                   </div>
                   <span className={`text-xs px-2 py-0.5 rounded-full ${u.aktivni?'bg-green-50 text-green-700':'bg-stone-100 text-stone-400'}`}>{u.aktivni?'Aktivní':'Neaktivní'}</span>
                   <button onClick={() => toggleMut.mutate({id:u.id,aktivni:!u.aktivni})} className="text-xs text-stone-400 hover:text-stone-700">{u.aktivni?'Deaktivovat':'Aktivovat'}</button>
+                  {String(u.id) !== String(currentUser?.id) && (
+                    <button onClick={() => { if (window.confirm(`Opravdu smazat uživatele ${u.jmeno} ${u.prijmeni}? Tato akce je nevratná.`)) deleteMut.mutate(u.id); }}
+                      className="p-1 text-stone-300 hover:text-red-500 transition-colors" title="Smazat uživatele">
+                      <Trash2NS size={13}/>
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
@@ -1948,8 +1962,8 @@ export function NastaveniPage() {
 // ── PoptavkyPage.jsx ──────────────────────────────────────────
 import { Inbox, Check, X as XIcon, Phone, MapPin, Users, Banknote } from 'lucide-react';
 
-const TYP_LABELS_P = { svatba:'Svatba', soukroma_akce:'Soukromá akce', firemni_akce:'Firemní akce', zavoz:'Závoz', bistro:'Bistro' };
-const TYP_CHIP_P   = { svatba:'bg-blue-50 text-blue-700', soukroma_akce:'bg-orange-50 text-orange-700', firemni_akce:'bg-emerald-50 text-emerald-700', zavoz:'bg-violet-50 text-violet-700', bistro:'bg-amber-50 text-amber-700' };
+const TYP_LABELS_P = { svatba:'Svatba', soukroma_akce:'Soukromá akce', firemni_akce:'Firemní akce', zavoz:'Závoz', bistro:'Bistro', pohreb:'Pohřeb', ostatni:'Ostatní' };
+const TYP_CHIP_P   = { svatba:'bg-blue-50 text-blue-700', soukroma_akce:'bg-orange-50 text-orange-700', firemni_akce:'bg-emerald-50 text-emerald-700', zavoz:'bg-violet-50 text-violet-700', bistro:'bg-amber-50 text-amber-700', pohreb:'bg-slate-100 text-slate-600', ostatni:'bg-stone-100 text-stone-500' };
 
 export function PoptavkyPage() {
   const navigate = useNavigate();
@@ -2057,7 +2071,7 @@ export function PoptavkyPage() {
 import { reportyApi } from '../api';
 import { BarChart2 } from 'lucide-react';
 
-const TYP_LABELS_R = { svatba:'Svatba', soukroma_akce:'Soukromá akce', firemni_akce:'Firemní akce', zavoz:'Závoz', bistro:'Bistro' };
+const TYP_LABELS_R = { svatba:'Svatba', soukroma_akce:'Soukromá akce', firemni_akce:'Firemní akce', zavoz:'Závoz', bistro:'Bistro', pohreb:'Pohřeb', ostatni:'Ostatní' };
 
 export function ReportPage() {
   const navigate = useNavigate();

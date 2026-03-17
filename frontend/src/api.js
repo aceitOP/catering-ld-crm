@@ -104,6 +104,7 @@ export const uzivateleApi = {
   list:   ()       => api.get('/uzivatele'),
   create: (data)   => api.post('/uzivatele', data),
   update: (id, d)  => api.patch(`/uzivatele/${id}`, d),
+  delete: (id)     => api.delete(`/uzivatele/${id}`),
 };
 
 // ── Nastavení ────────────────────────────────────────────────

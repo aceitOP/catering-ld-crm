@@ -14,7 +14,11 @@ export const CHANGELOG = [
       { type: 'new',         text: 'Klientský výběr – speciální požadavky klienta u každé položky (alergie, úpravy)' },
       { type: 'new',         text: 'Klientský výběr – digitální potvrzení s jménem a souhlasem, zamknutí 14 dní před akcí' },
       { type: 'new',         text: 'Klientský výběr – potvrzovací email s přehledem výběru odeslaný firmě i klientovi' },
-      { type: 'new',         text: 'Záložka „Výběr menu\" v detailu zakázky – správa výběrů, kopírování odkazu, odeslání emailem' },
+      { type: 'new',         text: 'Záložka „Výběr menu" v detailu zakázky – inline editor sekcí a položek, kopírování odkazu, odeslání emailem' },
+      { type: 'new',         text: 'Zakázky – nové typy akce: Pohřeb a Ostatní' },
+      { type: 'improvement', text: 'Detail zakázky – sekundární akce (Komando, Děkovací email, Faktura, Výrobní list) přesunuty do boxu „Akce" v pravém sloupci' },
+      { type: 'fix',         text: 'Nabídka – opravena chyba při ukládání (prázdné číselné pole způsobovalo chybu databáze)' },
+      { type: 'fix',         text: 'Tlačítko „Nabídka" – nyní otevírá existující nabídku zakázky nebo přejde na vytvoření nové' },
     ],
   },
   {

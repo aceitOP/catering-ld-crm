@@ -2,6 +2,39 @@ import { useState, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { zakazkyApi, kalendarApi, notifikaceApi, fakturyApi } from '../api';
+import { useAuth } from '../context/AuthContext';
+
+// Český 5. pád (vokatív) pro pozdrav
+function vocative(jmeno) {
+  if (!jmeno) return '';
+  const n = jmeno.trim();
+  // Lookup pro nejčastější jména
+  const map = {
+    // Ženy
+    'Adéla':'Adélo','Jana':'Jano','Petra':'Petro','Martina':'Martino','Tereza':'Terezo',
+    'Veronika':'Veroniko','Markéta':'Markéto','Eva':'Evo','Kateřina':'Kateřino',
+    'Anna':'Anno','Monika':'Moniko','Lenka':'Lenko','Michaela':'Michaelo',
+    'Barbora':'Barbaro','Hana':'Hano','Jitka':'Jitko','Renata':'Renato',
+    'Zuzana':'Zuzano','Ivana':'Ivano','Alena':'Aleno','Dana':'Dano',
+    'Simona':'Simono','Andrea':'Andreo','Kristýna':'Kristýno','Nikola':'Nikolo',
+    'Klára':'Kláro','Gabriela':'Gabrielo','Pavlína':'Pavlíno','Eliška':'Elišce',
+    'Karolína':'Karolíno','Lucie':'Lucie','Marie':'Marie','Julie':'Julie','Sofie':'Sofie',
+    // Muži
+    'Martin':'Martine','Pavel':'Pavle','Tomáš':'Tomáši','Jan':'Jane','Ondřej':'Ondřeji',
+    'Jakub':'Jakube','Petr':'Petře','Filip':'Filipe','Lukáš':'Lukáši','David':'Davide',
+    'Jiří':'Jiří','Michal':'Michale','Radek':'Radku','Vladimír':'Vladimíre',
+    'Roman':'Romane','Marek':'Marku','Karel':'Karle','Josef':'Josefe','Václav':'Václave',
+    'Zdeněk':'Zdeňku','Miroslav':'Miroslave','Stanislav':'Stanislave','Ladislav':'Ladislave',
+    'Jaroslav':'Jaroslave','František':'Františku','Libor':'Libore','Vojtěch':'Vojtěchu',
+    'Patrik':'Patriku','Daniel':'Danieli','Matěj':'Matěji','Adam':'Adame',
+    'Dominik':'Dominiku','Robert':'Roberte','Milan':'Milane','Aleš':'Aleši',
+    'Radoslav':'Radoslave','Jakub':'Jakube','Matyáš':'Matyáši',
+  };
+  if (map[n]) return map[n];
+  // Fallback pravidla: jméno končí na 'a' nebo 'á' → -o
+  if (/[aá]$/.test(n)) return n.slice(0, -1) + 'o';
+  return n;
+}
 import { StavBadge, TypBadge, formatCena, Spinner } from '../components/ui';
 import {
   Plus, ArrowRight, Bell, ClipboardList, TrendingUp, Calendar, Users, Inbox,
@@ -20,10 +53,13 @@ const TYP_CHIP   = {
   firemni_akce:  'bg-emerald-100 text-emerald-700',
   zavoz:         'bg-violet-100 text-violet-700',
   bistro:        'bg-amber-100 text-amber-700',
+  pohreb:        'bg-slate-100 text-slate-600',
+  ostatni:       'bg-stone-100 text-stone-500',
 };
 const TYP_DOT = {
   svatba: 'bg-blue-500', soukroma_akce: 'bg-orange-500',
   firemni_akce: 'bg-emerald-500', zavoz: 'bg-violet-500', bistro: 'bg-amber-500',
+  pohreb: 'bg-slate-400', ostatni: 'bg-stone-400',
 };
 
 // ── Widget definitions ────────────────────────────────────────
@@ -174,11 +210,15 @@ export default function DashboardPage() {
     .sort((a,b) => (b.created_at||'').localeCompare(a.created_at||''))
     .slice(0, 4);
 
+  // ── Auth ──
+  const { user } = useAuth();
+
   // ── DnD state ────────────────────────────────────────────────
-  const [widgetOrder, setWidgetOrder] = useState(loadOrder);
-  const [editMode,    setEditMode]    = useState(false);
-  const [dragging,    setDragging]    = useState(null);
-  const [dragOver,    setDragOver]    = useState(null);
+  const [widgetOrder,     setWidgetOrder]     = useState(loadOrder);
+  const [editMode,        setEditMode]        = useState(false);
+  const [savedOrderSnap,  setSavedOrderSnap]  = useState(null);
+  const [dragging,        setDragging]        = useState(null);
+  const [dragOver,        setDragOver]        = useState(null);
 
   const handleDragStart = (id) => setDragging(id);
   const handleDragEnter = (id) => setDragOver(id);
@@ -190,7 +230,6 @@ export default function DashboardPage() {
         const to   = next.indexOf(dragOver);
         next.splice(from, 1);
         next.splice(to, 0, dragging);
-        localStorage.setItem('dashboard-widget-order', JSON.stringify(next));
         return next;
       });
     }
@@ -515,11 +554,11 @@ export default function DashboardPage() {
                 { icon: Plus,          label: 'Nová zakázka',    path: '/zakazky/nova',  color: 'bg-brand-50 text-brand-600' },
                 { icon: FileText,      label: 'Nová nabídka',    path: '/nabidky/nova',  color: 'bg-blue-50 text-blue-600' },
                 { icon: Receipt,       label: 'Nová faktura',    path: '/faktury/nova',  color: 'bg-violet-50 text-violet-600' },
-                { icon: Users,         label: 'Nový klient',     path: '/klienti',       color: 'bg-orange-50 text-orange-600' },
+                { icon: Users,         label: 'Nový klient',     path: '/klienti',       color: 'bg-orange-50 text-orange-600', state: { openNew: true } },
                 { icon: Calendar,      label: 'Kalendář',        path: '/kalendar',      color: 'bg-emerald-50 text-emerald-600' },
                 { icon: ClipboardList, label: 'Všechny zakázky', path: '/zakazky',       color: 'bg-stone-50 text-stone-600' },
               ].map(a => (
-                <button key={a.path} onClick={() => navigate(a.path)}
+                <button key={a.path} onClick={() => navigate(a.path, a.state ? { state: a.state } : undefined)}
                   className="w-full flex items-center gap-3 text-sm px-3 py-2.5 rounded-xl hover:bg-surface transition-all text-left group">
                   <div className={`w-7 h-7 rounded-xl ${a.color} flex items-center justify-center flex-shrink-0`}>
                     <a.icon size={13} />
@@ -542,21 +581,35 @@ export default function DashboardPage() {
       {/* ── Header ── */}
       <div className="flex items-center justify-between px-8 py-5">
         <div>
-          <h1 className="text-lg font-bold text-stone-900">Dashboard</h1>
+          <h1 className="text-lg font-bold text-stone-900">
+            {user?.jmeno ? `Vítej, ${vocative(user.jmeno)}!` : 'Dashboard'}
+          </h1>
           <p className="text-xs text-stone-400 mt-0.5">
             {now.toLocaleDateString('cs-CZ', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {editMode && (
+            <button
+              onClick={() => { setWidgetOrder(savedOrderSnap); setEditMode(false); setDragging(null); setDragOver(null); }}
+              className="text-xs font-semibold px-3 py-2 rounded-xl border border-stone-200 bg-white text-stone-500 hover:bg-surface transition-all"
+            >
+              Storno
+            </button>
+          )}
           <button
-            onClick={() => setEditMode(e => !e)}
+            onClick={() => {
+              if (!editMode) setSavedOrderSnap([...widgetOrder]);
+              else localStorage.setItem('dashboard-widget-order', JSON.stringify(widgetOrder));
+              setEditMode(e => !e);
+            }}
             className={`text-xs font-semibold px-3 py-2 rounded-xl border transition-all ${
               editMode
                 ? 'bg-brand-600 text-white border-brand-600 shadow-md shadow-brand-600/20'
                 : 'bg-white border-stone-200 text-stone-600 hover:bg-surface'
             }`}
           >
-            {editMode ? '✓ Hotovo' : '⠿ Upravit rozvržení'}
+            {editMode ? '✓ Uložit rozvržení' : '⠿ Upravit rozvržení'}
           </button>
           <button onClick={() => navigate('/zakazky/nova')}
             className="inline-flex items-center gap-2 bg-brand-600 text-white text-xs font-semibold px-4 py-2 rounded-xl hover:bg-brand-700 shadow-md shadow-brand-600/20 transition-all">
@@ -566,7 +619,7 @@ export default function DashboardPage() {
             className="inline-flex items-center gap-1.5 bg-white border border-stone-200 text-stone-600 text-xs font-semibold px-3 py-2 rounded-xl hover:bg-surface shadow-sm transition-all">
             <Plus size={13} /> Nová nabídka
           </button>
-          <button onClick={() => navigate('/klienti')}
+          <button onClick={() => navigate('/klienti', { state: { openNew: true } })}
             className="inline-flex items-center gap-1.5 bg-white border border-stone-200 text-stone-600 text-xs font-semibold px-3 py-2 rounded-xl hover:bg-surface shadow-sm transition-all">
             <Plus size={13} /> Nový klient
           </button>
@@ -590,7 +643,7 @@ export default function DashboardPage() {
         {editMode && (
           <div className="flex items-center gap-3 bg-brand-50 border border-brand-100 text-brand-700 text-xs font-medium px-4 py-3 rounded-xl">
             <GripVertical size={14} />
-            Přetáhněte widgety myší pro změnu pořadí. Klikněte „Hotovo" pro uložení.
+            Přetáhněte widgety myší pro změnu pořadí. Klikněte „Uložit rozvržení" pro potvrzení nebo „Storno" pro zrušení změn.
           </div>
         )}
 

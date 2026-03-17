@@ -173,12 +173,17 @@ router.patch('/:id/stav', auth, async (req, res, next) => {
 // DELETE /api/faktury/:id
 router.delete('/:id', auth, async (req, res, next) => {
   try {
-    const { rows } = await query('SELECT stav FROM faktury WHERE id=$1', [req.params.id]);
-    if (!rows[0]) return res.status(404).json({ error: 'Faktura nenalezena' });
-    if (rows[0].stav !== 'vystavena')
-      return res.status(400).json({ error: 'Smazat lze pouze fakturu ve stavu Vystavena' });
-    await query('DELETE FROM faktury WHERE id=$1', [req.params.id]);
-    res.status(204).end();
+    // Atomicky: smaž pouze pokud stav = 'vystavena' – odstraní race condition
+    const { rows } = await query(
+      "DELETE FROM faktury WHERE id=$1 AND stav='vystavena' RETURNING id",
+      [req.params.id]
+    );
+    if (rows[0]) return res.status(204).end();
+
+    // Nenašlo se – zjisti proč
+    const { rows: check } = await query('SELECT stav FROM faktury WHERE id=$1', [req.params.id]);
+    if (!check[0]) return res.status(404).json({ error: 'Faktura nenalezena' });
+    return res.status(400).json({ error: 'Smazat lze pouze fakturu ve stavu Vystavena' });
   } catch (err) { next(err); }
 });
 

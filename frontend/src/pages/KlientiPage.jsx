@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { klientiApi } from '../api';
 import { PageHeader, KlientTypBadge, StavBadge, formatCena, formatDatum, Spinner, EmptyState, Btn, Modal, ExportMenu } from '../components/ui';
 import toast from 'react-hot-toast';
@@ -30,12 +30,21 @@ const emptyForm = { jmeno:'', prijmeni:'', firma:'', typ:'soukromy', email:'', t
 
 export default function KlientiPage() {
   const navigate  = useNavigate();
+  const location  = useLocation();
   const qc        = useQueryClient();
   const [q, setQ] = useState('');
   const [typ, setTyp] = useState('');
   const [selected, setSelected] = useState(null);
   const [modal, setModal]       = useState(false);
   const [form, setForm]         = useState(emptyForm);
+
+  // Otevři modal pokud přišel navigate('/klienti', { state: { openNew: true } })
+  useEffect(() => {
+    if (location.state?.openNew) {
+      setModal(true);
+      window.history.replaceState({}, '');
+    }
+  }, []);
   const [editModal, setEditModal] = useState(false);
   const [editForm, setEditForm]   = useState(emptyForm);
   const [aresLoading, setAresLoading] = useState(false);

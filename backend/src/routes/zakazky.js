@@ -90,7 +90,7 @@ router.get('/:id', auth, async (req, res, next) => {
     const history = await query(`
       SELECT zh.*, u.jmeno, u.prijmeni FROM zakazky_history zh
       LEFT JOIN uzivatele u ON u.id = zh.uzivatel_id
-      WHERE zh.zakazka_id = $1 ORDER BY zh.created_at ASC`, [req.params.id]);
+      WHERE zh.zakazka_id = $1 ORDER BY zh.created_at ASC LIMIT 200`, [req.params.id]);
 
     // Personál
     const personal = await query(`
@@ -177,7 +177,7 @@ router.patch('/:id', auth, async (req, res, next) => {
       const { rows: full } = await query(`
         SELECT z.*, k.jmeno AS klient_jmeno, k.prijmeni AS klient_prijmeni, k.firma AS klient_firma
         FROM zakazky z LEFT JOIN klienti k ON k.id = z.klient_id WHERE z.id = $1`, [req.params.id]);
-      upsertEvent(full[0]).catch(() => {});
+      upsertEvent(full[0]).catch(err => console.warn('[GoogleCalendar] PATCH sync chyba:', err.message));
     }
 
     res.json(rows[0]);
@@ -215,9 +215,11 @@ router.patch('/:id/stav', auth, async (req, res, next) => {
 
     // Google Calendar sync (fire-and-forget, errors non-fatal)
     if (stav === 'potvrzeno') {
-      upsertEvent(zakazkaRow).catch(() => {});
+      upsertEvent({ ...zakazkaRow, id: req.params.id })
+        .catch(err => console.warn('[GoogleCalendar] stav sync chyba:', err.message));
     } else if (stav === 'stornovano' && zakazkaRow?.google_event_id) {
-      deleteEvent(zakazkaRow.google_event_id).catch(() => {});
+      deleteEvent(zakazkaRow.google_event_id)
+        .catch(err => console.warn('[GoogleCalendar] delete sync chyba:', err.message));
     }
 
     res.json({ message: 'Stav zakázky aktualizován', stav });
