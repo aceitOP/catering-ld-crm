@@ -129,10 +129,12 @@ async function initDb() {
           pocet_hostu      INTEGER DEFAULT 0,
           poznamka_klient  TEXT,
           poznamka_interni TEXT,
+          polozky          JSONB NOT NULL DEFAULT '[]',
           created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
           updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
       `);
+      await pool.query(`ALTER TABLE zakazky_sablony ADD COLUMN IF NOT EXISTS polozky JSONB NOT NULL DEFAULT '[]'`);
       console.log('✅  Migrace OK (google_event_id, faktury, proposals, archivovano, sablony).');
       return;
     }

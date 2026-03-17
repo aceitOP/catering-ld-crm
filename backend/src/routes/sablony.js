@@ -22,12 +22,13 @@ router.get('/:id', auth, async (req, res, next) => {
 // POST /api/sablony
 router.post('/', auth, requireRole('admin'), async (req, res, next) => {
   try {
-    const { nazev, popis, typ, cas_zacatek, cas_konec, misto, pocet_hostu, poznamka_klient, poznamka_interni } = req.body;
+    const { nazev, popis, typ, cas_zacatek, cas_konec, misto, pocet_hostu, poznamka_klient, poznamka_interni, polozky } = req.body;
     if (!nazev) return res.status(400).json({ error: 'Název šablony je povinný' });
     const { rows } = await query(
-      `INSERT INTO zakazky_sablony (nazev, popis, typ, cas_zacatek, cas_konec, misto, pocet_hostu, poznamka_klient, poznamka_interni)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
-      [nazev, popis, typ, cas_zacatek || null, cas_konec || null, misto, pocet_hostu || 0, poznamka_klient, poznamka_interni]
+      `INSERT INTO zakazky_sablony (nazev, popis, typ, cas_zacatek, cas_konec, misto, pocet_hostu, poznamka_klient, poznamka_interni, polozky)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+      [nazev, popis, typ, cas_zacatek || null, cas_konec || null, misto, pocet_hostu || 0, poznamka_klient, poznamka_interni,
+       JSON.stringify(Array.isArray(polozky) ? polozky : [])]
     );
     res.status(201).json(rows[0]);
   } catch (err) { next(err); }
@@ -36,7 +37,7 @@ router.post('/', auth, requireRole('admin'), async (req, res, next) => {
 // PATCH /api/sablony/:id
 router.patch('/:id', auth, requireRole('admin'), async (req, res, next) => {
   try {
-    const allowed = ['nazev','popis','typ','cas_zacatek','cas_konec','misto','pocet_hostu','poznamka_klient','poznamka_interni'];
+    const allowed = ['nazev','popis','typ','cas_zacatek','cas_konec','misto','pocet_hostu','poznamka_klient','poznamka_interni','polozky'];
     const fields = Object.keys(req.body).filter(k => allowed.includes(k));
     if (!fields.length) return res.status(400).json({ error: 'Žádná platná pole' });
     const sets = fields.map((f, i) => `${f} = $${i + 2}`).join(', ');

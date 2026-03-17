@@ -1,9 +1,19 @@
 // Changelog – Catering LD CRM
 // Typy změn: 'new' | 'improvement' | 'fix' | 'security'
 
-export const APP_VERSION = '2.8.0';
+export const APP_VERSION = '2.9.0';
 
 export const CHANGELOG = [
+  {
+    version: '2.9.0',
+    date: '2026-03-17',
+    changes: [
+      { type: 'new',         text: 'Šablony – přidání položek nabídky přímo do šablony (kategorie, název, jednotka, množství, cena)' },
+      { type: 'new',         text: 'Šablony – při zakládání zakázky ze šablony s položkami se automaticky vytvoří nabídka' },
+      { type: 'improvement', text: 'Šablony – karta šablony zobrazuje počet uložených položek nabídky' },
+      { type: 'improvement', text: 'Výběr šablony – zobrazuje počet položek u každé šablony' },
+    ],
+  },
   {
     version: '2.8.0',
     date: '2026-03-17',

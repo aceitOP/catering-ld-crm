@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { zakazkyApi, klientiApi, uzivateleApi, sablonyApi } from '../api';
+import { zakazkyApi, klientiApi, uzivateleApi, sablonyApi, nabidkyApi } from '../api';
 import { PageHeader, Btn } from '../components/ui';
 import toast from 'react-hot-toast';
 import { ArrowLeft, Check } from 'lucide-react';
@@ -20,7 +20,8 @@ const TYP_EMOJI = { svatba:'💒', soukroma_akce:'🥂', firemni_akce:'🏢', za
 
 export default function NovaZakazka() {
   const navigate = useNavigate();
-  const [step, setStep]   = useState(0);
+  const [step, setStep]         = useState(0);
+  const [sablonaPolozky, setSablonaPolozky] = useState([]);
   const [form, setForm]   = useState({
     typ:'', nazev:'', klient_id:'', obchodnik_id:'', datum_akce:'', cas_zacatek:'',
     cas_konec:'', misto:'', pocet_hostu:'', rozpocet_klienta:'',
@@ -45,11 +46,27 @@ export default function NovaZakazka() {
   });
   const sablony = sablonyData || [];
 
+  const nabidkaMut = useMutation({
+    mutationFn: (data) => nabidkyApi.create(data),
+  });
+
   const mut = useMutation({
     mutationFn: (data) => zakazkyApi.create(data),
     onSuccess: (r) => {
-      toast.success(`Zakázka ${r.data.cislo} vytvořena`);
-      navigate(`/zakazky/${r.data.id}`);
+      if (sablonaPolozky.length > 0) {
+        nabidkaMut.mutate(
+          { zakazka_id: r.data.id, nazev: 'Nabídka ze šablony', polozky: sablonaPolozky },
+          {
+            onSettled: () => {
+              toast.success(`Zakázka ${r.data.cislo} vytvořena · nabídka ze šablony přidána`);
+              navigate(`/zakazky/${r.data.id}`);
+            },
+          }
+        );
+      } else {
+        toast.success(`Zakázka ${r.data.cislo} vytvořena`);
+        navigate(`/zakazky/${r.data.id}`);
+      }
     },
     onError: () => toast.error('Nepodařilo se vytvořit zakázku'),
   });
@@ -57,6 +74,7 @@ export default function NovaZakazka() {
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   const applyTemplate = (s) => {
+    setSablonaPolozky(s.polozky || []);
     setForm(f => ({
       ...f,
       typ: s.typ || f.typ,
@@ -128,10 +146,11 @@ export default function NovaZakazka() {
                   <div className="min-w-0">
                     <div className="text-sm font-semibold text-stone-800">{s.nazev}</div>
                     {s.popis && <div className="text-xs text-stone-400 mt-0.5 line-clamp-1">{s.popis}</div>}
-                    <div className="flex gap-3 mt-1.5 text-xs text-stone-500">
+                    <div className="flex gap-3 mt-1.5 text-xs text-stone-500 flex-wrap">
                       {s.cas_zacatek && <span>⏰ {s.cas_zacatek.slice(0,5)}{s.cas_konec ? `–${s.cas_konec.slice(0,5)}` : ''}</span>}
                       {s.misto && <span>📍 {s.misto}</span>}
                       {s.pocet_hostu > 0 && <span>👥 {s.pocet_hostu}</span>}
+                      {s.polozky?.length > 0 && <span className="text-violet-600 font-medium">🍽️ {s.polozky.length} položek</span>}
                     </div>
                   </div>
                 </button>
