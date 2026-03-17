@@ -166,7 +166,8 @@ router.patch('/:id', auth, async (req, res, next) => {
     if (!fields.length) return res.status(400).json({ error: 'Žádná platná pole k aktualizaci' });
 
     const sets = fields.map((f, i) => `${f} = $${i + 2}`).join(', ');
-    const vals = fields.map(f => req.body[f]);
+    // Prázdný string → null (zabrání chybě "invalid input syntax for type integer" u FK polí)
+    const vals = fields.map(f => { const v = req.body[f]; return (v === '' || v === undefined) ? null : v; });
 
     const { rows } = await query(
       `UPDATE zakazky SET ${sets} WHERE id = $1 RETURNING *`,
