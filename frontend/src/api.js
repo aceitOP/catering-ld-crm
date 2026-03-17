@@ -147,4 +147,10 @@ export const notifikaceApi = {
   deleteRead: ()   => api.delete('/notifikace'),
 };
 
+// ── Production / Výrobní list ─────────────────────────────────
+export const productionApi = {
+  calculate: (zakazkaId) => api.get(`/production/calculate/${zakazkaId}`),
+  sheet:     (zakazkaId) => api.get(`/production/sheet/${zakazkaId}`),
+};
+
 export default api;

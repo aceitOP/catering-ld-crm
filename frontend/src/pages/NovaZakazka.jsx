@@ -112,9 +112,18 @@ export default function NovaZakazka() {
                   value={form.datum_akce} onChange={e => set('datum_akce', e.target.value)} />
               </div>
               <div>
-                <label className="text-xs text-stone-500 block mb-1.5">Počet hostů</label>
-                <input type="number" className="w-full border border-stone-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-stone-400"
-                  placeholder="0" value={form.pocet_hostu} onChange={e => set('pocet_hostu', e.target.value)} />
+                <label className="text-xs text-stone-500 block mb-1.5">
+                  Počet hostů
+                  {form.pocet_hostu > 0 && (
+                    <span className="ml-2 font-semibold text-stone-800">{form.pocet_hostu}</span>
+                  )}
+                </label>
+                <input type="range" min="0" max="500" step="5"
+                  className="w-full accent-stone-800 mb-1.5"
+                  value={form.pocet_hostu || 0}
+                  onChange={e => set('pocet_hostu', e.target.value)} />
+                <input type="number" className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-stone-400"
+                  placeholder="nebo zadejte ručně" value={form.pocet_hostu} onChange={e => set('pocet_hostu', e.target.value)} />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">

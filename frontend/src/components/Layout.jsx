@@ -42,7 +42,7 @@ function timeAgo(ts) {
 const NAV = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   {
-    label: 'Obchod', icon: ClipboardList,
+    label: 'Catering', icon: ClipboardList,
     children: [
       { to: '/poptavky', label: 'Poptávky',  icon: Inbox,         badge: 'poptavky' },
       { to: '/nabidky',  label: 'Nabídky',   icon: FileText },

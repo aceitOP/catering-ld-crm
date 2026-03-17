@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { zakazkyApi, personalApi, dokumentyApi } from '../api';
 import { StavBadge, TypBadge, formatCena, formatDatum, Spinner, Btn, Modal } from '../components/ui';
 import toast from 'react-hot-toast';
-import { ArrowLeft, ChevronRight, Send, Heart, Printer, Pencil, Upload, UserPlus, Trash2, Search, Receipt } from 'lucide-react';
+import { ArrowLeft, ChevronRight, Send, Heart, Printer, Pencil, Upload, UserPlus, Trash2, Search, Receipt, ChefHat } from 'lucide-react';
 import { printKomandoPdf } from '../utils/print';
 
 const WORKFLOW = [
@@ -170,6 +170,9 @@ export default function ZakazkaDetail() {
             </Btn>
             <Btn size="sm" onClick={() => navigate(`/faktury/nova?zakazka_id=${id}`)}>
               <Receipt size={12}/> Vystavit fakturu
+            </Btn>
+            <Btn size="sm" onClick={() => navigate(`/zakazky/${id}/vyrobni-list`)}>
+              <ChefHat size={12}/> Výrobní list
             </Btn>
           </div>
         </div>

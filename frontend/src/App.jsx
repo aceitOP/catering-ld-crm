@@ -22,8 +22,9 @@ import ReportPage      from './pages/ReportPage';
 import PoptavkyPage    from './pages/PoptavkyPage';
 import FakturyPage     from './pages/FakturyPage';
 import FakturaDetail   from './pages/FakturaDetail';
-import NovaFakturaPage from './pages/NovaFakturaPage';
-import Layout          from './components/Layout';
+import NovaFakturaPage  from './pages/NovaFakturaPage';
+import VyrobniListPage  from './pages/VyrobniListPage';
+import Layout           from './components/Layout';
 
 const qc = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000, retry: 1 } },
@@ -55,7 +56,8 @@ function App() {
               <Route path="poptavky"          element={<PoptavkyPage />} />
               <Route path="zakazky"           element={<ZakazkyPage />} />
               <Route path="zakazky/nova"      element={<NovaZakazka />} />
-              <Route path="zakazky/:id"       element={<ZakazkaDetail />} />
+              <Route path="zakazky/:id"            element={<ZakazkaDetail />} />
+              <Route path="zakazky/:id/vyrobni-list" element={<VyrobniListPage />} />
               <Route path="klienti"           element={<KlientiPage />} />
               <Route path="nabidky"           element={<NabidkyPage />} />
               <Route path="nabidky/nova"      element={<NovaNabidka />} />

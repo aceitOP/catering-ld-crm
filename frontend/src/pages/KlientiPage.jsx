@@ -4,7 +4,25 @@ import { useNavigate } from 'react-router-dom';
 import { klientiApi } from '../api';
 import { PageHeader, KlientTypBadge, StavBadge, formatCena, formatDatum, Spinner, EmptyState, Btn, Modal, ExportMenu } from '../components/ui';
 import toast from 'react-hot-toast';
-import { Plus, Pencil, Search, Users, X } from 'lucide-react';
+import { Plus, Pencil, Search, Users, X, RefreshCw } from 'lucide-react';
+
+async function fetchAres(ico) {
+  const res = await fetch(`https://ares.gov.cz/ekonomicke-subjekty-v-be/rest/ekonomicke-subjekty/${ico.trim()}`);
+  if (!res.ok) throw new Error('IČO nenalezeno v ARES');
+  return res.json();
+}
+
+function parseAres(data) {
+  const adresaObj = data.sidlo;
+  const adresa = adresaObj
+    ? [adresaObj.nazevUlice, adresaObj.cisloDomovni, adresaObj.nazevObce, adresaObj.psc].filter(Boolean).join(' ')
+    : '';
+  return {
+    firma: data.obchodniJmeno || '',
+    dic: data.dic || '',
+    adresa,
+  };
+}
 
 const TYPY = [{v:'soukromy',l:'Soukromý'},{v:'firemni',l:'Firemní'},{v:'vip',l:'VIP'}];
 
@@ -20,6 +38,22 @@ export default function KlientiPage() {
   const [form, setForm]         = useState(emptyForm);
   const [editModal, setEditModal] = useState(false);
   const [editForm, setEditForm]   = useState(emptyForm);
+  const [aresLoading, setAresLoading] = useState(false);
+
+  const handleAres = async (ico, setF) => {
+    if (!ico) return toast.error('Zadejte IČO');
+    setAresLoading(true);
+    try {
+      const data = await fetchAres(ico);
+      const parsed = parseAres(data);
+      setF(f => ({ ...f, ...parsed, ico }));
+      toast.success('Údaje z ARES doplněny');
+    } catch {
+      toast.error('IČO nenalezeno v ARES');
+    } finally {
+      setAresLoading(false);
+    }
+  };
 
   const { data, isLoading } = useQuery({
     queryKey: ['klienti', q, typ],
@@ -257,8 +291,17 @@ export default function KlientiPage() {
             <div><label className="text-xs text-stone-500 block mb-1">Název firmy</label>
               <input className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" value={editForm.firma} onChange={e=>setE('firma',e.target.value)}/></div>
             <div className="grid grid-cols-2 gap-3">
-              <div><label className="text-xs text-stone-500 block mb-1">IČO</label>
-                <input className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" value={editForm.ico} onChange={e=>setE('ico',e.target.value)}/></div>
+              <div>
+                <label className="text-xs text-stone-500 block mb-1">IČO</label>
+                <div className="flex gap-1.5">
+                  <input className="flex-1 border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" value={editForm.ico} onChange={e=>setE('ico',e.target.value)}/>
+                  <button type="button" onClick={() => handleAres(editForm.ico, setEditForm)}
+                    disabled={aresLoading}
+                    className="px-2 py-2 border border-stone-200 rounded-lg hover:bg-stone-50 text-stone-500 hover:text-stone-800 transition-colors disabled:opacity-50" title="Doplnit z ARES">
+                    <RefreshCw size={13} className={aresLoading ? 'animate-spin' : ''}/>
+                  </button>
+                </div>
+              </div>
               <div><label className="text-xs text-stone-500 block mb-1">DIČ</label>
                 <input className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" value={editForm.dic} onChange={e=>setE('dic',e.target.value)}/></div>
             </div>
@@ -308,8 +351,17 @@ export default function KlientiPage() {
             <div><label className="text-xs text-stone-500 block mb-1">Název firmy</label>
               <input className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" value={form.firma} onChange={e=>set('firma',e.target.value)}/></div>
             <div className="grid grid-cols-2 gap-3">
-              <div><label className="text-xs text-stone-500 block mb-1">IČO</label>
-                <input className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" value={form.ico} onChange={e=>set('ico',e.target.value)}/></div>
+              <div>
+                <label className="text-xs text-stone-500 block mb-1">IČO</label>
+                <div className="flex gap-1.5">
+                  <input className="flex-1 border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" value={form.ico} onChange={e=>set('ico',e.target.value)}/>
+                  <button type="button" onClick={() => handleAres(form.ico, setForm)}
+                    disabled={aresLoading}
+                    className="px-2 py-2 border border-stone-200 rounded-lg hover:bg-stone-50 text-stone-500 hover:text-stone-800 transition-colors disabled:opacity-50" title="Doplnit z ARES">
+                    <RefreshCw size={13} className={aresLoading ? 'animate-spin' : ''}/>
+                  </button>
+                </div>
+              </div>
               <div><label className="text-xs text-stone-500 block mb-1">DIČ</label>
                 <input className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" value={form.dic} onChange={e=>set('dic',e.target.value)}/></div>
             </div>

@@ -28,3 +28,22 @@ Modul ceníky - přidej možnost vymazat položku i kategorii. Přidej speciáln
 
 
 Plošně přidej multiselect do všech modulů kde má význam.
+
+
+
+
+
+
+Na dashboardu v časti Notifikace se text zobrazuje spatne, jde mimo box.
+
+Modul personál - přidat možnost filtrovat dle kategorie 
+
+Kdykoliv obycejne obnovim stranku tak se mi ukaze error 404
+
+
+
+modul personal padá.
+modul klienti - vyplnit udaje z ARES
+fakturace - nefunguje hledani klientů
+vystavit fakturu ze zakázky - nenačte 
+u vytvareni nabidky / zakazky pridej u poctu i moznost pouzit slider kde si tahnutim uzivatel navoli pocet. moznost zadani do klasickeho pole zustava.

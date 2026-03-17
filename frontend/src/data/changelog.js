@@ -1,9 +1,46 @@
 // Changelog – Catering LD CRM
 // Typy změn: 'new' | 'improvement' | 'fix' | 'security'
 
-export const APP_VERSION = '2.1.0';
+export const APP_VERSION = '2.3.1';
 
 export const CHANGELOG = [
+  {
+    version: '2.3.1',
+    date: '2026-03-17',
+    changes: [
+      { type: 'fix',         text: 'Personál – opraven crash modulu (filterRole/filterTyp použity před deklarací)' },
+      { type: 'fix',         text: 'Faktura – opraveno načtení klienta při „Vystavit fakturu" ze zakázky (broken queryFn)' },
+      { type: 'fix',         text: 'Faktura – opraveno hledání klientů (odběratel autocomplete nyní funguje)' },
+      { type: 'new',         text: 'Klienti – tlačítko „Doplnit z ARES" vedle IČO v obou formulářích (vyplní firmu, DIČ, adresu)' },
+      { type: 'improvement', text: 'Nová zakázka – přidán slider pro nastavení počtu hostů (+ ruční zadání zůstává)' },
+    ],
+  },
+  {
+    version: '2.3.0',
+    date: '2026-03-17',
+    changes: [
+      { type: 'new',         text: 'Výrobní list – nová stránka dostupná z detailu zakázky (tlačítko „Výrobní list")' },
+      { type: 'new',         text: 'Consumption Engine – automatický výpočet množství surovin dle typu akce (svatba, firemní, závoz…)' },
+      { type: 'new',         text: 'Výrobní list – sekce A: Mise en place (objednávky & příprava) s upraveným množstvím' },
+      { type: 'new',         text: 'Výrobní list – sekce B: Kompletace pokrmů (seznam jídel s počtem porcí + políčko „hotovo v")' },
+      { type: 'new',         text: 'Výrobní list – sekce C: Automatická detekce alergenů z názvů položek (14 skupin alergenů)' },
+      { type: 'new',         text: 'Výrobní list – sekce D & E: Personál a logistika/vybavení z kalkulace' },
+      { type: 'new',         text: 'Výrobní list – detail spotřeby s koeficienty (základní vs. upravené množství)' },
+      { type: 'improvement', text: 'Výrobní list – tiskové CSS (print:hidden / print:block), přímo tisknutelný z prohlížeče' },
+    ],
+  },
+  {
+    version: '2.2.0',
+    date: '2026-03-17',
+    changes: [
+      { type: 'new',         text: 'Dashboard – přetažitelné widgety (drag & drop), pořadí se ukládá do prohlížeče' },
+      { type: 'new',         text: 'Dashboard – nový widget Fakturace (nezaplacené, po splatnosti)' },
+      { type: 'new',         text: 'Dashboard – nový widget Nové poptávky se seznamem posledních záznamu' },
+      { type: 'improvement', text: 'Dashboard – tlačítko „Upravit rozvržení" pro aktivaci přetahování' },
+      { type: 'improvement', text: 'Boční menu – sekce „Obchod" přejmenována na „Catering"' },
+      { type: 'fix',         text: 'Kalendář – opraveno zobrazení akcí v měsíčním pohledu (datum_akce porovnání)' },
+    ],
+  },
   {
     version: '2.1.0',
     date: '2026-03-17',
