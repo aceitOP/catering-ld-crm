@@ -1,9 +1,43 @@
 // Changelog – Catering LD CRM
 // Typy změn: 'new' | 'improvement' | 'fix' | 'security'
 
-export const APP_VERSION = '2.4.0';
+export const APP_VERSION = '2.7.0';
 
 export const CHANGELOG = [
+  {
+    version: '2.7.0',
+    date: '2026-03-17',
+    changes: [
+      { type: 'new',         text: 'Šablony zakázek – nový modul pro správu opakujících se typů akcí (Catering → Šablony)' },
+      { type: 'new',         text: 'Nová zakázka ze šablony – výběr šablony jako první krok průvodce, automatické předvyplnění polí' },
+      { type: 'new',         text: 'E-mail podpis – HTML podpis v Nastavení → E-mail podpis, připojuje se ke všem odchozím emailům' },
+    ],
+  },
+  {
+    version: '2.6.0',
+    date: '2026-03-17',
+    changes: [
+      { type: 'new',         text: 'Archiv – nový modul pro archivování zakázek, klientů a personálu (přístup přes boční menu → Správa)' },
+      { type: 'new',         text: 'Archiv – obnovení libovolné archivované položky jedním kliknutím' },
+      { type: 'improvement', text: 'Zakázky – tlačítko „Archivovat zakázku" v detailu zakázky (box Akce)' },
+      { type: 'improvement', text: 'Klienti – tlačítko pro archivaci klienta v detailovém panelu' },
+      { type: 'improvement', text: 'Personál – tlačítko pro archivaci pracovníka na kartě (hover akce)' },
+      { type: 'improvement', text: 'Kalendář přesunut pod Fakturace v navigačním menu' },
+      { type: 'improvement', text: 'Nová zakázka – pole „Zodpovědná osoba" dostupné již při zakládání' },
+      { type: 'improvement', text: 'Klienti – tlačítko ARES je nyní výrazně viditelné (modré, s popiskem)' },
+    ],
+  },
+  {
+    version: '2.5.0',
+    date: '2026-03-17',
+    changes: [
+      { type: 'fix',         text: 'Poptávky – opravena chyba kdy ručně vytvořená zakázka automaticky přidávala do poptávek (stav „Nová poptávka")' },
+      { type: 'fix',         text: 'Klientský výběr menu – opravena kritická chyba (stránka /nabidka/:token nefungovala kvůli špatnému importu)' },
+      { type: 'improvement', text: 'Detail zakázky – aktivní nabídka je nyní viditelná přímo v záložce Detaily (název, položky, cena)' },
+      { type: 'improvement', text: 'Nová faktura ze zakázky – automaticky předvyplní položky z přiřazené nabídky' },
+      { type: 'improvement', text: 'Faktura – kompletní editace včetně změny odběratele (klienta)' },
+    ],
+  },
   {
     version: '2.4.0',
     date: '2026-03-17',

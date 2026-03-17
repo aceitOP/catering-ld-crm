@@ -5,8 +5,8 @@ import { useAuth } from '../context/AuthContext';
 import {
   LayoutDashboard, ClipboardList, Users, FileText,
   Calendar, UserCheck, FolderOpen, Tag, Settings, LogOut, BarChart2,
-  Bell, X, Globe, Info, Trash2, CheckCheck, Inbox, Receipt,
-  ChevronDown,
+  Bell, X, Globe, Info, Trash2, CheckCheck, Inbox, Receipt, Archive,
+  ChevronDown, BookCopy,
 } from 'lucide-react';
 import { APP_VERSION, CHANGELOG } from '../data/changelog';
 import { notifikaceApi, zakazkyApi } from '../api';
@@ -48,6 +48,8 @@ const NAV = [
       { to: '/nabidky',  label: 'Nabídky',   icon: FileText },
       { to: '/zakazky',  label: 'Zakázky',   icon: ClipboardList },
       { to: '/faktury',  label: 'Fakturace', icon: Receipt },
+      { to: '/kalendar', label: 'Kalendář',  icon: Calendar },
+      { to: '/sablony',  label: 'Šablony',   icon: BookCopy },
     ],
   },
   {
@@ -55,7 +57,7 @@ const NAV = [
     children: [
       { to: '/klienti',  label: 'Klienti',   icon: Users },
       { to: '/personal', label: 'Personál',  icon: UserCheck },
-      { to: '/kalendar', label: 'Kalendář',  icon: Calendar },
+      { to: '/archiv',   label: 'Archiv',    icon: Archive },
     ],
   },
   {

@@ -42,15 +42,19 @@ export const zakazkyApi = {
   komando:        (id, d)   => api.post(`/zakazky/${id}/komando`, d),
   dekujeme:       (id, d)   => api.post(`/zakazky/${id}/dekujeme`, d),
   removePersonal: (id, pid) => api.delete(`/zakazky/${id}/personal/${pid}`),
+  archivovat: (id) => api.patch(`/zakazky/${id}/archivovat`),
+  obnovit:    (id) => api.patch(`/zakazky/${id}/obnovit`),
 };
 
 // ── Klienti ──────────────────────────────────────────────────
 export const klientiApi = {
-  list:   (params) => api.get('/klienti', { params }),
-  get:    (id)     => api.get(`/klienti/${id}`),
-  create: (data)   => api.post('/klienti', data),
-  update: (id, d)  => api.patch(`/klienti/${id}`, d),
-  delete: (id)     => api.delete(`/klienti/${id}`),
+  list:      (params) => api.get('/klienti', { params }),
+  get:       (id)     => api.get(`/klienti/${id}`),
+  create:    (data)   => api.post('/klienti', data),
+  update:    (id, d)  => api.patch(`/klienti/${id}`, d),
+  delete:    (id)     => api.delete(`/klienti/${id}`),
+  archivovat: (id)    => api.patch(`/klienti/${id}/archivovat`),
+  obnovit:    (id)    => api.patch(`/klienti/${id}/obnovit`),
 };
 
 // ── Nabídky ──────────────────────────────────────────────────
@@ -88,6 +92,8 @@ export const personalApi = {
   update:   (id, d)   => api.patch(`/personal/${id}`, d),
   delete:   (id)      => api.delete(`/personal/${id}`),
   priradZakazku: (id, d) => api.post(`/personal/${id}/prirazeni`, d),
+  archivovat: (id)    => api.patch(`/personal/${id}/archivovat`),
+  obnovit:    (id)    => api.patch(`/personal/${id}/obnovit`),
 };
 
 // ── Dokumenty ────────────────────────────────────────────────
@@ -184,6 +190,20 @@ export const publicProposalApi = {
   select:  (token, d)         => pubApi.patch(`/pub/proposals/${token}/select`, d),
   note:    (token, d)         => pubApi.patch(`/pub/proposals/${token}/note`, d),
   confirm: (token, d)         => pubApi.post(`/pub/proposals/${token}/confirm`, d),
+};
+
+// ── Archiv ───────────────────────────────────────────────────
+export const archivApi = {
+  list: () => api.get('/archiv'),
+};
+
+// ── Šablony zakázek ──────────────────────────────────────────
+export const sablonyApi = {
+  list:   ()       => api.get('/sablony'),
+  get:    (id)     => api.get(`/sablony/${id}`),
+  create: (data)   => api.post('/sablony', data),
+  update: (id, d)  => api.patch(`/sablony/${id}`, d),
+  delete: (id)     => api.delete(`/sablony/${id}`),
 };
 
 export default api;

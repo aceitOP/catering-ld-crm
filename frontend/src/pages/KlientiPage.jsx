@@ -4,7 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { klientiApi } from '../api';
 import { PageHeader, KlientTypBadge, StavBadge, formatCena, formatDatum, Spinner, EmptyState, Btn, Modal, ExportMenu } from '../components/ui';
 import toast from 'react-hot-toast';
-import { Plus, Pencil, Search, Users, X, RefreshCw } from 'lucide-react';
+import { Plus, Pencil, Search, Users, X, RefreshCw, Archive } from 'lucide-react';
 
 async function fetchAres(ico) {
   const res = await fetch(`https://ares.gov.cz/ekonomicke-subjekty-v-be/rest/ekonomicke-subjekty/${ico.trim()}`);
@@ -84,6 +84,12 @@ export default function KlientiPage() {
     mutationFn: ({ id, data }) => klientiApi.update(id, data),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['klienti'] }); qc.invalidateQueries({ queryKey: ['klient', selected] }); toast.success('Klient uložen'); setEditModal(false); },
     onError: () => toast.error('Chyba při ukládání'),
+  });
+
+  const archivMut = useMutation({
+    mutationFn: (id) => klientiApi.archivovat(id),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['klienti'] }); setSelected(null); toast.success('Klient archivován'); },
+    onError: () => toast.error('Nepodařilo se archivovat klienta'),
   });
 
   const openEdit = () => {
@@ -214,6 +220,7 @@ export default function KlientiPage() {
               <div className="flex gap-2 items-center">
                 <Btn size="sm" onClick={() => navigate('/zakazky/nova')}>+ Zakázka</Btn>
                 <button onClick={openEdit} className="text-stone-400 hover:text-stone-700 p-1" title="Upravit klienta"><Pencil size={14}/></button>
+                <button onClick={() => window.confirm('Archivovat klienta?') && archivMut.mutate(selected)} disabled={archivMut.isPending} className="text-stone-400 hover:text-red-500 p-1" title="Archivovat klienta"><Archive size={14}/></button>
                 <button onClick={() => setSelected(null)} className="text-stone-400 hover:text-stone-700 p-1"><X size={14}/></button>
               </div>
             </div>
@@ -306,8 +313,9 @@ export default function KlientiPage() {
                   <input className="flex-1 border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" value={editForm.ico} onChange={e=>setE('ico',e.target.value)}/>
                   <button type="button" onClick={() => handleAres(editForm.ico, setEditForm)}
                     disabled={aresLoading}
-                    className="px-2 py-2 border border-stone-200 rounded-lg hover:bg-stone-50 text-stone-500 hover:text-stone-800 transition-colors disabled:opacity-50" title="Doplnit z ARES">
-                    <RefreshCw size={13} className={aresLoading ? 'animate-spin' : ''}/>
+                    className="flex items-center gap-1 px-2.5 py-2 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 text-blue-600 text-xs font-medium transition-colors disabled:opacity-50 flex-shrink-0" title="Doplnit z ARES">
+                    <RefreshCw size={12} className={aresLoading ? 'animate-spin' : ''}/>
+                    ARES
                   </button>
                 </div>
               </div>
@@ -366,8 +374,9 @@ export default function KlientiPage() {
                   <input className="flex-1 border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" value={form.ico} onChange={e=>set('ico',e.target.value)}/>
                   <button type="button" onClick={() => handleAres(form.ico, setForm)}
                     disabled={aresLoading}
-                    className="px-2 py-2 border border-stone-200 rounded-lg hover:bg-stone-50 text-stone-500 hover:text-stone-800 transition-colors disabled:opacity-50" title="Doplnit z ARES">
-                    <RefreshCw size={13} className={aresLoading ? 'animate-spin' : ''}/>
+                    className="flex items-center gap-1 px-2.5 py-2 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 text-blue-600 text-xs font-medium transition-colors disabled:opacity-50 flex-shrink-0" title="Doplnit z ARES">
+                    <RefreshCw size={12} className={aresLoading ? 'animate-spin' : ''}/>
+                    ARES
                   </button>
                 </div>
               </div>

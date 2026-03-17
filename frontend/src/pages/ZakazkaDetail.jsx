@@ -138,6 +138,12 @@ export default function ZakazkaDetail() {
     onError: () => toast.error('Nepodařilo se změnit stav'),
   });
 
+  const archivMut = useMutation({
+    mutationFn: () => zakazkyApi.archivovat(id),
+    onSuccess: () => { toast.success('Zakázka archivována'); navigate('/zakazky'); },
+    onError: () => toast.error('Nepodařilo se archivovat zakázku'),
+  });
+
   const komandoMut = useMutation({
     mutationFn: (d) => zakazkyApi.komando(id, d),
     onSuccess: (res) => { toast.success(res.data.message); setKomandoModal(false); setKomandoPozn(''); },
@@ -300,6 +306,37 @@ export default function ZakazkaDetail() {
                   ))}
                 </dl>
               </div>
+              {z.nabidka && (
+                <div className="bg-white rounded-xl border border-stone-200 p-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-semibold text-stone-700">Nabídka</h3>
+                    <button
+                      onClick={() => navigate(`/nabidky/${z.nabidka.id}/edit`)}
+                      className="text-xs text-stone-400 hover:text-brand-600 flex items-center gap-1 transition-colors"
+                    >
+                      <Pencil size={11}/> Upravit
+                    </button>
+                  </div>
+                  <div className="text-xs text-stone-500 mb-2">
+                    {z.nabidka.nazev || 'Nabídka'} · v{z.nabidka.verze}
+                    {z.nabidka.cena_celkem > 0 && <span className="ml-2 font-medium text-stone-700">{formatCena(z.nabidka.cena_celkem)}</span>}
+                  </div>
+                  {(z.nabidka.polozky || []).length > 0 && (
+                    <ul className="space-y-1 border-t border-stone-100 pt-2 mt-2">
+                      {z.nabidka.polozky.slice(0, 6).map((p, i) => (
+                        <li key={i} className="flex items-center gap-2 text-xs text-stone-600">
+                          <span className="w-1.5 h-1.5 rounded-full bg-stone-300 flex-shrink-0"/>
+                          <span>{p.nazev}</span>
+                          {p.mnozstvi && p.jednotka && <span className="text-stone-400 ml-auto">{p.mnozstvi} {p.jednotka}</span>}
+                        </li>
+                      ))}
+                      {z.nabidka.polozky.length > 6 && (
+                        <li className="text-xs text-stone-400 pt-0.5">…a {z.nabidka.polozky.length - 6} dalších</li>
+                      )}
+                    </ul>
+                  )}
+                </div>
+              )}
               {z.poznamka_klient && (
                 <div className="bg-blue-50 rounded-xl border border-blue-100 p-4">
                   <div className="text-xs font-medium text-blue-700 mb-1">Poznámka klienta</div>
@@ -371,6 +408,12 @@ export default function ZakazkaDetail() {
                   <Btn size="sm" onClick={() => navigate(`/zakazky/${id}/vyrobni-list`)}>
                     <ChefHat size={12}/> Výrobní list
                   </Btn>
+                  <button
+                    onClick={() => window.confirm('Archivovat zakázku?') && archivMut.mutate()}
+                    disabled={archivMut.isPending}
+                    className="text-xs text-stone-400 hover:text-red-600 transition-colors mt-1 text-left">
+                    Archivovat zakázku
+                  </button>
                 </div>
               </div>
             </div>

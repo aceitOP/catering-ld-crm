@@ -43,10 +43,11 @@ function datum(d) {
 
 // ── Společná obálka emailu ────────────────────────────────────
 function wrapHtml(firma, title, body) {
-  const nazev = firma?.firma_nazev || 'Catering LD';
+  const nazev  = firma?.firma_nazev || 'Catering LD';
   const email  = firma?.firma_email || '';
   const tel    = firma?.firma_telefon || '';
   const web    = firma?.firma_web || '';
+  const podpis = firma?.email_podpis_html || '';
 
   return `<!DOCTYPE html>
 <html lang="cs">
@@ -61,7 +62,10 @@ function wrapHtml(firma, title, body) {
           <div style="color:#a8a29e;font-size:13px;margin-top:4px;">${title}</div>
         </td></tr>
         <!-- Body -->
-        <tr><td style="padding:32px;">${body}</td></tr>
+        <tr><td style="padding:32px;">
+          ${body}
+          ${podpis ? `<div style="margin-top:24px;padding-top:16px;border-top:1px solid #e7e5e4;">${podpis}</div>` : ''}
+        </td></tr>
         <!-- Footer -->
         <tr><td style="background:#f5f5f4;padding:16px 32px;border-top:1px solid #e7e5e4;">
           <div style="font-size:12px;color:#78716c;line-height:1.8;">

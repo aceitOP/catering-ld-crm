@@ -41,6 +41,8 @@ app.use('/api/faktury',         require('./routes/faktury'));
 app.use('/api/production',      require('./routes/production'));
 app.use('/api/proposals',       require('./routes/proposals'));
 app.use('/api/pub/proposals',   require('./routes/publicProposals'));
+app.use('/api/archiv',          require('./routes/archiv'));
+app.use('/api/sablony',         require('./routes/sablony'));
 
 // ── Health check ─────────────────────────────────────────────
 app.get('/api/health', (_req, res) => {

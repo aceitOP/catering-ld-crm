@@ -15,6 +15,9 @@ async function initDb() {
       console.log('✅  Databáze již inicializována, přeskakuji schema.');
       // Migrace: přidat nové sloupce pokud chybí
       await pool.query(`ALTER TABLE zakazky ADD COLUMN IF NOT EXISTS google_event_id VARCHAR(255)`);
+      await pool.query(`ALTER TABLE zakazky ADD COLUMN IF NOT EXISTS archivovano BOOLEAN NOT NULL DEFAULT false`);
+      await pool.query(`ALTER TABLE klienti ADD COLUMN IF NOT EXISTS archivovano BOOLEAN NOT NULL DEFAULT false`);
+      await pool.query(`ALTER TABLE personal ADD COLUMN IF NOT EXISTS archivovano BOOLEAN NOT NULL DEFAULT false`);
       // Faktury – migrace pro existující DB
       await pool.query(`
         DO $$ BEGIN
@@ -113,7 +116,24 @@ async function initDb() {
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
       `);
-      console.log('✅  Migrace OK (google_event_id, faktury, proposals).');
+      // Šablony zakázek
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS zakazky_sablony (
+          id               SERIAL PRIMARY KEY,
+          nazev            VARCHAR(200) NOT NULL,
+          popis            TEXT,
+          typ              VARCHAR(50),
+          cas_zacatek      TIME,
+          cas_konec        TIME,
+          misto            VARCHAR(300),
+          pocet_hostu      INTEGER DEFAULT 0,
+          poznamka_klient  TEXT,
+          poznamka_interni TEXT,
+          created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+      `);
+      console.log('✅  Migrace OK (google_event_id, faktury, proposals, archivovano, sablony).');
       return;
     }
 

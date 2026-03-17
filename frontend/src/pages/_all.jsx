@@ -600,7 +600,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { personalApi } from '../api';
 import { PageHeader, EmptyState, Btn, Modal, Spinner, ExportMenu, useSort, SortTh } from '../components/ui';
 import toast from 'react-hot-toast';
-import { Plus, UserCheck, Pencil, Trash2 as Trash2Personal } from 'lucide-react';
+import { Plus, UserCheck, Pencil, Trash2 as Trash2Personal, Archive as ArchivePersonal } from 'lucide-react';
 
 const ROLE_LABELS = { koordinator:'Koordinátor', cisnik:'Číšník / servírka', kuchar:'Kuchař', ridic:'Řidič', barman:'Barman', pomocna_sila:'Pomocná síla' };
 
@@ -649,6 +649,12 @@ export function PersonalPage() {
     mutationFn: (id) => personalApi.delete(id),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['personal'] }); toast.success('Osoba smazána'); },
     onError: () => toast.error('Chybu při mazání'),
+  });
+
+  const archivPersonalMut = useMutation({
+    mutationFn: (id) => personalApi.archivovat(id),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['personal'] }); toast.success('Osoba archivována'); },
+    onError: () => toast.error('Nepodařilo se archivovat'),
   });
 
   const personalAll = data?.data?.data || [];
@@ -719,6 +725,11 @@ export function PersonalPage() {
           className="p-1.5 rounded-md bg-stone-100 hover:bg-stone-200 text-stone-500 hover:text-stone-700 transition-colors"
           title="Upravit">
           <Pencil size={12}/>
+        </button>
+        <button onClick={() => window.confirm(`Archivovat ${p.jmeno} ${p.prijmeni}?`) && archivPersonalMut.mutate(p.id)}
+          className="p-1.5 rounded-md bg-stone-100 hover:bg-orange-100 text-stone-500 hover:text-orange-600 transition-colors"
+          title="Archivovat">
+          <ArchivePersonal size={12}/>
         </button>
         <button onClick={() => handleDelete(p)}
           className="p-1.5 rounded-md bg-stone-100 hover:bg-red-100 text-stone-500 hover:text-red-600 transition-colors"
@@ -1710,7 +1721,8 @@ export function NastaveniPage() {
     onError: (e) => toast.error(e?.response?.data?.error || 'Chyba při změně hesla'),
   });
 
-  const TABS = [['firma','Profil firmy'],['uziv','Uživatelé'],['heslo','Změna hesla'],['notif','Notifikace'],['integrace','Integrace'],['google','Google Kalendář']];
+  const TABS = [['firma','Profil firmy'],['uziv','Uživatelé'],['heslo','Změna hesla'],['podpis','E-mail podpis'],['notif','Notifikace'],['integrace','Integrace'],['google','Google Kalendář']];
+  const [podpisPreview, setPodpisPreview] = useState(false);
 
   const { data: gcStatus, refetch: refetchGcStatus } = useQuery({
     queryKey: ['google-calendar-status'],
@@ -1811,6 +1823,47 @@ export function NastaveniPage() {
                 disabled={!passForm.stare_heslo || !passForm.nove_heslo || passForm.nove_heslo.length < 8 || passForm.nove_heslo !== passForm.nove_heslo2 || passMut.isPending}>
                 {passMut.isPending ? 'Měním…' : 'Změnit heslo'}
               </Btn>
+            </div>
+          </div>
+        )}
+
+        {tab === 'podpis' && (
+          <div className="space-y-4">
+            <div className="bg-white rounded-xl border border-stone-200 p-5 space-y-4">
+              <div>
+                <div className="text-sm font-semibold text-stone-800 mb-0.5">HTML podpis e-mailu</div>
+                <div className="text-xs text-stone-500 mb-3">Podpis se automaticky připojí ke všem odchozím e-mailům (nabídky, komando, děkovací maily). Zadejte libovolný HTML kód.</div>
+                <textarea
+                  className="w-full border border-stone-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none font-mono resize-y"
+                  rows={10}
+                  placeholder="<p>S pozdravem,<br><strong>Jméno Příjmení</strong><br>+420 123 456 789</p>"
+                  defaultValue={nastavData?.data?.email_podpis_html || ''}
+                  onChange={e => setForm(f => ({ ...f, email_podpis_html: e.target.value }))}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <button onClick={() => setPodpisPreview(v => !v)} className="text-xs text-stone-500 hover:text-stone-700 underline underline-offset-2">
+                  {podpisPreview ? 'Skrýt náhled' : 'Zobrazit náhled'}
+                </button>
+                <Btn variant="primary" onClick={() => saveMut.mutate(form)} disabled={saveMut.isPending}>
+                  {saveMut.isPending ? 'Ukládám…' : 'Uložit podpis'}
+                </Btn>
+              </div>
+              {podpisPreview && (
+                <div className="border border-stone-200 rounded-lg p-4 bg-stone-50">
+                  <div className="text-xs text-stone-400 mb-2 uppercase tracking-wide font-medium">Náhled</div>
+                  <div
+                    className="text-sm"
+                    dangerouslySetInnerHTML={{ __html: form.email_podpis_html || nastavData?.data?.email_podpis_html || '<em class="text-stone-400">Podpis je prázdný</em>' }}
+                  />
+                </div>
+              )}
+            </div>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-xs text-blue-700 space-y-1">
+              <div className="font-semibold mb-1">Tipy pro HTML podpis:</div>
+              <div>• Používejte inline styly: <code className="bg-blue-100 px-1 rounded">style="color:#333;"</code></div>
+              <div>• Pro obrázek (logo): <code className="bg-blue-100 px-1 rounded">{'<img src="URL" style="height:40px;">'}</code></div>
+              <div>• Pro odkaz: <code className="bg-blue-100 px-1 rounded">{'<a href="https://...">text</a>'}</code></div>
             </div>
           </div>
         )}
@@ -2386,6 +2439,8 @@ export function FakturaDetail() {
   const [editForm, setEditForm] = useState({});
   const [editPolozky, setEditPolozky] = useState([]);
   const [cenikFilter, setCenikFilter] = useState('');
+  const [klientEditSearch, setKlientEditSearch] = useState('');
+  const [klientEditSelected, setKlientEditSelected] = useState(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['faktura', id],
@@ -2403,6 +2458,13 @@ export function FakturaDetail() {
     ? cenikItems.filter(c => c.nazev.toLowerCase().includes(cenikFilter.toLowerCase()))
     : [];
 
+  const { data: klientiEditData } = useQuery({
+    queryKey: ['klienti-edit-search', klientEditSearch],
+    queryFn: () => klientiApi.list({ q: klientEditSearch, limit: 10 }),
+    enabled: editMode && klientEditSearch.length >= 1,
+  });
+  const klientiEditSuggestions = klientiEditData?.data?.data || [];
+
   useEffect(() => {
     if (f && editMode) {
       setEditForm({
@@ -2415,6 +2477,11 @@ export function FakturaDetail() {
         nazev: p.nazev, jednotka: p.jednotka, mnozstvi: parseFloat(p.mnozstvi),
         cena_jednotka: parseFloat(p.cena_jednotka), dph_sazba: p.dph_sazba || 12,
       })));
+      setKlientEditSelected(f.klient_id ? {
+        id: f.klient_id,
+        jmeno: f.klient_jmeno, prijmeni: f.klient_prijmeni, firma: f.klient_firma,
+      } : null);
+      setKlientEditSearch('');
     }
   }, [f, editMode]);
 
@@ -2524,6 +2591,37 @@ export function FakturaDetail() {
       {/* Meta info */}
       {editMode ? (
         <div className="bg-white border border-stone-200 rounded-xl p-5 space-y-4">
+          {/* Odběratel */}
+          <div>
+            <label className="block text-xs font-medium text-stone-500 mb-1">Odběratel</label>
+            <div className="relative">
+              {klientEditSelected ? (
+                <div className="flex items-center gap-3 bg-stone-50 border border-stone-200 rounded-lg px-3 py-2">
+                  <div className="flex-1 text-sm font-medium text-stone-800">
+                    {klientEditSelected.firma || [klientEditSelected.jmeno, klientEditSelected.prijmeni].filter(Boolean).join(' ')}
+                  </div>
+                  <button onClick={() => { setKlientEditSelected(null); setKlientEditSearch(''); }} className="text-stone-400 hover:text-red-500"><XIcon size={14}/></button>
+                </div>
+              ) : (
+                <input
+                  className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                  placeholder="Hledat klienta…"
+                  value={klientEditSearch}
+                  onChange={e => setKlientEditSearch(e.target.value)}
+                />
+              )}
+              {!klientEditSelected && klientiEditSuggestions.length > 0 && (
+                <div className="absolute top-full left-0 right-0 z-10 bg-white border border-stone-200 rounded-lg shadow-lg mt-1 max-h-48 overflow-y-auto">
+                  {klientiEditSuggestions.map(k => (
+                    <button key={k.id} onClick={() => { setKlientEditSelected(k); setKlientEditSearch(''); }}
+                      className="w-full text-left px-3 py-2 hover:bg-stone-50 border-b border-stone-50 last:border-0">
+                      <div className="text-sm font-medium text-stone-800">{k.firma || [k.jmeno, k.prijmeni].filter(Boolean).join(' ')}</div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-medium text-stone-500 mb-1">Datum splatnosti</label>
@@ -2622,7 +2720,7 @@ export function FakturaDetail() {
 
           <div className="flex gap-2 justify-end pt-2">
             <Btn onClick={() => setEditMode(false)}>Zrušit</Btn>
-            <Btn variant="primary" onClick={() => updateMut.mutate({ ...editForm, polozky: editPolozky })} disabled={updateMut.isPending}>
+            <Btn variant="primary" onClick={() => updateMut.mutate({ ...editForm, polozky: editPolozky, klient_id: klientEditSelected?.id || null })} disabled={updateMut.isPending}>
               Uložit fakturu
             </Btn>
           </div>
@@ -2744,6 +2842,15 @@ export function NovaFakturaPage() {
           id: z.klient_id,
           jmeno: z.klient_jmeno, prijmeni: z.klient_prijmeni, firma: z.klient_firma,
         });
+      }
+      if (z.nabidka?.polozky?.length > 0) {
+        setPolozky(z.nabidka.polozky.map(p => ({
+          nazev: p.nazev,
+          jednotka: p.jednotka || 'os.',
+          mnozstvi: parseFloat(p.mnozstvi) || 1,
+          cena_jednotka: parseFloat(p.cena_jednotka) || 0,
+          dph_sazba: p.dph_sazba || 12,
+        })));
       }
     }
   }, [zakazkaData]);
@@ -3300,7 +3407,8 @@ export function VyrobniListPage() {
 
 // ── ClientProposalPage ────────────────────────────────────────
 // Public standalone page (no auth, no sidebar). Accessed via /nabidka/:token
-import { useParams as useParamsCPP, useState as useStateCPP } from 'react';
+import { useState as useStateCPP } from 'react';
+import { useParams as useParamsCPP } from 'react-router-dom';
 import { useQuery as useQueryCPP, useMutation as useMutationCPP, useQueryClient as useQueryClientCPP } from '@tanstack/react-query';
 import { publicProposalApi } from '../api';
 
@@ -3674,6 +3782,306 @@ export function ClientProposalPage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ── SablonyPage ────────────────────────────────────────────────
+import { sablonyApi } from '../api';
+
+const TYP_OPTIONS_S = [
+  { v: '', l: '— universal (všechny typy) —' },
+  { v: 'svatba', l: 'Svatba 💒' },
+  { v: 'soukroma_akce', l: 'Soukromá akce 🥂' },
+  { v: 'firemni_akce', l: 'Firemní akce 🏢' },
+  { v: 'zavoz', l: 'Závoz / vyzvednutí 🚚' },
+  { v: 'bistro', l: 'Bistro / pronájem ☕' },
+  { v: 'pohreb', l: 'Pohřeb 🕯️' },
+  { v: 'ostatni', l: 'Ostatní 📋' },
+];
+
+const emptySablonaForm = { nazev: '', popis: '', typ: '', cas_zacatek: '', cas_konec: '', misto: '', pocet_hostu: '', poznamka_klient: '', poznamka_interni: '' };
+
+export function SablonyPage() {
+  const qc = useQueryClient();
+  const [modal, setModal] = useState(false);
+  const [editing, setEditing] = useState(null); // null = new, otherwise id
+  const [form, setForm] = useState(emptySablonaForm);
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['sablony'],
+    queryFn: () => sablonyApi.list().then(r => r.data.data),
+  });
+  const sablony = data || [];
+
+  const createMut = useMutation({
+    mutationFn: sablonyApi.create,
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['sablony'] }); toast.success('Šablona vytvořena'); setModal(false); },
+    onError: () => toast.error('Chyba při ukládání'),
+  });
+  const updateMut = useMutation({
+    mutationFn: ({ id, d }) => sablonyApi.update(id, d),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['sablony'] }); toast.success('Šablona uložena'); setModal(false); },
+    onError: () => toast.error('Chyba při ukládání'),
+  });
+  const deleteMut = useMutation({
+    mutationFn: sablonyApi.delete,
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['sablony'] }); toast.success('Šablona smazána'); },
+    onError: () => toast.error('Chyba při mazání'),
+  });
+
+  const openCreate = () => { setEditing(null); setForm(emptySablonaForm); setModal(true); };
+  const openEdit = (s) => { setEditing(s.id); setForm({ nazev: s.nazev || '', popis: s.popis || '', typ: s.typ || '', cas_zacatek: s.cas_zacatek?.slice(0,5) || '', cas_konec: s.cas_konec?.slice(0,5) || '', misto: s.misto || '', pocet_hostu: s.pocet_hostu || '', poznamka_klient: s.poznamka_klient || '', poznamka_interni: s.poznamka_interni || '' }); setModal(true); };
+  const handleSave = () => { editing ? updateMut.mutate({ id: editing, d: form }) : createMut.mutate(form); };
+  const isPending = createMut.isPending || updateMut.isPending;
+
+  const TYP_EMOJI = { svatba: '💒', soukroma_akce: '🥂', firemni_akce: '🏢', zavoz: '🚚', bistro: '☕', pohreb: '🕯️', ostatni: '📋' };
+  const TYP_LABEL = { svatba: 'Svatba', soukroma_akce: 'Soukromá akce', firemni_akce: 'Firemní akce', zavoz: 'Závoz', bistro: 'Bistro', pohreb: 'Pohřeb', ostatni: 'Ostatní' };
+
+  return (
+    <div>
+      <PageHeader
+        title="Šablony zakázek"
+        actions={<Btn variant="primary" onClick={openCreate}><Plus size={13}/> Nová šablona</Btn>}
+      />
+
+      <div className="p-6">
+        {isLoading && <div className="text-sm text-stone-500">Načítám…</div>}
+
+        {!isLoading && sablony.length === 0 && (
+          <EmptyState icon="📋" title="Žádné šablony"
+            description="Vytvořte šablonu pro opakující se typy akcí a ušetřete čas při zakládání zakázek." />
+        )}
+
+        {!isLoading && sablony.length > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {sablony.map(s => (
+              <div key={s.id} className="bg-white border border-stone-200 rounded-xl p-5 flex flex-col gap-3 hover:border-stone-300 transition-colors">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    {s.typ && <span className="text-xl shrink-0">{TYP_EMOJI[s.typ] || '📋'}</span>}
+                    <div className="min-w-0">
+                      <div className="font-semibold text-sm text-stone-800 truncate">{s.nazev}</div>
+                      {s.typ && <div className="text-xs text-stone-400">{TYP_LABEL[s.typ]}</div>}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button onClick={() => openEdit(s)} className="p-1.5 text-stone-400 hover:text-stone-700 rounded-md hover:bg-stone-100 transition-colors"><Pencil size={13}/></button>
+                    <button onClick={() => window.confirm('Smazat šablonu?') && deleteMut.mutate(s.id)} className="p-1.5 text-stone-400 hover:text-red-600 rounded-md hover:bg-red-50 transition-colors"><Trash2 size={13}/></button>
+                  </div>
+                </div>
+                {s.popis && <p className="text-xs text-stone-500 leading-relaxed line-clamp-2">{s.popis}</p>}
+                <div className="grid grid-cols-2 gap-1.5 text-xs text-stone-500 border-t border-stone-100 pt-3">
+                  {(s.cas_zacatek || s.cas_konec) && (
+                    <div>⏰ {s.cas_zacatek?.slice(0,5) || '?'} – {s.cas_konec?.slice(0,5) || '?'}</div>
+                  )}
+                  {s.misto && <div>📍 <span className="truncate">{s.misto}</span></div>}
+                  {s.pocet_hostu > 0 && <div>👥 {s.pocet_hostu} hostů</div>}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <Modal open={modal} onClose={() => setModal(false)} title={editing ? 'Upravit šablonu' : 'Nová šablona'}
+        footer={<>
+          <Btn onClick={() => setModal(false)}>Zrušit</Btn>
+          <Btn variant="primary" onClick={handleSave} disabled={!form.nazev || isPending}>
+            {isPending ? 'Ukládám…' : (editing ? 'Uložit' : 'Vytvořit')}
+          </Btn>
+        </>}>
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs text-stone-500 block mb-1">Název šablony *</label>
+            <input className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+              placeholder="např. Firemní oběd – standardní" value={form.nazev} onChange={e => set('nazev', e.target.value)} />
+          </div>
+          <div>
+            <label className="text-xs text-stone-500 block mb-1">Popis (interní poznámka k šabloně)</label>
+            <input className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+              placeholder="Volitelný popis pro orientaci v šablonách" value={form.popis} onChange={e => set('popis', e.target.value)} />
+          </div>
+          <div>
+            <label className="text-xs text-stone-500 block mb-1">Typ akce</label>
+            <select className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+              value={form.typ} onChange={e => set('typ', e.target.value)}>
+              {TYP_OPTIONS_S.map(t => <option key={t.v} value={t.v}>{t.l}</option>)}
+            </select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-stone-500 block mb-1">Začátek</label>
+              <input type="time" className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                value={form.cas_zacatek} onChange={e => set('cas_zacatek', e.target.value)} />
+            </div>
+            <div>
+              <label className="text-xs text-stone-500 block mb-1">Konec</label>
+              <input type="time" className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                value={form.cas_konec} onChange={e => set('cas_konec', e.target.value)} />
+            </div>
+          </div>
+          <div>
+            <label className="text-xs text-stone-500 block mb-1">Místo konání</label>
+            <input className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+              placeholder="Adresa nebo název místa" value={form.misto} onChange={e => set('misto', e.target.value)} />
+          </div>
+          <div>
+            <label className="text-xs text-stone-500 block mb-1">Výchozí počet hostů</label>
+            <input type="number" className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+              placeholder="0" value={form.pocet_hostu} onChange={e => set('pocet_hostu', e.target.value)} />
+          </div>
+          <div>
+            <label className="text-xs text-stone-500 block mb-1">Poznámka pro klienta</label>
+            <textarea className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none resize-none"
+              rows={2} value={form.poznamka_klient} onChange={e => set('poznamka_klient', e.target.value)} />
+          </div>
+          <div>
+            <label className="text-xs text-stone-500 block mb-1">Interní poznámka</label>
+            <textarea className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none resize-none"
+              rows={2} value={form.poznamka_interni} onChange={e => set('poznamka_interni', e.target.value)} />
+          </div>
+        </div>
+      </Modal>
+    </div>
+  );
+}
+
+// ── ArchivPage ─────────────────────────────────────────────────
+import { archivApi, zakazkyApi as zakazkyApiArchiv, klientiApi as klientiApiArchiv, personalApi as personalApiArchiv } from '../api';
+import { RotateCcw } from 'lucide-react';
+
+export function ArchivPage() {
+  const qc = useQueryClient();
+  const [tab, setTab] = useState('zakazky');
+
+  const { data, isLoading, refetch } = useQuery({
+    queryKey: ['archiv'],
+    queryFn: () => archivApi.list().then(r => r.data),
+  });
+
+  const zakazky = data?.zakazky || [];
+  const klienti = data?.klienti || [];
+  const personal = data?.personal || [];
+
+  const obnovitMut = useMutation({
+    mutationFn: ({ druh, id }) => {
+      if (druh === 'zakazka') return zakazkyApiArchiv.obnovit(id);
+      if (druh === 'klient') return klientiApiArchiv.obnovit(id);
+      return personalApiArchiv.obnovit(id);
+    },
+    onSuccess: () => { toast.success('Obnoveno'); refetch(); qc.invalidateQueries(['zakazky']); qc.invalidateQueries(['klienti']); qc.invalidateQueries(['personal']); },
+    onError: () => toast.error('Nepodařilo se obnovit'),
+  });
+
+  const STAVOVE_BARVY = {
+    nova_poptavka: 'bg-blue-100 text-blue-700',
+    rozpracovano:  'bg-yellow-100 text-yellow-700',
+    potvrzeno:     'bg-green-100 text-green-700',
+    stornovano:    'bg-red-100 text-red-700',
+    realizovano:   'bg-stone-100 text-stone-700',
+    uzavreno:      'bg-stone-200 text-stone-600',
+  };
+
+  const tabs = [
+    { k: 'zakazky', l: 'Zakázky', count: zakazky.length },
+    { k: 'klienti', l: 'Klienti', count: klienti.length },
+    { k: 'personal', l: 'Personál', count: personal.length },
+  ];
+
+  return (
+    <div>
+      <PageHeader title="Archiv" />
+      <div className="border-b border-stone-100 bg-white px-6">
+        <div className="flex gap-1">
+          {tabs.map(t => (
+            <button key={t.k} onClick={() => setTab(t.k)}
+              className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${tab === t.k ? 'border-stone-900 text-stone-900' : 'border-transparent text-stone-500 hover:text-stone-700'}`}>
+              {t.l} {t.count > 0 && <span className="ml-1.5 text-xs bg-stone-100 text-stone-600 px-1.5 py-0.5 rounded-full">{t.count}</span>}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="p-6">
+        {isLoading && <div className="text-sm text-stone-500">Načítám…</div>}
+
+        {/* Zakázky */}
+        {tab === 'zakazky' && !isLoading && (
+          zakazky.length === 0 ? (
+            <EmptyState icon="📦" title="Žádné archivované zakázky" />
+          ) : (
+            <div className="space-y-2">
+              {zakazky.map(z => (
+                <div key={z.id} className="bg-white border border-stone-200 rounded-xl px-5 py-3.5 flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-4 min-w-0">
+                    <span className="text-xs text-stone-400 font-mono shrink-0">{z.cislo}</span>
+                    <span className="text-sm font-medium text-stone-800 truncate">{z.nazev}</span>
+                    {z.klient_firma || z.klient_jmeno ? (
+                      <span className="text-xs text-stone-500 shrink-0">{z.klient_firma || `${z.klient_jmeno} ${z.klient_prijmeni || ''}`}</span>
+                    ) : null}
+                    <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${STAVOVE_BARVY[z.stav] || 'bg-stone-100 text-stone-600'}`}>{z.stav}</span>
+                  </div>
+                  <button onClick={() => obnovitMut.mutate({ druh: 'zakazka', id: z.id })}
+                    disabled={obnovitMut.isPending}
+                    className="flex items-center gap-1.5 text-xs text-stone-600 border border-stone-200 hover:border-stone-400 hover:text-stone-900 px-3 py-1.5 rounded-lg transition-colors shrink-0">
+                    <RotateCcw size={11} /> Obnovit
+                  </button>
+                </div>
+              ))}
+            </div>
+          )
+        )}
+
+        {/* Klienti */}
+        {tab === 'klienti' && !isLoading && (
+          klienti.length === 0 ? (
+            <EmptyState icon="👤" title="Žádní archivovaní klienti" />
+          ) : (
+            <div className="space-y-2">
+              {klienti.map(k => (
+                <div key={k.id} className="bg-white border border-stone-200 rounded-xl px-5 py-3.5 flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-4 min-w-0">
+                    <span className="text-sm font-medium text-stone-800 truncate">{k.firma || `${k.jmeno} ${k.prijmeni || ''}`}</span>
+                    {k.email && <span className="text-xs text-stone-500 shrink-0">{k.email}</span>}
+                    <span className="text-xs bg-stone-100 text-stone-600 px-2 py-0.5 rounded-full shrink-0">{k.typ}</span>
+                  </div>
+                  <button onClick={() => obnovitMut.mutate({ druh: 'klient', id: k.id })}
+                    disabled={obnovitMut.isPending}
+                    className="flex items-center gap-1.5 text-xs text-stone-600 border border-stone-200 hover:border-stone-400 hover:text-stone-900 px-3 py-1.5 rounded-lg transition-colors shrink-0">
+                    <RotateCcw size={11} /> Obnovit
+                  </button>
+                </div>
+              ))}
+            </div>
+          )
+        )}
+
+        {/* Personál */}
+        {tab === 'personal' && !isLoading && (
+          personal.length === 0 ? (
+            <EmptyState icon="👷" title="Žádní archivovaní pracovníci" />
+          ) : (
+            <div className="space-y-2">
+              {personal.map(p => (
+                <div key={p.id} className="bg-white border border-stone-200 rounded-xl px-5 py-3.5 flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-4 min-w-0">
+                    <span className="text-sm font-medium text-stone-800 truncate">{`${p.jmeno} ${p.prijmeni || ''}`}</span>
+                    {p.role && <span className="text-xs text-stone-500 shrink-0">{p.role}</span>}
+                    <span className="text-xs bg-stone-100 text-stone-600 px-2 py-0.5 rounded-full shrink-0">{p.typ}</span>
+                  </div>
+                  <button onClick={() => obnovitMut.mutate({ druh: 'personal', id: p.id })}
+                    disabled={obnovitMut.isPending}
+                    className="flex items-center gap-1.5 text-xs text-stone-600 border border-stone-200 hover:border-stone-400 hover:text-stone-900 px-3 py-1.5 rounded-lg transition-colors shrink-0">
+                    <RotateCcw size={11} /> Obnovit
+                  </button>
+                </div>
+              ))}
+            </div>
+          )
+        )}
+      </div>
     </div>
   );
 }

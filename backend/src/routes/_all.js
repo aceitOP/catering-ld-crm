@@ -16,7 +16,8 @@ klientiRouter.get('/', auth, async (req, res, next) => {
     const where = []; const params = []; let p = 1;
     if (typ) { where.push(`typ = $${p++}`); params.push(typ); }
     if (q)   { where.push(`(jmeno ILIKE $${p} OR prijmeni ILIKE $${p} OR firma ILIKE $${p} OR email ILIKE $${p})`); params.push(`%${q}%`); p++; }
-    const wc = where.length ? 'WHERE ' + where.join(' AND ') : '';
+    where.push('k.archivovano = false');
+    const wc = 'WHERE ' + where.join(' AND ');
     const orderMap = { jmeno: 'jmeno ASC', obrat: 'jmeno ASC', datum: 'created_at DESC' };
     const order = orderMap[sort] || 'jmeno ASC';
     const offset = (safePage - 1) * safeLimit;
@@ -76,6 +77,22 @@ klientiRouter.patch('/:id', auth, async (req, res, next) => {
       [req.params.id, ...fields.map(f => req.body[f])]);
     if (!rows[0]) return res.status(404).json({ error: 'Klient nenalezen' });
     res.json(rows[0]);
+  } catch (err) { next(err); }
+});
+
+klientiRouter.patch('/:id/archivovat', auth, async (req, res, next) => {
+  try {
+    const { rows } = await query('UPDATE klienti SET archivovano=true WHERE id=$1 RETURNING id, jmeno, prijmeni, firma', [req.params.id]);
+    if (!rows[0]) return res.status(404).json({ error: 'Klient nenalezen' });
+    res.json({ message: 'Klient archivován', ...rows[0] });
+  } catch (err) { next(err); }
+});
+
+klientiRouter.patch('/:id/obnovit', auth, async (req, res, next) => {
+  try {
+    const { rows } = await query('UPDATE klienti SET archivovano=false WHERE id=$1 RETURNING id, jmeno, prijmeni, firma', [req.params.id]);
+    if (!rows[0]) return res.status(404).json({ error: 'Klient nenalezen' });
+    res.json({ message: 'Klient obnoven', ...rows[0] });
   } catch (err) { next(err); }
 });
 
@@ -175,7 +192,8 @@ personalRouter.get('/', auth, async (req, res, next) => {
     if (typ)  { where.push(`typ = $${p++}`);  params.push(typ); }
     if (role) { where.push(`role = $${p++}`); params.push(role); }
     if (q)    { where.push(`(jmeno ILIKE $${p} OR prijmeni ILIKE $${p})`); params.push(`%${q}%`); p++; }
-    const wc = where.length ? 'WHERE ' + where.join(' AND ') : '';
+    where.push('archivovano = false');
+    const wc = 'WHERE ' + where.join(' AND ');
     const { rows } = await query(`SELECT * FROM personal ${wc} ORDER BY jmeno, prijmeni`, params);
     res.json({ data: rows });
   } catch (err) { next(err); }
@@ -212,6 +230,22 @@ personalRouter.patch('/:id', auth, async (req, res, next) => {
     const { rows } = await query(`UPDATE personal SET ${sets} WHERE id = $1 RETURNING *`,
       [req.params.id, ...fields.map(f => req.body[f])]);
     res.json(rows[0]);
+  } catch (err) { next(err); }
+});
+
+personalRouter.patch('/:id/archivovat', auth, async (req, res, next) => {
+  try {
+    const { rows } = await query('UPDATE personal SET archivovano=true WHERE id=$1 RETURNING id, jmeno, prijmeni', [req.params.id]);
+    if (!rows[0]) return res.status(404).json({ error: 'Osoba nenalezena' });
+    res.json({ message: 'Osoba archivována', ...rows[0] });
+  } catch (err) { next(err); }
+});
+
+personalRouter.patch('/:id/obnovit', auth, async (req, res, next) => {
+  try {
+    const { rows } = await query('UPDATE personal SET archivovano=false WHERE id=$1 RETURNING id, jmeno, prijmeni', [req.params.id]);
+    if (!rows[0]) return res.status(404).json({ error: 'Osoba nenalezena' });
+    res.json({ message: 'Osoba obnovena', ...rows[0] });
   } catch (err) { next(err); }
 });
 

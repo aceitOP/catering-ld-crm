@@ -115,7 +115,7 @@ router.post('/', auth, async (req, res, next) => {
 // PATCH /api/faktury/:id
 router.patch('/:id', auth, async (req, res, next) => {
   try {
-    const { datum_splatnosti, zpusob_platby, variabilni_symbol, poznamka, polozky } = req.body;
+    const { datum_splatnosti, zpusob_platby, variabilni_symbol, poznamka, polozky, klient_id } = req.body;
 
     const totalBezDph = (polozky || []).reduce((s, p) =>
       s + (parseFloat(p.mnozstvi) || 0) * (parseFloat(p.cena_jednotka) || 0), 0);
@@ -125,12 +125,15 @@ router.patch('/:id', auth, async (req, res, next) => {
     }, 0);
     const celkem = totalBezDph + dph;
 
+    const klientSet = klient_id !== undefined ? ', klient_id=$9' : '';
+    const klientParam = klient_id !== undefined ? [klient_id || null] : [];
+
     const { rows } = await query(
       `UPDATE faktury SET datum_splatnosti=$1, zpusob_platby=$2, variabilni_symbol=$3,
-         poznamka=$4, cena_bez_dph=$5, dph=$6, cena_celkem=$7
+         poznamka=$4, cena_bez_dph=$5, dph=$6, cena_celkem=$7${klientSet}
        WHERE id=$8 RETURNING *`,
       [datum_splatnosti, zpusob_platby, variabilni_symbol, poznamka || null,
-       totalBezDph, dph, celkem, req.params.id]
+       totalBezDph, dph, celkem, req.params.id, ...klientParam]
     );
     if (!rows[0]) return res.status(404).json({ error: 'Faktura nenalezena' });
 

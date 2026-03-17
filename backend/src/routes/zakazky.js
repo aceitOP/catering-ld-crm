@@ -34,6 +34,7 @@ router.get('/', auth, async (req, res, next) => {
 
     if (stav)         { where.push(`z.stav = $${p++}`);                  params.push(stav); }
     else              { where.push(`z.stav != 'nova_poptavka'`); }
+    where.push('z.archivovano = false');
     if (typ)          { where.push(`z.typ = $${p++}`);                   params.push(typ); }
     if (obchodnik_id) { where.push(`z.obchodnik_id = $${p++}`);          params.push(obchodnik_id); }
     if (klient_id)    { where.push(`z.klient_id = $${p++}`);             params.push(klient_id); }
@@ -130,15 +131,15 @@ router.post('/', auth, async (req, res, next) => {
             misto, pocet_hostu, rozpocet_klienta, poznamka_klient, poznamka_interni } = req.body;
 
     const { rows } = await query(`
-      INSERT INTO zakazky (cislo, nazev, typ, klient_id, obchodnik_id, datum_akce,
+      INSERT INTO zakazky (cislo, nazev, typ, stav, klient_id, obchodnik_id, datum_akce,
         cas_zacatek, cas_konec, misto, pocet_hostu, rozpocet_klienta, poznamka_klient, poznamka_interni)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
+      VALUES ($1,$2,$3,'rozpracovano',$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
       [cislo, nazev, typ, klient_id, obchodnik_id || req.user.id, datum_akce,
        cas_zacatek, cas_konec, misto, pocet_hostu, rozpocet_klienta, poznamka_klient, poznamka_interni]);
 
     // Záznam do historie
     await query(`INSERT INTO zakazky_history (zakazka_id, stav_po, uzivatel_id, poznamka)
-                 VALUES ($1, 'nova_poptavka', $2, 'Zakázka vytvořena')`,
+                 VALUES ($1, 'rozpracovano', $2, 'Zakázka vytvořena')`,
       [rows[0].id, req.user.id]);
 
     createNotif({
@@ -291,6 +292,28 @@ router.delete('/:id/personal/:pid', auth, async (req, res, next) => {
     await query('DELETE FROM zakazky_personal WHERE zakazka_id = $1 AND personal_id = $2',
       [req.params.id, req.params.pid]);
     res.json({ message: 'Personál odebrán' });
+  } catch (err) { next(err); }
+});
+
+// PATCH /api/zakazky/:id/archivovat
+router.patch('/:id/archivovat', auth, async (req, res, next) => {
+  try {
+    const { rows } = await query(
+      'UPDATE zakazky SET archivovano=true WHERE id=$1 RETURNING id, cislo, nazev',
+      [req.params.id]);
+    if (!rows[0]) return res.status(404).json({ error: 'Zakázka nenalezena' });
+    res.json({ message: 'Zakázka archivována', ...rows[0] });
+  } catch (err) { next(err); }
+});
+
+// PATCH /api/zakazky/:id/obnovit
+router.patch('/:id/obnovit', auth, async (req, res, next) => {
+  try {
+    const { rows } = await query(
+      'UPDATE zakazky SET archivovano=false WHERE id=$1 RETURNING id, cislo, nazev',
+      [req.params.id]);
+    if (!rows[0]) return res.status(404).json({ error: 'Zakázka nenalezena' });
+    res.json({ message: 'Zakázka obnovena', ...rows[0] });
   } catch (err) { next(err); }
 });
 

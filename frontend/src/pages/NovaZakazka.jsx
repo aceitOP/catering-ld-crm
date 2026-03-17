@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { zakazkyApi, klientiApi } from '../api';
+import { zakazkyApi, klientiApi, uzivateleApi, sablonyApi } from '../api';
 import { PageHeader, Btn } from '../components/ui';
 import toast from 'react-hot-toast';
 import { ArrowLeft, Check } from 'lucide-react';
@@ -16,11 +16,13 @@ const TYPY = [
   { v:'ostatni',      l:'Ostatní',            e:'📋' },
 ];
 
+const TYP_EMOJI = { svatba:'💒', soukroma_akce:'🥂', firemni_akce:'🏢', zavoz:'🚚', bistro:'☕', pohreb:'🕯️', ostatni:'📋' };
+
 export default function NovaZakazka() {
   const navigate = useNavigate();
   const [step, setStep]   = useState(0);
   const [form, setForm]   = useState({
-    typ:'', nazev:'', klient_id:'', datum_akce:'', cas_zacatek:'',
+    typ:'', nazev:'', klient_id:'', obchodnik_id:'', datum_akce:'', cas_zacatek:'',
     cas_konec:'', misto:'', pocet_hostu:'', rozpocet_klienta:'',
     poznamka_klient:'', poznamka_interni:'',
   });
@@ -30,6 +32,18 @@ export default function NovaZakazka() {
     queryFn: () => klientiApi.list({ limit: 200 }),
   });
   const klienti = klientiData?.data?.data || [];
+
+  const { data: uzivateleData } = useQuery({
+    queryKey: ['uzivatele'],
+    queryFn: uzivateleApi.list,
+  });
+  const uzivatele = uzivateleData?.data?.data || uzivateleData?.data || [];
+
+  const { data: sablonyData } = useQuery({
+    queryKey: ['sablony'],
+    queryFn: () => sablonyApi.list().then(r => r.data.data),
+  });
+  const sablony = sablonyData || [];
 
   const mut = useMutation({
     mutationFn: (data) => zakazkyApi.create(data),
@@ -42,11 +56,33 @@ export default function NovaZakazka() {
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
-  const steps = ['Typ akce', 'Základní info', 'Klient', 'Shrnutí'];
+  const applyTemplate = (s) => {
+    setForm(f => ({
+      ...f,
+      typ: s.typ || f.typ,
+      cas_zacatek: s.cas_zacatek?.slice(0,5) || f.cas_zacatek,
+      cas_konec: s.cas_konec?.slice(0,5) || f.cas_konec,
+      misto: s.misto || f.misto,
+      pocet_hostu: s.pocet_hostu || f.pocet_hostu,
+      poznamka_klient: s.poznamka_klient || f.poznamka_klient,
+      poznamka_interni: s.poznamka_interni || f.poznamka_interni,
+    }));
+    setStep(2); // jump to Základní info (step 0=Šablona, 1=Typ, 2=Základní info, 3=Klient, 4=Shrnutí)
+  };
+
+  // steps[0] = Šablona (only when templates exist, otherwise skipped by starting at step 1)
+  const steps = sablony.length > 0
+    ? ['Šablona', 'Typ akce', 'Základní info', 'Klient', 'Shrnutí']
+    : ['Typ akce', 'Základní info', 'Klient', 'Shrnutí'];
+  const offset = sablony.length > 0 ? 0 : -1; // if no templates, step 0 = Typ akce
+
+  // Actual form step relative to offset
+  const formStep = sablony.length > 0 ? step : step + 1;
 
   const canNext = () => {
-    if (step === 0) return !!form.typ;
-    if (step === 1) return !!form.nazev && !!form.datum_akce;
+    if (formStep === 1) return !!form.typ;
+    if (formStep === 2) return !!form.nazev && !!form.datum_akce;
+    if (formStep === 0) return true; // template selection, always can continue
     return true;
   };
 
@@ -79,8 +115,36 @@ export default function NovaZakazka() {
       </div>
 
       <div className="p-6 max-w-2xl">
-        {/* Krok 0: Typ */}
-        {step === 0 && (
+        {/* Krok 0: Šablona (pouze pokud existují šablony) */}
+        {sablony.length > 0 && step === 0 && (
+          <div>
+            <h2 className="text-sm font-semibold text-stone-800 mb-1">Vyberte šablonu</h2>
+            <p className="text-xs text-stone-500 mb-4">Šablona předvyplní typ, časy, místo a poznámky. Nebo pokračujte bez šablony.</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
+              {sablony.map(s => (
+                <button key={s.id} onClick={() => applyTemplate(s)}
+                  className="flex items-start gap-3 p-4 rounded-xl border-2 border-stone-200 hover:border-stone-900 hover:bg-stone-50 text-left transition-all">
+                  <span className="text-2xl shrink-0 mt-0.5">{TYP_EMOJI[s.typ] || '📋'}</span>
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold text-stone-800">{s.nazev}</div>
+                    {s.popis && <div className="text-xs text-stone-400 mt-0.5 line-clamp-1">{s.popis}</div>}
+                    <div className="flex gap-3 mt-1.5 text-xs text-stone-500">
+                      {s.cas_zacatek && <span>⏰ {s.cas_zacatek.slice(0,5)}{s.cas_konec ? `–${s.cas_konec.slice(0,5)}` : ''}</span>}
+                      {s.misto && <span>📍 {s.misto}</span>}
+                      {s.pocet_hostu > 0 && <span>👥 {s.pocet_hostu}</span>}
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+            <button onClick={() => setStep(1)} className="text-sm text-stone-400 hover:text-stone-700 underline underline-offset-2 transition-colors">
+              Pokračovat bez šablony →
+            </button>
+          </div>
+        )}
+
+        {/* Krok 0 (bez šablon) nebo Krok 1 (se šablonami): Typ */}
+        {formStep === 1 && (
           <div>
             <h2 className="text-sm font-semibold text-stone-800 mb-4">Vyberte typ akce</h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -97,8 +161,8 @@ export default function NovaZakazka() {
           </div>
         )}
 
-        {/* Krok 1: Základní info */}
-        {step === 1 && (
+        {/* Základní info */}
+        {formStep === 2 && (
           <div className="space-y-4">
             <h2 className="text-sm font-semibold text-stone-800 mb-4">Základní informace</h2>
             <div>
@@ -106,6 +170,16 @@ export default function NovaZakazka() {
               <input className="w-full border border-stone-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-stone-400"
                 placeholder="např. Svatba Novák – Malá"
                 value={form.nazev} onChange={e => set('nazev', e.target.value)} />
+            </div>
+            <div>
+              <label className="text-xs text-stone-500 block mb-1.5">Zodpovědná osoba</label>
+              <select className="w-full border border-stone-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-stone-400"
+                value={form.obchodnik_id} onChange={e => set('obchodnik_id', e.target.value)}>
+                <option value="">— přiřadit automaticky —</option>
+                {uzivatele.map(u => (
+                  <option key={u.id} value={u.id}>{u.jmeno} {u.prijmeni}</option>
+                ))}
+              </select>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -154,8 +228,8 @@ export default function NovaZakazka() {
           </div>
         )}
 
-        {/* Krok 2: Klient */}
-        {step === 2 && (
+        {/* Klient */}
+        {formStep === 3 && (
           <div className="space-y-4">
             <h2 className="text-sm font-semibold text-stone-800 mb-4">Přiřadit klienta</h2>
             <div>
@@ -183,14 +257,15 @@ export default function NovaZakazka() {
           </div>
         )}
 
-        {/* Krok 3: Shrnutí */}
-        {step === 3 && (
+        {/* Shrnutí */}
+        {formStep === 4 && (
           <div>
             <h2 className="text-sm font-semibold text-stone-800 mb-4">Shrnutí zakázky</h2>
             <div className="bg-stone-50 rounded-xl border border-stone-200 p-5 space-y-3">
               {[
                 ['Typ akce',      TYPY.find(t=>t.v===form.typ)?.l],
                 ['Název',         form.nazev],
+                ['Zodpovědná os.', uzivatele.find(u=>String(u.id)===String(form.obchodnik_id)) ? `${uzivatele.find(u=>String(u.id)===String(form.obchodnik_id)).jmeno} ${uzivatele.find(u=>String(u.id)===String(form.obchodnik_id)).prijmeni}` : '— automaticky'],
                 ['Datum akce',    form.datum_akce],
                 ['Čas',           `${form.cas_zacatek || '?'} – ${form.cas_konec || '?'}`],
                 ['Místo',         form.misto || '—'],
@@ -208,21 +283,23 @@ export default function NovaZakazka() {
           </div>
         )}
 
-        {/* Navigation */}
-        <div className="flex justify-between mt-8">
-          <Btn onClick={() => step > 0 ? setStep(s=>s-1) : navigate('/zakazky')}>
-            {step > 0 ? '← Zpět' : 'Zrušit'}
-          </Btn>
-          {step < steps.length - 1 ? (
-            <Btn variant="primary" disabled={!canNext()} onClick={() => setStep(s=>s+1)}>
-              Pokračovat →
+        {/* Navigation – hide default nav on template step (it has its own buttons) */}
+        {!(sablony.length > 0 && step === 0) && (
+          <div className="flex justify-between mt-8">
+            <Btn onClick={() => step > 0 ? setStep(s=>s-1) : navigate('/zakazky')}>
+              {step > 0 ? '← Zpět' : 'Zrušit'}
             </Btn>
-          ) : (
-            <Btn variant="primary" onClick={handleSubmit} disabled={mut.isPending}>
-              {mut.isPending ? 'Ukládám…' : '✓ Vytvořit zakázku'}
-            </Btn>
-          )}
-        </div>
+            {step < steps.length - 1 ? (
+              <Btn variant="primary" disabled={!canNext()} onClick={() => setStep(s=>s+1)}>
+                Pokračovat →
+              </Btn>
+            ) : (
+              <Btn variant="primary" onClick={handleSubmit} disabled={mut.isPending}>
+                {mut.isPending ? 'Ukládám…' : '✓ Vytvořit zakázku'}
+              </Btn>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
