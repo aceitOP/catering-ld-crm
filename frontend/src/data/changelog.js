@@ -1,9 +1,49 @@
 // Changelog – Catering LD CRM
 // Typy změn: 'new' | 'improvement' | 'fix' | 'security'
 
-export const APP_VERSION = '2.9.0';
+export const APP_VERSION = '3.3.0';
 
 export const CHANGELOG = [
+  {
+    version: '3.3.0',
+    date: '2026-03-17',
+    changes: [
+      { type: 'new',         text: 'Kalendář kapacit – nový pohled „Kapacity" zobrazuje vytíženost firmy po dnech (počet akcí, hostů) s barevným označením (zelená = volno, oranžová = vytíženo, červená = plná kapacita)' },
+      { type: 'new',         text: 'Kapacity – kliknutím na den se zobrazí detail se seznamem všech akcí, potvrzených i rozpracovaných' },
+      { type: 'new',         text: 'Kapacity – miniaturní progress bary v každé buňce ukazují % vytížení akcemi i hosty' },
+      { type: 'new',         text: 'Nastavení → Kapacity – konfigurace denních limitů (max akcí/den, max hostů/den), limity lze nastavit i přímo v pohledu Kapacity' },
+    ],
+  },
+  {
+    version: '3.2.0',
+    date: '2026-03-17',
+    changes: [
+      { type: 'new',         text: 'Follow-up úkoly – zakázka automaticky vytváří follow-up úkoly při změnách stavu (poptávka → zavolat, nabídka → připomenout, potvrzeno → potvrdit, realizováno → poděkovat, uzavřeno → referenci + spolupráci)' },
+      { type: 'new',         text: 'Dashboard – nový widget „Follow-up úkoly" se seznamem nevyřízených úkolů s možností přímého odškrtnutí' },
+      { type: 'new',         text: 'Zakázka – karta „Follow-up úkoly" v pravém sloupci detailu zakázky (ruční přidání, odškrtnutí, smazání)' },
+      { type: 'new',         text: 'Tally poptávky – automatický potvrzovací e-mail zákazníkovi při přijetí poptávky z formuláře' },
+    ],
+  },
+  {
+    version: '3.1.0',
+    date: '2026-03-17',
+    changes: [
+      { type: 'new',         text: 'Pravidelní klienti – automatická detekce klientů s opakujícími se akcemi (2+ realizované zakázky)' },
+      { type: 'new',         text: 'Dashboard – nový widget „Pravidelní klienti" zobrazuje koho oslovit a za kolik dní (červená = po výročí, oranžová = oslovit brzy, zelená = blíží se)' },
+      { type: 'new',         text: 'Klienti – hvězdičkou lze ručně označit klienta jako pravidelného (zobrazuje se v seznamu i ve widgetu)' },
+      { type: 'improvement', text: 'Klienti – hvězdičkové tlačítko v detailu klienta pro rychlé přepínání příznaku pravidelný' },
+    ],
+  },
+  {
+    version: '3.0.0',
+    date: '2026-03-17',
+    changes: [
+      { type: 'new',         text: 'Zakázka – nová záložka „Plánování" s harmonogramem, kontaktními osobami na místě, rozsahem služeb, personálními a technickými požadavky, logitikou, alergeny, speciálními přáními a checklistem realizace' },
+      { type: 'improvement', text: 'Plánování – interaktivní checklist s přidáváním, zaškrtáváním a odebíráním položek přímo v záložce' },
+      { type: 'improvement', text: 'Ceník – nové tlačítko pro úplnou editaci položky ceníku (název, kategorie, jednotka, nákupní/prodejní cena, DPH)' },
+      { type: 'fix',         text: 'Klienti – opraveno zobrazení tlačítka ARES u IČO v modálech (min-w-0 + whitespace-nowrap)' },
+    ],
+  },
   {
     version: '2.9.0',
     date: '2026-03-17',

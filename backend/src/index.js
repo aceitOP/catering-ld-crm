@@ -50,6 +50,8 @@ app.use('/api/proposals',       require('./routes/proposals'));
 app.use('/api/pub/proposals',   require('./routes/publicProposals'));
 app.use('/api/archiv',          require('./routes/archiv'));
 app.use('/api/sablony',         require('./routes/sablony'));
+app.use('/api/followup',        require('./routes/followup'));
+app.use('/api/kapacity',        require('./routes/kapacity'));
 
 // ── Health check ─────────────────────────────────────────────
 app.get('/api/health', (_req, res) => {

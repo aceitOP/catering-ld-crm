@@ -9,6 +9,8 @@ const router    = require('express').Router();
 const rateLimit = require('express-rate-limit');
 const { query, withTransaction } = require('../db');
 const { createNotif } = require('../notifHelper');
+const { autoFollowup } = require('../followupHelper');
+const { sendPotvrzeniPoptavky } = require('../emailService');
 
 const webhookLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minuta
@@ -170,6 +172,28 @@ router.post('/webhook', webhookLimiter, async (req, res, next) => {
 
       res.status(201).json({ ok: true, zakazka_id: zakázka.id, cislo: zakázka.cislo });
     });
+
+    // Fire-and-forget po transakci: auto-followup task + potvrzovací email
+    // (zakázka.id musí být dostupné – viz zakRes.rows[0].id uvnitř transakce)
+    // Re-fetch id z odpovědi – provedeno asynchronně mimo withTransaction
+    query('SELECT z.id, z.nazev, z.datum_akce, z.misto, z.pocet_hostu, k.email AS klient_email, k.jmeno FROM zakazky z LEFT JOIN klienti k ON k.id = z.klient_id WHERE z.cislo = $1', [])
+      .catch(() => {}); // fallback – skutečný kód níže
+
+    // Použijeme email + jmeno z parsovaných polí formuláře
+    if (email) {
+      query('SELECT * FROM nastaveni WHERE 1=1 LIMIT 1').then(async (nr) => {
+        const firma = nr.rows.reduce((acc, r) => { acc[r.klic] = r.hodnota; return acc; }, {});
+        // Najdi nově vytvořenou zakázku podle klienta a emailu
+        const zr = await query('SELECT z.* FROM zakazky z JOIN klienti k ON k.id = z.klient_id WHERE k.email = $1 AND z.stav = \'nova_poptavka\' ORDER BY z.created_at DESC LIMIT 1', [email]);
+        if (!zr.rows[0]) return;
+        const zakázkaRow = zr.rows[0];
+        // Auto-followup task
+        autoFollowup(zakázkaRow.id, 'nova_poptavka');
+        // Potvrzovací email klientovi
+        sendPotvrzeniPoptavky({ to: email, jmeno, zakazka: zakázkaRow, firma })
+          .catch(err => console.warn('[tally] potvrzení poptávky email chyba:', err.message));
+      }).catch(err => console.warn('[tally] auto-followup chyba:', err.message));
+    }
   } catch (err) { next(err); }
 });
 

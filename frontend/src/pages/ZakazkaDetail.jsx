@@ -1,10 +1,10 @@
 import { useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { zakazkyApi, personalApi, dokumentyApi, proposalsApi, nabidkyApi, uzivateleApi } from '../api';
+import { zakazkyApi, personalApi, dokumentyApi, proposalsApi, nabidkyApi, uzivateleApi, followupApi } from '../api';
 import { StavBadge, TypBadge, formatCena, formatDatum, Spinner, Btn, Modal } from '../components/ui';
 import toast from 'react-hot-toast';
-import { ArrowLeft, ChevronRight, Send, Heart, Printer, Pencil, Upload, UserPlus, Trash2, Search, Receipt, ChefHat, Link, Plus, ExternalLink, Copy } from 'lucide-react';
+import { ArrowLeft, ChevronRight, Send, Heart, Printer, Pencil, Upload, UserPlus, Trash2, Search, Receipt, ChefHat, Link, Plus, ExternalLink, Copy, CheckSquare, Square, X as XIcon, ListChecks, Check } from 'lucide-react';
 import { printKomandoPdf } from '../utils/print';
 
 const WORKFLOW = [
@@ -54,6 +54,15 @@ export default function ZakazkaDetail() {
   const [editModal, setEditModal] = useState(false);
   const [editForm, setEditForm] = useState({});
 
+  // Plánování
+  const [planForm, setPlanForm] = useState({
+    harmonogram: '', kontaktni_osoby_misto: '', rozsah_sluzeb: '',
+    personalni_pozadavky: '', logistika: '', technicke_pozadavky: '',
+    alergeny: '', specialni_prani: '', checklist: [],
+  });
+  const [newCheckItem, setNewCheckItem] = useState('');
+  const [newFollowupTitle, setNewFollowupTitle] = useState('');
+
   // Personál modal
   const [personalModal, setPersonalModal] = useState(false);
   const [personalSearch, setPersonalSearch] = useState('');
@@ -91,6 +100,11 @@ export default function ZakazkaDetail() {
     queryKey: ['proposal-detail', editingProposalId],
     queryFn: () => proposalsApi.get(editingProposalId),
     enabled: !!editingProposalId,
+  });
+
+  const { data: followupData, refetch: refetchFollowup } = useQuery({
+    queryKey: ['followup', id],
+    queryFn: () => followupApi.list({ zakazka_id: id }),
   });
 
   const createProposalMut = useMutation({
@@ -162,6 +176,28 @@ export default function ZakazkaDetail() {
     onError: () => toast.error('Chyba při ukládání'),
   });
 
+  const planMut = useMutation({
+    mutationFn: (d) => zakazkyApi.update(id, d),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['zakazka', id] }); toast.success('Plánování uloženo'); },
+    onError: () => toast.error('Chyba při ukládání'),
+  });
+
+  const followupCreateMut = useMutation({
+    mutationFn: (d) => followupApi.create(d),
+    onSuccess: () => { refetchFollowup(); toast.success('Úkol přidán'); setNewFollowupTitle(''); },
+    onError: () => toast.error('Chyba při vytváření úkolu'),
+  });
+
+  const followupDoneMut = useMutation({
+    mutationFn: ({ taskId, splneno }) => followupApi.update(taskId, { splneno }),
+    onSuccess: () => refetchFollowup(),
+  });
+
+  const followupDeleteMut = useMutation({
+    mutationFn: (taskId) => followupApi.delete(taskId),
+    onSuccess: () => refetchFollowup(),
+  });
+
   const addPersonalMut = useMutation({
     mutationFn: (d) => personalApi.priradZakazku(d.personal_id, { zakazka_id: id, role_na_akci: d.role_na_akci, cas_prichod: d.cas_prichod, cas_odchod: d.cas_odchod }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['zakazka', id] }); toast.success('Personál přiřazen'); setPersonalModal(false); setPersonalForm({ personal_id: '', role_na_akci: '', cas_prichod: '', cas_odchod: '' }); },
@@ -206,12 +242,26 @@ export default function ZakazkaDetail() {
   };
 
   const setEF = (k, v) => setEditForm(f => ({ ...f, [k]: v }));
+  const setPF = (k, v) => setPlanForm(f => ({ ...f, [k]: v }));
 
   if (isLoading) return <div className="flex justify-center py-20"><Spinner /></div>;
   const z = data?.data;
   if (!z) return <div className="p-6 text-stone-500">Zakázka nenalezena</div>;
 
   const curIdx = WORKFLOW.findIndex(s => s.stav === z.stav);
+
+  // Sync planForm from z if not yet edited (use z as source of truth on first load)
+  const initPlan = () => setPlanForm({
+    harmonogram: z.harmonogram || '',
+    kontaktni_osoby_misto: z.kontaktni_osoby_misto || '',
+    rozsah_sluzeb: z.rozsah_sluzeb || '',
+    personalni_pozadavky: z.personalni_pozadavky || '',
+    logistika: z.logistika || '',
+    technicke_pozadavky: z.technicke_pozadavky || '',
+    alergeny: z.alergeny || '',
+    specialni_prani: z.specialni_prani || '',
+    checklist: Array.isArray(z.checklist) ? z.checklist : [],
+  });
   const personalList = personalListData?.data?.data || personalListData?.data || [];
 
   return (
@@ -277,8 +327,8 @@ export default function ZakazkaDetail() {
 
       {/* Tabs */}
       <div className="bg-white border-b border-stone-100 px-6 flex gap-0">
-        {[['detaily','Detaily'],['historie','Historie'],['personal','Personál'],['dokumenty','Dokumenty'],['vybermenu','Výběr menu']].map(([k,l]) => (
-          <button key={k} onClick={() => setTab(k)}
+        {[['detaily','Detaily'],['planovaní','Plánování'],['historie','Historie'],['personal','Personál'],['dokumenty','Dokumenty'],['vybermenu','Výběr menu']].map(([k,l]) => (
+          <button key={k} onClick={() => { setTab(k); if (k === 'planovaní') initPlan(); }}
             className={`px-4 py-3 text-sm border-b-2 transition-colors ${
               tab === k ? 'border-stone-900 text-stone-900 font-medium' : 'border-transparent text-stone-500 hover:text-stone-700'
             }`}>{l}</button>
@@ -415,6 +465,177 @@ export default function ZakazkaDetail() {
                     Archivovat zakázku
                   </button>
                 </div>
+              </div>
+
+              {/* Follow-up úkoly */}
+              <div className="bg-white rounded-xl border border-stone-200 p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <ListChecks size={13} className="text-stone-400"/>
+                  <h3 className="text-xs font-semibold text-stone-500 uppercase tracking-wide">Follow-up úkoly</h3>
+                </div>
+                <div className="space-y-2 mb-3">
+                  {(followupData?.data?.data || []).length === 0 && (
+                    <p className="text-xs text-stone-400">Žádné úkoly</p>
+                  )}
+                  {(followupData?.data?.data || []).map(t => (
+                    <div key={t.id} className="flex items-start gap-2">
+                      <button onClick={() => followupDoneMut.mutate({ taskId: t.id, splneno: !t.splneno })} className="mt-0.5 flex-shrink-0">
+                        {t.splneno
+                          ? <CheckSquare size={14} className="text-green-500"/>
+                          : <Square size={14} className="text-stone-300 hover:text-stone-500"/>}
+                      </button>
+                      <div className="flex-1 min-w-0">
+                        <div className={`text-xs leading-snug ${t.splneno ? 'line-through text-stone-400' : 'text-stone-700'}`}>{t.titulek}</div>
+                        {t.termin && (
+                          <div className={`text-xs mt-0.5 ${!t.splneno && new Date(t.termin) < new Date() ? 'text-red-500' : 'text-stone-400'}`}>
+                            {formatDatum(t.termin)}
+                          </div>
+                        )}
+                      </div>
+                      <button onClick={() => followupDeleteMut.mutate(t.id)} className="text-stone-300 hover:text-red-400 flex-shrink-0 mt-0.5">
+                        <XIcon size={12}/>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <form onSubmit={e => { e.preventDefault(); if (newFollowupTitle.trim()) followupCreateMut.mutate({ zakazka_id: parseInt(id), titulek: newFollowupTitle.trim() }); }} className="flex gap-1">
+                  <input
+                    className="flex-1 border border-stone-200 rounded px-2 py-1 text-xs focus:outline-none min-w-0"
+                    placeholder="Nový úkol…"
+                    value={newFollowupTitle}
+                    onChange={e => setNewFollowupTitle(e.target.value)}
+                  />
+                  <button type="submit" disabled={followupCreateMut.isPending} className="px-2 py-1 bg-stone-900 text-white rounded text-xs hover:bg-stone-700 flex-shrink-0">
+                    <Plus size={11}/>
+                  </button>
+                </form>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {tab === 'planovaní' && (
+          <div className="max-w-3xl space-y-6">
+            <div className="flex justify-between items-center">
+              <div>
+                <h3 className="text-sm font-semibold text-stone-700">Plánování akce</h3>
+                <p className="text-xs text-stone-400 mt-0.5">Harmonogram, logistika, personál a speciální požadavky pro realizaci zakázky.</p>
+              </div>
+              <Btn size="sm" variant="primary" onClick={() => planMut.mutate(planForm)} disabled={planMut.isPending}>
+                {planMut.isPending ? 'Ukládám…' : 'Uložit plánování'}
+              </Btn>
+            </div>
+
+            {/* Harmonogram */}
+            <div className="bg-white rounded-xl border border-stone-200 p-5 space-y-2">
+              <label className="text-xs font-semibold text-stone-700 uppercase tracking-wide">Harmonogram</label>
+              <textarea className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none resize-none" rows={4}
+                placeholder="Přibližný časový plán akce – příjezd, příprava, servis, úklid…"
+                value={planForm.harmonogram} onChange={e => setPF('harmonogram', e.target.value)}/>
+            </div>
+
+            {/* Kontaktní osoby na místě */}
+            <div className="bg-white rounded-xl border border-stone-200 p-5 space-y-2">
+              <label className="text-xs font-semibold text-stone-700 uppercase tracking-wide">Kontaktní osoby na místě</label>
+              <textarea className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none resize-none" rows={3}
+                placeholder="Jméno, telefon, role (správce objektu, koordinátor klienta…)"
+                value={planForm.kontaktni_osoby_misto} onChange={e => setPF('kontaktni_osoby_misto', e.target.value)}/>
+            </div>
+
+            {/* Rozsah služeb */}
+            <div className="bg-white rounded-xl border border-stone-200 p-5 space-y-2">
+              <label className="text-xs font-semibold text-stone-700 uppercase tracking-wide">Rozsah služeb</label>
+              <textarea className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none resize-none" rows={3}
+                placeholder="Co zajišťujeme – catering, obsluha, pronájem nádobí, výzdoba…"
+                value={planForm.rozsah_sluzeb} onChange={e => setPF('rozsah_sluzeb', e.target.value)}/>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Personální požadavky */}
+              <div className="bg-white rounded-xl border border-stone-200 p-5 space-y-2">
+                <label className="text-xs font-semibold text-stone-700 uppercase tracking-wide">Personální požadavky</label>
+                <textarea className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none resize-none" rows={4}
+                  placeholder="Počet kuchařů, číšníků, řidičů; dress code; speciální role…"
+                  value={planForm.personalni_pozadavky} onChange={e => setPF('personalni_pozadavky', e.target.value)}/>
+              </div>
+
+              {/* Logistika */}
+              <div className="bg-white rounded-xl border border-stone-200 p-5 space-y-2">
+                <label className="text-xs font-semibold text-stone-700 uppercase tracking-wide">Logistika</label>
+                <textarea className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none resize-none" rows={4}
+                  placeholder="Parkování, nakládka/vykládka, přístup do objektu, přeprava zboží…"
+                  value={planForm.logistika} onChange={e => setPF('logistika', e.target.value)}/>
+              </div>
+
+              {/* Technické požadavky */}
+              <div className="bg-white rounded-xl border border-stone-200 p-5 space-y-2">
+                <label className="text-xs font-semibold text-stone-700 uppercase tracking-wide">Technické požadavky</label>
+                <textarea className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none resize-none" rows={4}
+                  placeholder="Elektrické přípojky, chlazení, vybavení kuchyně na místě…"
+                  value={planForm.technicke_pozadavky} onChange={e => setPF('technicke_pozadavky', e.target.value)}/>
+              </div>
+
+              {/* Alergeny */}
+              <div className="bg-white rounded-xl border border-stone-200 p-5 space-y-2">
+                <label className="text-xs font-semibold text-stone-700 uppercase tracking-wide">Alergeny a diety</label>
+                <textarea className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none resize-none" rows={4}
+                  placeholder="Specifické alergie hostů, vegetariáni, vegani, bezlepková dieta…"
+                  value={planForm.alergeny} onChange={e => setPF('alergeny', e.target.value)}/>
+              </div>
+            </div>
+
+            {/* Speciální přání klienta */}
+            <div className="bg-white rounded-xl border border-stone-200 p-5 space-y-2">
+              <label className="text-xs font-semibold text-stone-700 uppercase tracking-wide">Speciální přání klienta</label>
+              <textarea className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none resize-none" rows={3}
+                placeholder="Dortový servis, welcome drink, speciální výzdoba, hudba…"
+                value={planForm.specialni_prani} onChange={e => setPF('specialni_prani', e.target.value)}/>
+            </div>
+
+            {/* Checklist realizace */}
+            <div className="bg-white rounded-xl border border-stone-200 p-5 space-y-3">
+              <label className="text-xs font-semibold text-stone-700 uppercase tracking-wide">Checklist realizace</label>
+              <div className="space-y-2">
+                {(planForm.checklist || []).map((item, i) => (
+                  <div key={i} className="flex items-center gap-2 group">
+                    <button onClick={() => {
+                      const c = [...planForm.checklist];
+                      c[i] = { ...c[i], done: !c[i].done };
+                      setPF('checklist', c);
+                    }} className="text-stone-400 hover:text-stone-700 flex-shrink-0">
+                      {item.done ? <CheckSquare size={16} className="text-green-600"/> : <Square size={16}/>}
+                    </button>
+                    <span className={`flex-1 text-sm ${item.done ? 'line-through text-stone-400' : 'text-stone-700'}`}>{item.label}</span>
+                    <button onClick={() => {
+                      const c = planForm.checklist.filter((_, j) => j !== i);
+                      setPF('checklist', c);
+                    }} className="opacity-0 group-hover:opacity-100 text-stone-300 hover:text-red-500 transition-all flex-shrink-0">
+                      <XIcon size={13}/>
+                    </button>
+                  </div>
+                ))}
+                {(planForm.checklist || []).length === 0 && <p className="text-xs text-stone-400">Zatím žádné úkoly. Přidejte níže.</p>}
+              </div>
+              <div className="flex gap-2 pt-1">
+                <input className="flex-1 border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                  placeholder="Nová položka checklistu…"
+                  value={newCheckItem} onChange={e => setNewCheckItem(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && newCheckItem.trim()) {
+                      setPF('checklist', [...(planForm.checklist || []), { label: newCheckItem.trim(), done: false }]);
+                      setNewCheckItem('');
+                    }
+                  }}/>
+                <Btn size="sm" onClick={() => {
+                  if (!newCheckItem.trim()) return;
+                  setPF('checklist', [...(planForm.checklist || []), { label: newCheckItem.trim(), done: false }]);
+                  setNewCheckItem('');
+                }}><Plus size={12}/></Btn>
+              </div>
+              <div className="flex justify-end pt-1">
+                <Btn size="sm" variant="primary" onClick={() => planMut.mutate(planForm)} disabled={planMut.isPending}>
+                  {planMut.isPending ? 'Ukládám…' : 'Uložit plánování'}
+                </Btn>
               </div>
             </div>
           </div>

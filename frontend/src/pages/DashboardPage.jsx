@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { zakazkyApi, kalendarApi, notifikaceApi, fakturyApi } from '../api';
+import { zakazkyApi, kalendarApi, notifikaceApi, fakturyApi, klientiApi, followupApi } from '../api';
 import { useAuth } from '../context/AuthContext';
 
 // Český 5. pád (vokatív) pro pozdrav
@@ -39,8 +39,9 @@ import { StavBadge, TypBadge, formatCena, Spinner } from '../components/ui';
 import {
   Plus, ArrowRight, Bell, ClipboardList, TrendingUp, Calendar, Users, Inbox,
   DollarSign, Receipt, AlertTriangle, FileText, GripVertical, CheckCircle2,
-  Clock, Banknote, LayoutDashboard,
+  Clock, Banknote, LayoutDashboard, Star, RefreshCw, ListChecks,
 } from 'lucide-react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 // ── Timeline helpers ─────────────────────────────────────────
 const timeToMin  = (t) => { if (!t) return null; const p = t.split(':'); return parseInt(p[0]) * 60 + parseInt(p[1]); };
@@ -64,15 +65,17 @@ const TYP_DOT = {
 
 // ── Widget definitions ────────────────────────────────────────
 const WIDGET_DEFS = {
-  timeline:      { label: 'Timeline dne',       span: 'full' },
-  upcoming:      { label: 'Nadcházející akce',   span: 'wide' },
-  pipeline:      { label: 'Pipeline zakázek',    span: 'narrow' },
-  notifications: { label: 'Notifikace',          span: 'narrow' },
-  faktury:       { label: 'Fakturace',           span: 'narrow' },
-  poptavky:      { label: 'Nové poptávky',       span: 'narrow' },
-  'quick-actions':{ label: 'Rychlé akce',        span: 'narrow' },
+  timeline:      { label: 'Timeline dne',           span: 'full' },
+  upcoming:      { label: 'Nadcházející akce',       span: 'wide' },
+  pipeline:      { label: 'Pipeline zakázek',        span: 'narrow' },
+  notifications: { label: 'Notifikace',              span: 'narrow' },
+  faktury:       { label: 'Fakturace',               span: 'narrow' },
+  poptavky:      { label: 'Nové poptávky',           span: 'narrow' },
+  pravidelni:    { label: 'Pravidelní klienti',      span: 'narrow' },
+  followup:      { label: 'Follow-up úkoly',         span: 'narrow' },
+  'quick-actions':{ label: 'Rychlé akce',            span: 'narrow' },
 };
-const DEFAULT_ORDER = ['timeline', 'upcoming', 'pipeline', 'notifications', 'faktury', 'poptavky', 'quick-actions'];
+const DEFAULT_ORDER = ['timeline', 'upcoming', 'pipeline', 'notifications', 'faktury', 'poptavky', 'pravidelni', 'followup', 'quick-actions'];
 
 function loadOrder() {
   try {
@@ -162,12 +165,29 @@ export default function DashboardPage() {
     queryKey: ['faktury-dashboard'],
     queryFn:  () => fakturyApi.list({}),
   });
+  const { data: pravidelniData } = useQuery({
+    queryKey: ['pravidelni-klienti'],
+    queryFn:  () => klientiApi.pravidelni(),
+    retry: false,
+  });
+  const { data: followupData, refetch: refetchFollowup } = useQuery({
+    queryKey: ['followup-dashboard'],
+    queryFn:  () => followupApi.list({ splneno: 'false', limit: 10 }),
+    refetchInterval: 60_000,
+  });
+  const qcDash = useQueryClient();
+  const followupDoneMut = useMutation({
+    mutationFn: (id) => followupApi.update(id, { splneno: true }),
+    onSuccess:  () => { qcDash.invalidateQueries({ queryKey: ['followup-dashboard'] }); },
+  });
 
   const zakazky       = zakazkyData?.data?.data || [];
   const upcoming      = (kalData?.data?.data || []).filter(e => (e.datum_akce||'').slice(0,10) >= today);
   const notifications = notifData?.data?.data || [];
   const unreadNotifs  = notifData?.data?.unread || 0;
-  const allFaktury    = fakturyData?.data?.data || [];
+  const allFaktury        = fakturyData?.data?.data || [];
+  const pravidelniKlienti = (pravidelniData?.data?.data || []).filter(k => Math.abs(k.dni_do_pristi) <= 90);
+  const followupUkoly     = followupData?.data?.data || [];
 
   // ── Stats ──
   const novePoptavky   = zakazky.filter(z => z.stav === 'nova_poptavka').length;
@@ -540,6 +560,63 @@ export default function DashboardPage() {
         </Widget>
       );
 
+      case 'followup': return (
+        <Widget key={id} {...wrapperProps(id)}>
+          <div className="bg-white rounded-2xl shadow-card px-6 py-5">
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-sm font-bold text-stone-800 flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-blue-50 flex items-center justify-center">
+                  <ListChecks size={15} className="text-blue-600" />
+                </div>
+                Follow-up úkoly
+                {followupUkoly.length > 0 && (
+                  <span className="bg-blue-500 text-white text-[10px] font-bold rounded-full px-2 py-0.5 leading-none">{followupUkoly.length}</span>
+                )}
+              </span>
+            </div>
+            {followupUkoly.length > 0 ? (
+              <div className="space-y-1.5">
+                {followupUkoly.slice(0, 6).map(u => {
+                  const isOverdue = u.termin && new Date(u.termin) < new Date();
+                  return (
+                    <div key={u.id} className="flex items-start gap-2.5 px-2 py-2 rounded-xl hover:bg-surface group">
+                      <button
+                        onClick={() => followupDoneMut.mutate(u.id)}
+                        className="mt-0.5 w-4 h-4 rounded border border-stone-300 hover:border-blue-500 hover:bg-blue-50 flex-shrink-0 transition-colors"
+                        title="Označit jako splněno"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div
+                          onClick={() => navigate(`/zakazky/${u.zakazka_id}`)}
+                          className="text-xs font-medium text-stone-700 truncate cursor-pointer hover:text-brand-600 transition-colors"
+                        >{u.titulek}</div>
+                        <div className="text-[11px] text-stone-400 truncate mt-0.5">
+                          {u.zakazka_nazev}
+                          {u.termin && (
+                            <span className={`ml-1.5 font-semibold ${isOverdue ? 'text-red-500' : 'text-stone-500'}`}>
+                              · {new Date(u.termin).toLocaleDateString('cs-CZ', { day: 'numeric', month: 'short' })}
+                              {isOverdue && ' ⚠'}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+                {followupUkoly.length > 6 && (
+                  <div className="text-[11px] text-stone-400 text-center pt-1">…a {followupUkoly.length - 6} dalších</div>
+                )}
+              </div>
+            ) : (
+              <div className="text-center py-6 text-xs text-stone-400">
+                <ListChecks size={24} className="mx-auto mb-2 text-stone-200" />
+                Žádné čekající úkoly
+              </div>
+            )}
+          </div>
+        </Widget>
+      );
+
       case 'quick-actions': return (
         <Widget key={id} {...wrapperProps(id)}>
           <div className="bg-white rounded-2xl shadow-card px-5 py-5">
@@ -568,6 +645,60 @@ export default function DashboardPage() {
                 </button>
               ))}
             </div>
+          </div>
+        </Widget>
+      );
+
+      case 'pravidelni': return (
+        <Widget key={id} {...wrapperProps(id)}>
+          <div className="bg-white rounded-2xl shadow-card px-6 py-5">
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-sm font-bold text-stone-800 flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-yellow-50 flex items-center justify-center">
+                  <Star size={15} className="text-yellow-500" />
+                </div>
+                Pravidelní klienti
+              </span>
+              <button onClick={() => navigate('/klienti')}
+                className="text-xs text-brand-600 hover:text-brand-700 font-semibold flex items-center gap-1 transition-colors">
+                Klienti <ArrowRight size={12} />
+              </button>
+            </div>
+            {pravidelniKlienti.length > 0 ? (
+              <div className="space-y-2">
+                {pravidelniKlienti.slice(0, 6).map(k => {
+                  const dni = k.dni_do_pristi;
+                  const urgency = dni < -30 ? 'overdue' : dni < 30 ? 'soon' : 'upcoming';
+                  const dot = urgency === 'overdue' ? 'bg-red-400' : urgency === 'soon' ? 'bg-amber-400' : 'bg-emerald-400';
+                  const label = urgency === 'overdue'
+                    ? `${Math.abs(dni)} dní po výročí`
+                    : urgency === 'soon'
+                    ? (dni <= 0 ? 'Výročí dnes!' : `Za ${dni} dní`)
+                    : `Za ${dni} dní`;
+                  const labelCls = urgency === 'overdue' ? 'text-red-600' : urgency === 'soon' ? 'text-amber-600' : 'text-emerald-600';
+                  return (
+                    <div key={k.id} onClick={() => navigate('/klienti')}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-surface cursor-pointer transition-colors group">
+                      <div className={`w-2 h-2 rounded-full flex-shrink-0 ${dot}`} />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-semibold text-stone-800 truncate">
+                          {k.firma || `${k.jmeno} ${k.prijmeni || ''}`}
+                        </div>
+                        <div className="text-[11px] text-stone-400 truncate">
+                          {k.pocet_akci}× · poslední {new Date(k.posledni_akce).toLocaleDateString('cs-CZ', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        </div>
+                      </div>
+                      <span className={`text-[11px] font-semibold flex-shrink-0 ${labelCls}`}>{label}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-center py-6 text-xs text-stone-400">
+                <RefreshCw size={24} className="mx-auto mb-2 text-stone-200" />
+                Zatím žádní pravidelní klienti
+              </div>
+            )}
           </div>
         </Widget>
       );

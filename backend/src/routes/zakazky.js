@@ -4,6 +4,7 @@ const { auth, requireRole } = require('../middleware/auth');
 const { sendKomando, sendDekujeme } = require('../emailService');
 const { createNotif } = require('../notifHelper');
 const { upsertEvent, deleteEvent } = require('../googleCalendar');
+const { autoFollowup } = require('../followupHelper');
 
 // Generátor čísla zakázky – musí být voláno uvnitř transakce (FOR UPDATE zabrání race condition)
 async function genCislo(client) {
@@ -160,7 +161,9 @@ router.patch('/:id', auth, async (req, res, next) => {
     const allowed = ['nazev','typ','klient_id','obchodnik_id','datum_akce','cas_zacatek',
                      'cas_konec','misto','pocet_hostu','rozpocet_klienta','cena_celkem',
                      'cena_naklady','zaloha','doplatek','poznamka_klient','poznamka_interni',
-                     'google_event_id'];
+                     'google_event_id',
+                     'harmonogram','kontaktni_osoby_misto','rozsah_sluzeb','personalni_pozadavky',
+                     'logistika','technicke_pozadavky','alergeny','specialni_prani','checklist'];
 
     const fields = Object.keys(req.body).filter(k => allowed.includes(k));
     if (!fields.length) return res.status(400).json({ error: 'Žádná platná pole k aktualizaci' });
@@ -215,6 +218,9 @@ router.patch('/:id/stav', auth, async (req, res, next) => {
          VALUES ($1, $2, $3, $4, $5)`,
         [req.params.id, old.rows[0].stav, stav, req.user.id, poznamka || null]);
     });
+
+    // Follow-up auto-úkoly (fire-and-forget)
+    autoFollowup(req.params.id, stav);
 
     // Google Calendar sync (fire-and-forget, errors non-fatal)
     if (stav === 'potvrzeno') {

@@ -4,7 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { klientiApi } from '../api';
 import { PageHeader, KlientTypBadge, StavBadge, formatCena, formatDatum, Spinner, EmptyState, Btn, Modal, ExportMenu } from '../components/ui';
 import toast from 'react-hot-toast';
-import { Plus, Pencil, Search, Users, X, RefreshCw, Archive } from 'lucide-react';
+import { Plus, Pencil, Search, Users, X, RefreshCw, Archive, Star } from 'lucide-react';
 
 async function fetchAres(ico) {
   const res = await fetch(`https://ares.gov.cz/ekonomicke-subjekty-v-be/rest/ekonomicke-subjekty/${ico.trim()}`);
@@ -90,6 +90,12 @@ export default function KlientiPage() {
     mutationFn: (id) => klientiApi.archivovat(id),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['klienti'] }); setSelected(null); toast.success('Klient archivován'); },
     onError: () => toast.error('Nepodařilo se archivovat klienta'),
+  });
+
+  const pravidelnyMut = useMutation({
+    mutationFn: ({ id, value }) => klientiApi.setPravidelny(id, value),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['klienti'] }); qc.invalidateQueries({ queryKey: ['klient', selected] }); qc.invalidateQueries({ queryKey: ['pravidelni-klienti'] }); },
+    onError: () => toast.error('Chyba při aktualizaci'),
   });
 
   const openEdit = () => {
@@ -195,6 +201,7 @@ export default function KlientiPage() {
                     {k.firma || `${k.jmeno} ${k.prijmeni||''}`}
                   </div>
                 </div>
+                {k.pravidelny && <Star size={12} className="text-yellow-400 fill-yellow-400 flex-shrink-0"/>}
                 <KlientTypBadge typ={k.typ}/>
                 <div className="text-xs font-medium text-stone-500 w-8 text-right flex-shrink-0">
                   {k.pocet_realizovano > 0 ? `${k.pocet_realizovano}×` : '—'}
@@ -219,6 +226,13 @@ export default function KlientiPage() {
               </div>
               <div className="flex gap-2 items-center">
                 <Btn size="sm" onClick={() => navigate('/zakazky/nova')}>+ Zakázka</Btn>
+                <button
+                  onClick={() => pravidelnyMut.mutate({ id: selected, value: !detail.pravidelny })}
+                  disabled={pravidelnyMut.isPending}
+                  className={`p-1 transition-colors ${detail.pravidelny ? 'text-yellow-500 hover:text-yellow-600' : 'text-stone-300 hover:text-yellow-500'}`}
+                  title={detail.pravidelny ? 'Označen jako pravidelný – kliknutím zrušit' : 'Označit jako pravidelného klienta'}>
+                  <Star size={14} className={detail.pravidelny ? 'fill-yellow-400' : ''}/>
+                </button>
                 <button onClick={openEdit} className="text-stone-400 hover:text-stone-700 p-1" title="Upravit klienta"><Pencil size={14}/></button>
                 <button onClick={() => window.confirm('Archivovat klienta?') && archivMut.mutate(selected)} disabled={archivMut.isPending} className="text-stone-400 hover:text-red-500 p-1" title="Archivovat klienta"><Archive size={14}/></button>
                 <button onClick={() => setSelected(null)} className="text-stone-400 hover:text-stone-700 p-1"><X size={14}/></button>
@@ -310,10 +324,10 @@ export default function KlientiPage() {
               <div>
                 <label className="text-xs text-stone-500 block mb-1">IČO</label>
                 <div className="flex gap-1.5">
-                  <input className="flex-1 border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" value={editForm.ico} onChange={e=>setE('ico',e.target.value)}/>
+                  <input className="min-w-0 flex-1 border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" value={editForm.ico} onChange={e=>setE('ico',e.target.value)}/>
                   <button type="button" onClick={() => handleAres(editForm.ico, setEditForm)}
                     disabled={aresLoading}
-                    className="flex items-center gap-1 px-2.5 py-2 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 text-blue-600 text-xs font-medium transition-colors disabled:opacity-50 flex-shrink-0" title="Doplnit z ARES">
+                    className="flex items-center gap-1 px-2.5 py-2 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 text-blue-600 text-xs font-medium transition-colors disabled:opacity-50 flex-shrink-0 whitespace-nowrap" title="Doplnit z ARES">
                     <RefreshCw size={12} className={aresLoading ? 'animate-spin' : ''}/>
                     ARES
                   </button>
@@ -371,10 +385,10 @@ export default function KlientiPage() {
               <div>
                 <label className="text-xs text-stone-500 block mb-1">IČO</label>
                 <div className="flex gap-1.5">
-                  <input className="flex-1 border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" value={form.ico} onChange={e=>set('ico',e.target.value)}/>
+                  <input className="min-w-0 flex-1 border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" value={form.ico} onChange={e=>set('ico',e.target.value)}/>
                   <button type="button" onClick={() => handleAres(form.ico, setForm)}
                     disabled={aresLoading}
-                    className="flex items-center gap-1 px-2.5 py-2 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 text-blue-600 text-xs font-medium transition-colors disabled:opacity-50 flex-shrink-0" title="Doplnit z ARES">
+                    className="flex items-center gap-1 px-2.5 py-2 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 text-blue-600 text-xs font-medium transition-colors disabled:opacity-50 flex-shrink-0 whitespace-nowrap" title="Doplnit z ARES">
                     <RefreshCw size={12} className={aresLoading ? 'animate-spin' : ''}/>
                     ARES
                   </button>

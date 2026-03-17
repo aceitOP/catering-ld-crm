@@ -135,7 +135,34 @@ async function initDb() {
         )
       `);
       await pool.query(`ALTER TABLE zakazky_sablony ADD COLUMN IF NOT EXISTS polozky JSONB NOT NULL DEFAULT '[]'`);
-      console.log('✅  Migrace OK (google_event_id, faktury, proposals, archivovano, sablony).');
+      // Plánování akce – nové sloupce pro záložku Plánování v detailu zakázky
+      await pool.query(`ALTER TABLE zakazky ADD COLUMN IF NOT EXISTS harmonogram TEXT`);
+      await pool.query(`ALTER TABLE zakazky ADD COLUMN IF NOT EXISTS kontaktni_osoby_misto TEXT`);
+      await pool.query(`ALTER TABLE zakazky ADD COLUMN IF NOT EXISTS rozsah_sluzeb TEXT`);
+      await pool.query(`ALTER TABLE zakazky ADD COLUMN IF NOT EXISTS personalni_pozadavky TEXT`);
+      await pool.query(`ALTER TABLE zakazky ADD COLUMN IF NOT EXISTS logistika TEXT`);
+      await pool.query(`ALTER TABLE zakazky ADD COLUMN IF NOT EXISTS technicke_pozadavky TEXT`);
+      await pool.query(`ALTER TABLE zakazky ADD COLUMN IF NOT EXISTS alergeny TEXT`);
+      await pool.query(`ALTER TABLE zakazky ADD COLUMN IF NOT EXISTS specialni_prani TEXT`);
+      await pool.query(`ALTER TABLE zakazky ADD COLUMN IF NOT EXISTS checklist JSONB NOT NULL DEFAULT '[]'`);
+      // Pravidelní klienti
+      await pool.query(`ALTER TABLE klienti ADD COLUMN IF NOT EXISTS pravidelny BOOLEAN NOT NULL DEFAULT false`);
+      // Follow-up úkoly
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS followup_ukoly (
+          id            SERIAL PRIMARY KEY,
+          zakazka_id    INTEGER NOT NULL REFERENCES zakazky(id) ON DELETE CASCADE,
+          typ           VARCHAR(50) NOT NULL DEFAULT 'vlastni',
+          titulek       VARCHAR(300) NOT NULL,
+          termin        DATE,
+          splneno       BOOLEAN NOT NULL DEFAULT false,
+          splneno_at    TIMESTAMPTZ,
+          splneno_by    INTEGER REFERENCES uzivatele(id) ON DELETE SET NULL,
+          poznamka      TEXT,
+          created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+      `);
+      console.log('✅  Migrace OK (google_event_id, faktury, proposals, archivovano, sablony, planovaní, pravidelny, followup).');
       return;
     }
 

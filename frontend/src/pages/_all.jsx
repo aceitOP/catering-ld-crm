@@ -1,13 +1,14 @@
 // ── KalendarPage.jsx ─────────────────────────────────────────
 import { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation as useMutationKal, useQueryClient as useQueryClientKal } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { kalendarApi, googleCalendarApi } from '../api';
+import { kalendarApi, googleCalendarApi, kapacityApi, nastaveniApi } from '../api';
 import { TypBadge, StavBadge, formatDatum, formatCena } from '../components/ui';
 import { ChevronDown } from 'lucide-react';
 
 export function KalendarPage() {
   const navigate = useNavigate();
+  const qcKal    = useQueryClientKal();
   const now = new Date();
   const [year, setYear]         = useState(now.getFullYear());
   const [month, setMonth]       = useState(now.getMonth());
@@ -15,6 +16,8 @@ export function KalendarPage() {
   const [pickerYear, setPickerYear] = useState(now.getFullYear());
   const [view, setView]             = useState('mesic');
   const [collapsed, setCollapsed]   = useState(new Set());
+  const [kapSelectedDay, setKapSelectedDay] = useState(null);
+  const [kapLimitsOpen, setKapLimitsOpen]   = useState(false);
 
   const [tlStartISO, setTlStartISO] = useState(() => now.toISOString().slice(0, 10));
   const [tlView, setTlView]         = useState('tyden'); // 'den' | 'tyden'
@@ -55,6 +58,7 @@ export function KalendarPage() {
   const doo = view === 'timeline'
     ? tlWinEnd
     : new Date(year, month + 1, 0).toISOString().slice(0, 10);
+  // kapacity view uses same od/doo as mesic (both based on year/month)
 
   const { data } = useQuery({
     queryKey: ['kalendar', od, doo],
@@ -69,6 +73,28 @@ export function KalendarPage() {
     select: (r) => r.data?.data || [],
   });
   const gcEvents = gcData || [];
+
+  const { data: kapData } = useQuery({
+    queryKey: ['kapacity', od, doo],
+    queryFn: () => kapacityApi.list({ od, do: doo }),
+    enabled: view === 'kapacity',
+    select: (r) => r.data?.data || [],
+  });
+  const kapDays = kapData || [];
+
+  const { data: nastavKapData } = useQuery({
+    queryKey: ['nastaveni'],
+    queryFn: nastaveniApi.get,
+    enabled: view === 'kapacity',
+    select: (r) => r.data,
+  });
+  const kapMaxAkci  = parseInt(nastavKapData?.kapacity_max_akci_den  || '0', 10) || 0;
+  const kapMaxHoste = parseInt(nastavKapData?.kapacity_max_hoste_den || '0', 10) || 0;
+
+  const kapSaveMut = useMutationKal({
+    mutationFn: (d) => nastaveniApi.update(d),
+    onSuccess: () => { qcKal.invalidateQueries({ queryKey: ['nastaveni'] }); setKapLimitsOpen(false); },
+  });
 
   // Build calendar grid (always full weeks)
   const firstDay    = new Date(year, month, 1).getDay();
@@ -92,6 +118,25 @@ export function KalendarPage() {
 
   const prevMonth = () => { if (month === 0) { setMonth(11); setYear(y => y - 1); } else setMonth(m => m - 1); };
   const nextMonth = () => { if (month === 11) { setMonth(0); setYear(y => y + 1); } else setMonth(m => m + 1); };
+
+  // Kapacity helpers
+  const kapDataForDay = (ds) => kapDays.find(d => (d.datum || '').slice(0, 10) === ds) || null;
+  const kapColor = (akce, hoste) => {
+    if (!kapMaxAkci && !kapMaxHoste) return 'stone';
+    const akciLoad  = kapMaxAkci  ? akce  / kapMaxAkci  : 0;
+    const hosteLoad = kapMaxHoste ? hoste / kapMaxHoste : 0;
+    const load = Math.max(akciLoad, hosteLoad);
+    if (load >= 0.85) return 'red';
+    if (load >= 0.60) return 'amber';
+    return 'green';
+  };
+  const kapColorCls = {
+    stone: { bar: 'bg-stone-300',  bg: '',              badge: 'bg-stone-100 text-stone-600' },
+    green: { bar: 'bg-green-500',  bg: 'bg-green-50/40', badge: 'bg-green-50 text-green-700' },
+    amber: { bar: 'bg-amber-500',  bg: 'bg-amber-50/50', badge: 'bg-amber-50 text-amber-700' },
+    red:   { bar: 'bg-red-500',    bg: 'bg-red-50/50',   badge: 'bg-red-50 text-red-700' },
+  };
+  const [kapLimitForm, setKapLimitForm] = useState({ kapacity_max_akci_den: '', kapacity_max_hoste_den: '' });
 
   const MONTHS = ['Leden','Únor','Březen','Duben','Květen','Červen','Červenec','Srpen','Září','Říjen','Listopad','Prosinec'];
   const DAYS   = ['Po', 'Út', 'St', 'Čt', 'Pá', 'So', 'Ne'];
@@ -210,10 +255,14 @@ export function KalendarPage() {
               className={`px-3 py-1.5 text-xs rounded-md font-medium transition-colors ${view === 'timeline' ? 'bg-white shadow-sm text-stone-800' : 'text-stone-500 hover:text-stone-700'}`}>
               Timeline
             </button>
+            <button onClick={() => setView('kapacity')}
+              className={`px-3 py-1.5 text-xs rounded-md font-medium transition-colors ${view === 'kapacity' ? 'bg-white shadow-sm text-stone-800' : 'text-stone-500 hover:text-stone-700'}`}>
+              Kapacity
+            </button>
           </div>
 
-          {/* Month picker (only in month view) */}
-          {view === 'mesic' && (
+          {/* Month picker (month + kapacity views) */}
+          {(view === 'mesic' || view === 'kapacity') && (
             <div className="relative">
               <button
                 onClick={() => { setPickerYear(year); setPickerOpen(p => !p); }}
@@ -261,7 +310,7 @@ export function KalendarPage() {
 
         {/* Navigation */}
         <div className="flex items-center gap-1">
-          {view === 'mesic' ? (
+          {(view === 'mesic' || view === 'kapacity') ? (
             <>
               <button onClick={prevMonth} className="p-2 hover:bg-stone-100 rounded-lg text-stone-600 text-sm transition-colors">←</button>
               <button onClick={() => { setMonth(now.getMonth()); setYear(now.getFullYear()); }} className="px-3 py-1.5 text-xs border border-stone-200 rounded-lg hover:bg-stone-50 transition-colors">Dnes</button>
@@ -589,6 +638,189 @@ export function KalendarPage() {
               })}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ── KAPACITY VIEW ── */}
+      {view === 'kapacity' && (
+        <div className="p-6">
+          {/* Settings bar */}
+          <div className="mb-4 flex items-center gap-3 flex-wrap">
+            <span className="text-xs text-stone-500">Limity kapacity pro barevné označení:</span>
+            <button
+              onClick={() => { setKapLimitForm({ kapacity_max_akci_den: String(kapMaxAkci || ''), kapacity_max_hoste_den: String(kapMaxHoste || '') }); setKapLimitsOpen(p => !p); }}
+              className="text-xs px-2.5 py-1 border border-stone-200 rounded-lg hover:bg-stone-50 text-stone-600 transition-colors"
+            >
+              ⚙ Nastavit limity
+            </button>
+            {(kapMaxAkci > 0 || kapMaxHoste > 0) && (
+              <div className="flex items-center gap-3 text-xs text-stone-500">
+                {kapMaxAkci  > 0 && <span>Max akcí/den: <strong className="text-stone-700">{kapMaxAkci}</strong></span>}
+                {kapMaxHoste > 0 && <span>Max hostů/den: <strong className="text-stone-700">{kapMaxHoste}</strong></span>}
+              </div>
+            )}
+            <div className="flex items-center gap-2 ml-auto text-xs">
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500 inline-block"/>Volno</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500 inline-block"/>Vytíženo</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500 inline-block"/>Plná kapacita</span>
+            </div>
+          </div>
+
+          {/* Limits form */}
+          {kapLimitsOpen && (
+            <div className="mb-4 bg-stone-50 border border-stone-200 rounded-xl p-4 flex items-end gap-4 flex-wrap">
+              <div>
+                <label className="text-xs text-stone-500 block mb-1">Max akcí za den</label>
+                <input type="number" min="0" className="border border-stone-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none w-28"
+                  value={kapLimitForm.kapacity_max_akci_den}
+                  onChange={e => setKapLimitForm(f => ({ ...f, kapacity_max_akci_den: e.target.value }))} />
+              </div>
+              <div>
+                <label className="text-xs text-stone-500 block mb-1">Max hostů za den</label>
+                <input type="number" min="0" className="border border-stone-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none w-28"
+                  value={kapLimitForm.kapacity_max_hoste_den}
+                  onChange={e => setKapLimitForm(f => ({ ...f, kapacity_max_hoste_den: e.target.value }))} />
+              </div>
+              <button
+                onClick={() => kapSaveMut.mutate(kapLimitForm)}
+                disabled={kapSaveMut.isPending}
+                className="px-4 py-1.5 bg-stone-900 text-white rounded-lg text-sm hover:bg-stone-700 transition-colors"
+              >
+                {kapSaveMut.isPending ? 'Ukládám…' : 'Uložit'}
+              </button>
+              <span className="text-xs text-stone-400">Hodnota 0 = bez limitu (šedá)</span>
+            </div>
+          )}
+
+          {/* Calendar grid */}
+          <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
+            <div className="grid grid-cols-7 border-b border-stone-100">
+              {DAYS.map((d, i) => (
+                <div key={d} className={`py-3 text-center text-xs font-semibold uppercase tracking-wide ${i >= 5 ? 'text-stone-400' : 'text-stone-500'}`}>{d}</div>
+              ))}
+            </div>
+            <div className="grid grid-cols-7 divide-x divide-y divide-stone-100">
+              {days.map((d, i) => {
+                const ds     = d ? `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}` : null;
+                const kd     = ds ? kapDataForDay(ds) : null;
+                const akce   = kd?.akce_celkem || 0;
+                const hoste  = kd?.hoste_celkem || 0;
+                const color  = kd ? kapColor(akce, hoste) : 'stone';
+                const cls    = kapColorCls[color] || kapColorCls.stone;
+                const isToday   = d && year === now.getFullYear() && month === now.getMonth() && d === now.getDate();
+                const isWeekend = i % 7 >= 5;
+                const isSelected = ds && kapSelectedDay === ds;
+                return (
+                  <div key={i}
+                    onClick={() => ds && setKapSelectedDay(isSelected ? null : ds)}
+                    className={`min-h-[100px] p-1.5 relative cursor-default transition-colors
+                      ${!d ? 'bg-stone-50/50' : isSelected ? 'bg-stone-100' : kd ? cls.bg : isToday ? 'bg-brand-50/30' : isWeekend ? 'bg-stone-50/30' : 'bg-white'}
+                      ${ds ? 'cursor-pointer hover:bg-stone-50' : ''}`}>
+                    {/* Capacity bar */}
+                    {d && kd && (
+                      <div className={`absolute top-0 left-0 right-0 h-[3px] ${cls.bar}`} />
+                    )}
+                    {d && (
+                      <>
+                        <div className="mb-1.5 px-0.5 flex items-center gap-1.5">
+                          <span className={`text-xs font-bold inline-flex items-center justify-center w-7 h-7 rounded-full select-none
+                            ${isToday ? 'bg-brand-600 text-white shadow-sm shadow-brand-600/30' : kd ? 'bg-stone-800 text-white' : isWeekend ? 'text-stone-400' : 'text-stone-600'}`}>
+                            {d}
+                          </span>
+                        </div>
+                        {kd ? (
+                          <div className="px-0.5 space-y-1">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${cls.badge}`}>
+                                {akce} {akce === 1 ? 'akce' : akce < 5 ? 'akce' : 'akcí'}
+                              </span>
+                              {hoste > 0 && (
+                                <span className="text-[10px] text-stone-500 font-medium">{hoste} hostů</span>
+                              )}
+                            </div>
+                            {/* Capacity bars */}
+                            {(kapMaxAkci > 0 || kapMaxHoste > 0) && (
+                              <div className="space-y-0.5 mt-1">
+                                {kapMaxAkci > 0 && (
+                                  <div className="flex items-center gap-1">
+                                    <div className="flex-1 bg-stone-100 rounded-full h-1 overflow-hidden">
+                                      <div className={`h-full rounded-full ${cls.bar}`} style={{ width: `${Math.min(100, Math.round(akce / kapMaxAkci * 100))}%` }} />
+                                    </div>
+                                    <span className="text-[9px] text-stone-400 w-6 text-right">{Math.round(akce / kapMaxAkci * 100)}%</span>
+                                  </div>
+                                )}
+                                {kapMaxHoste > 0 && hoste > 0 && (
+                                  <div className="flex items-center gap-1">
+                                    <div className="flex-1 bg-stone-100 rounded-full h-1 overflow-hidden">
+                                      <div className={`h-full rounded-full ${cls.bar}`} style={{ width: `${Math.min(100, Math.round(hoste / kapMaxHoste * 100))}%` }} />
+                                    </div>
+                                    <span className="text-[9px] text-stone-400 w-6 text-right">{Math.round(hoste / kapMaxHoste * 100)}%</span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                            {/* Event names */}
+                            <div className="space-y-0.5 mt-0.5">
+                              {(kd.akce || []).slice(0, 3).map((e, idx) => (
+                                <div key={idx}
+                                  onClick={ev => { ev.stopPropagation(); navigate(`/zakazky/${e.id}`); }}
+                                  className={`text-[10px] truncate px-1 py-0.5 rounded cursor-pointer hover:opacity-75 ${TYP_CHIP[e.typ] || 'bg-stone-100 text-stone-700 border border-stone-200'}`}>
+                                  {e.nazev}
+                                </div>
+                              ))}
+                              {(kd.akce || []).length > 3 && (
+                                <div className="text-[10px] text-stone-400 pl-1">…a {kd.akce.length - 3} dalších</div>
+                              )}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="px-1 text-[10px] text-stone-300">volno</div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Selected day detail */}
+          {kapSelectedDay && (() => {
+            const kd = kapDataForDay(kapSelectedDay);
+            if (!kd) return null;
+            return (
+              <div className="mt-4 bg-white rounded-xl border border-stone-200 p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-semibold text-stone-800">
+                    {new Date(kapSelectedDay + 'T00:00:00').toLocaleDateString('cs-CZ', { weekday: 'long', day: 'numeric', month: 'long' })}
+                  </h3>
+                  <div className="flex items-center gap-3 text-xs text-stone-500">
+                    <span>{kd.akce_celkem} akcí celkem</span>
+                    <span>{kd.akce_potvrzene} potvrzeno</span>
+                    {kd.hoste_celkem > 0 && <span>{kd.hoste_celkem} hostů</span>}
+                    {kd.hoste_potvrzene > 0 && kd.hoste_potvrzene !== kd.hoste_celkem && <span className="text-green-600">({kd.hoste_potvrzene} potvrzeno)</span>}
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  {(kd.akce || []).map(e => (
+                    <div key={e.id} onClick={() => navigate(`/zakazky/${e.id}`)}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-stone-100 cursor-pointer hover:bg-stone-50 transition-colors">
+                      <div className={`w-1 self-stretch rounded-full flex-shrink-0 ${TYP_DOT[e.typ] || 'bg-stone-300'}`} />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-stone-800 truncate">{e.nazev}</div>
+                        <div className="text-xs text-stone-400">
+                          {e.cas_zacatek ? e.cas_zacatek.slice(0, 5) : ''}{e.cas_zacatek && e.cas_konec ? '–' + e.cas_konec.slice(0, 5) : ''}
+                          {e.pocet_hostu ? ` · ${e.pocet_hostu} hostů` : ''}
+                        </div>
+                      </div>
+                      <TypBadge typ={e.typ} />
+                      <StavBadge stav={e.stav} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
     </div>
@@ -919,7 +1151,7 @@ export function DokumentyPage() {
 
 // ── CenikPage.jsx ─────────────────────────────────────────────
 import { cenikApi } from '../api';
-import { Tag } from 'lucide-react';
+import { Tag, Pencil as PencilCenik } from 'lucide-react';
 
 // Převede klíč enumu na zobrazitelný název: 'firemni_catering' → 'Firemní catering'
 const katLabel = (k) => k.charAt(0).toUpperCase() + k.slice(1).replace(/_/g, ' ');
@@ -937,6 +1169,8 @@ export function CenikPage() {
   const [katFilter, setKatFilter] = useState('');
   const [editRow, setEditRow] = useState(null);
   const [cenaEdit, setCenaEdit] = useState('');
+  const [editItem, setEditItem] = useState(null);
+  const [editItemForm, setEditItemForm] = useState({ nazev:'', kategorie:'jidlo', jednotka:'os.', cena_nakup:0, cena_prodej:0, dph_sazba:12 });
   const [form, setForm] = useState({ nazev:'', kategorie:'jidlo', jednotka:'os.', cena_nakup:0, cena_prodej:0, dph_sazba:12 });
   const [katForm, setKatForm] = useState({ nazev:'' });
 
@@ -968,8 +1202,13 @@ export function CenikPage() {
 
   const updateMut = useMutation({
     mutationFn: ({ id, ...d }) => cenikApi.update(id, d),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['cenik'] }); setEditRow(null); toast.success('Cena aktualizována'); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['cenik'] }); setEditRow(null); setEditItem(null); toast.success('Položka aktualizována'); },
   });
+  const openEditItem = (p) => {
+    setEditItemForm({ nazev: p.nazev, kategorie: p.kategorie, jednotka: p.jednotka, cena_nakup: p.cena_nakup, cena_prodej: p.cena_prodej, dph_sazba: p.dph_sazba });
+    setEditItem(p.id);
+  };
+  const setEI = (k, v) => setEditItemForm(f => ({ ...f, [k]: v }));
 
   const kategorie = katData?.data?.data || [];
   const items = data?.data?.data || [];
@@ -1048,7 +1287,10 @@ export function CenikPage() {
                      {marze(p.cena_nakup, p.cena_prodej)} %
                    </td>
                    <td className="px-4 py-2.5">
-                     <button onClick={() => cenikApi.delete(p.id).then(()=>qc.invalidateQueries({ queryKey: ['cenik'] }))} className="text-xs text-stone-400 hover:text-red-600">Skrýt</button>
+                     <div className="flex items-center gap-2">
+                       <button onClick={() => openEditItem(p)} className="text-stone-400 hover:text-stone-700 transition-colors" title="Upravit položku"><PencilCenik size={13}/></button>
+                       <button onClick={() => cenikApi.delete(p.id).then(()=>qc.invalidateQueries({ queryKey: ['cenik'] }))} className="text-xs text-stone-400 hover:text-red-600">Skrýt</button>
+                     </div>
                    </td>
                  </tr>
                ))}</tbody>
@@ -1077,6 +1319,29 @@ export function CenikPage() {
             <div><label className="text-xs text-stone-500 block mb-1">DPH %</label><select className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" value={form.dph_sazba} onChange={e=>set('dph_sazba',e.target.value)}><option value={12}>12 %</option><option value={21}>21 %</option><option value={0}>0 %</option></select></div>
           </div>
           {form.cena_prodej > 0 && <div className="text-xs text-stone-500">Marže: <span className={`font-medium ${marze_color(marze(form.cena_nakup, form.cena_prodej))}`}>{marze(form.cena_nakup, form.cena_prodej)} %</span></div>}
+        </div>
+      </Modal>
+
+      {/* Modal – editace položky ceníku */}
+      <Modal open={!!editItem} onClose={() => setEditItem(null)} title="Upravit položku ceníku"
+        footer={<><Btn onClick={() => setEditItem(null)}>Zrušit</Btn><Btn variant="primary" onClick={() => updateMut.mutate({ id: editItem, ...editItemForm })} disabled={!editItemForm.nazev || updateMut.isPending}>{updateMut.isPending ? 'Ukládám…' : 'Uložit'}</Btn></>}>
+        <div className="space-y-3">
+          <div><label className="text-xs text-stone-500 block mb-1">Název *</label><input className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" value={editItemForm.nazev} onChange={e => setEI('nazev', e.target.value)} autoFocus/></div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-stone-500 block mb-1">Kategorie</label>
+              <select className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" value={editItemForm.kategorie} onChange={e => setEI('kategorie', e.target.value)}>
+                {kategorie.map(k => <option key={k} value={k}>{katLabel(k)}</option>)}
+              </select>
+            </div>
+            <div><label className="text-xs text-stone-500 block mb-1">Jednotka</label><input className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" value={editItemForm.jednotka} onChange={e => setEI('jednotka', e.target.value)}/></div>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div><label className="text-xs text-stone-500 block mb-1">Nákupní cena</label><input type="number" className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" value={editItemForm.cena_nakup} onChange={e => setEI('cena_nakup', e.target.value)}/></div>
+            <div><label className="text-xs text-stone-500 block mb-1">Prodejní cena</label><input type="number" className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" value={editItemForm.cena_prodej} onChange={e => setEI('cena_prodej', e.target.value)}/></div>
+            <div><label className="text-xs text-stone-500 block mb-1">DPH %</label><select className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" value={editItemForm.dph_sazba} onChange={e => setEI('dph_sazba', e.target.value)}><option value={12}>12 %</option><option value={21}>21 %</option><option value={0}>0 %</option></select></div>
+          </div>
+          {editItemForm.cena_prodej > 0 && <div className="text-xs text-stone-500">Marže: <span className={`font-medium ${marze_color(marze(editItemForm.cena_nakup, editItemForm.cena_prodej))}`}>{marze(editItemForm.cena_nakup, editItemForm.cena_prodej)} %</span></div>}
         </div>
       </Modal>
 
@@ -1721,7 +1986,7 @@ export function NastaveniPage() {
     onError: (e) => toast.error(e?.response?.data?.error || 'Chyba při změně hesla'),
   });
 
-  const TABS = [['firma','Profil firmy'],['uziv','Uživatelé'],['heslo','Změna hesla'],['podpis','E-mail podpis'],['notif','Notifikace'],['integrace','Integrace'],['google','Google Kalendář']];
+  const TABS = [['firma','Profil firmy'],['uziv','Uživatelé'],['heslo','Změna hesla'],['podpis','E-mail podpis'],['notif','Notifikace'],['integrace','Integrace'],['google','Google Kalendář'],['kapacity','Kapacity']];
   const [podpisPreview, setPodpisPreview] = useState(false);
 
   const { data: gcStatus, refetch: refetchGcStatus } = useQuery({
@@ -1926,6 +2191,51 @@ export function NastaveniPage() {
                   <div>• Zakázka změněna na stav <strong>Potvrzeno</strong> → event vytvořen/aktualizován v Google Kalendáři</div>
                   <div>• Zakázka změněna na stav <strong>Stornováno</strong> → event smazán z Google Kalendáře</div>
                   <div>• Editace potvrzené zakázky (datum, místo) → event automaticky aktualizován</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {tab === 'kapacity' && nastavData && (
+          <div className="space-y-4">
+            <div className="bg-white rounded-xl border border-stone-200 p-5 space-y-5">
+              <div>
+                <div className="text-sm font-semibold text-stone-800 mb-0.5">Kalendář kapacit – limity</div>
+                <div className="text-xs text-stone-500">Nastavte denní kapacitní limity pro barevné označení vytíženosti v pohledu Kapacity v kalendáři. Dny nad 85 % jsou označeny červeně, nad 60 % oranžově.</div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs text-stone-500 block mb-1.5">Max. počet akcí za den</label>
+                  <input
+                    type="number" min="0"
+                    className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                    placeholder="např. 3"
+                    defaultValue={nastavData?.data?.kapacity_max_akci_den || ''}
+                    onChange={e => setForm(f => ({ ...f, kapacity_max_akci_den: e.target.value }))}
+                  />
+                  <div className="text-xs text-stone-400 mt-1">Hodnota 0 = neomezeno (bez barevného označení)</div>
+                </div>
+                <div>
+                  <label className="text-xs text-stone-500 block mb-1.5">Max. počet hostů za den</label>
+                  <input
+                    type="number" min="0"
+                    className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                    placeholder="např. 500"
+                    defaultValue={nastavData?.data?.kapacity_max_hoste_den || ''}
+                    onChange={e => setForm(f => ({ ...f, kapacity_max_hoste_den: e.target.value }))}
+                  />
+                  <div className="text-xs text-stone-400 mt-1">Součet hostů ze všech akcí daného dne</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 pt-2 border-t border-stone-100">
+                <Btn variant="primary" onClick={() => saveMut.mutate(form)} disabled={saveMut.isPending}>
+                  {saveMut.isPending ? 'Ukládám…' : 'Uložit limity'}
+                </Btn>
+                <div className="flex items-center gap-3 text-xs text-stone-400">
+                  <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-green-500 inline-block"/>Volno (&lt;60 %)</span>
+                  <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block"/>Vytíženo (60–85 %)</span>
+                  <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-red-500 inline-block"/>Plná kapacita (&gt;85 %)</span>
                 </div>
               </div>
             </div>

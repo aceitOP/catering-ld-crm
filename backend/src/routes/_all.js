@@ -36,6 +36,36 @@ klientiRouter.get('/', auth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// GET /pravidelni – klienti s pravidelně se opakujícími akcemi
+klientiRouter.get('/pravidelni', auth, async (req, res, next) => {
+  try {
+    const { rows } = await query(`
+      WITH akce AS (
+        SELECT z.klient_id,
+               COUNT(*) AS pocet_akci,
+               MAX(z.datum_akce) AS posledni_akce
+        FROM zakazky z
+        WHERE z.stav IN ('realizovano', 'uzavreno') AND z.archivovano = false
+          AND z.datum_akce IS NOT NULL
+        GROUP BY z.klient_id
+      )
+      SELECT k.id, k.jmeno, k.prijmeni, k.firma, k.typ, k.email, k.telefon, k.pravidelny,
+             a.pocet_akci,
+             a.posledni_akce,
+             ROUND(EXTRACT(EPOCH FROM (NOW() - a.posledni_akce::timestamptz)) / 86400)::int AS dni_od_posledni,
+             (a.posledni_akce + INTERVAL '1 year')::date AS ocekavana_pristi,
+             ROUND(EXTRACT(EPOCH FROM ((a.posledni_akce + INTERVAL '1 year')::timestamptz - NOW())) / 86400)::int AS dni_do_pristi
+      FROM klienti k
+      JOIN akce a ON a.klient_id = k.id
+      WHERE k.archivovano = false
+        AND (a.pocet_akci >= 2 OR k.pravidelny = true)
+      ORDER BY (a.posledni_akce + INTERVAL '1 year')
+      LIMIT 30
+    `);
+    res.json({ data: rows });
+  } catch (err) { next(err); }
+});
+
 klientiRouter.get('/:id', auth, async (req, res, next) => {
   try {
     const { rows } = await query(
@@ -69,7 +99,7 @@ klientiRouter.post('/', auth, async (req, res, next) => {
 
 klientiRouter.patch('/:id', auth, async (req, res, next) => {
   try {
-    const allowed = ['jmeno','prijmeni','firma','typ','email','telefon','adresa','ico','dic','zdroj','poznamka','obchodnik_id'];
+    const allowed = ['jmeno','prijmeni','firma','typ','email','telefon','adresa','ico','dic','zdroj','poznamka','obchodnik_id','pravidelny'];
     const fields = Object.keys(req.body).filter(k => allowed.includes(k));
     if (!fields.length) return res.status(400).json({ error: 'Žádná platná pole' });
     const sets = fields.map((f, i) => `${f} = $${i + 2}`).join(', ');

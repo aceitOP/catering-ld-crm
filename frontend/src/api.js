@@ -53,8 +53,18 @@ export const klientiApi = {
   create:    (data)   => api.post('/klienti', data),
   update:    (id, d)  => api.patch(`/klienti/${id}`, d),
   delete:    (id)     => api.delete(`/klienti/${id}`),
-  archivovat: (id)    => api.patch(`/klienti/${id}/archivovat`),
-  obnovit:    (id)    => api.patch(`/klienti/${id}/obnovit`),
+  archivovat:     (id)    => api.patch(`/klienti/${id}/archivovat`),
+  obnovit:        (id)    => api.patch(`/klienti/${id}/obnovit`),
+  pravidelni:     ()      => api.get('/klienti/pravidelni'),
+  setPravidelny:  (id, v) => api.patch(`/klienti/${id}`, { pravidelny: v }),
+};
+
+// ── Follow-up úkoly ──────────────────────────────────────────
+export const followupApi = {
+  list:      (params) => api.get('/followup', { params }),
+  create:    (data)   => api.post('/followup', data),
+  update:    (id, d)  => api.patch(`/followup/${id}`, d),
+  delete:    (id)     => api.delete(`/followup/${id}`),
 };
 
 // ── Nabídky ──────────────────────────────────────────────────
@@ -190,6 +200,11 @@ export const publicProposalApi = {
   select:  (token, d)         => pubApi.patch(`/pub/proposals/${token}/select`, d),
   note:    (token, d)         => pubApi.patch(`/pub/proposals/${token}/note`, d),
   confirm: (token, d)         => pubApi.post(`/pub/proposals/${token}/confirm`, d),
+};
+
+// ── Kapacity ─────────────────────────────────────────────────
+export const kapacityApi = {
+  list: (params) => api.get('/kapacity', { params }),
 };
 
 // ── Archiv ───────────────────────────────────────────────────

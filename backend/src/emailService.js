@@ -289,4 +289,47 @@ Budeme rádi, pokud nás budete mít na paměti při plánování dalších Vaš
   });
 }
 
-module.exports = { sendNabidka, sendKomando, sendDekujeme };
+// ── 4. POTVRZENÍ PŘIJETÍ POPTÁVKY ─────────────────────────────
+/**
+ * @param {object}  opts
+ * @param {string}  opts.to          - příjemce (email klienta)
+ * @param {string}  opts.jmeno       - jméno klienta
+ * @param {object}  opts.zakazka     - detail zakázky (nazev, typ, datum_akce, misto, pocet_hostu)
+ * @param {object}  opts.firma       - nastavení firmy
+ */
+async function sendPotvrzeniPoptavky({ to, jmeno, zakazka, firma }) {
+  const transporter = createTransporter();
+  const nazevFirmy  = firma?.firma_nazev || 'Catering LD';
+
+  const body = `
+    <p style="font-size:15px;line-height:1.8;margin:0 0 24px;">
+      Dobrý den${jmeno ? `, <strong>${esc(jmeno)}</strong>` : ''},<br><br>
+      děkujeme za Váš zájem o naše služby. Vaše poptávka byla přijata a my se Vám brzy ozveme.
+    </p>
+
+    <div style="background:#f5f5f4;border-radius:8px;padding:20px;margin-bottom:24px;">
+      <h3 style="margin:0 0 12px;font-size:14px;color:#78716c;text-transform:uppercase;letter-spacing:.05em;">Souhrn Vaší poptávky</h3>
+      <table cellpadding="0" cellspacing="0" style="font-size:14px;line-height:2;">
+        <tr><td style="color:#78716c;padding-right:20px;">Akce:</td><td><strong>${esc(zakazka.nazev)}</strong></td></tr>
+        ${zakazka.datum_akce ? `<tr><td style="color:#78716c;padding-right:20px;">Datum:</td><td><strong>${datum(zakazka.datum_akce)}</strong></td></tr>` : ''}
+        ${zakazka.misto ? `<tr><td style="color:#78716c;padding-right:20px;">Místo:</td><td><strong>${esc(zakazka.misto)}</strong></td></tr>` : ''}
+        ${zakazka.pocet_hostu ? `<tr><td style="color:#78716c;padding-right:20px;">Počet hostů:</td><td><strong>${zakazka.pocet_hostu}</strong></td></tr>` : ''}
+      </table>
+    </div>
+
+    <p style="font-size:14px;color:#78716c;line-height:1.8;margin:0;">
+      Budeme Vás kontaktovat co nejdříve.<br>
+      S pozdravem,<br>
+      <strong>${nazevFirmy}</strong>
+    </p>
+  `;
+
+  await transporter.sendMail({
+    from: `"${nazevFirmy}" <${FROM()}>`,
+    to,
+    subject: `Potvrzení přijetí poptávky – ${nazevFirmy}`,
+    html: wrapHtml(firma, 'Vaše poptávka byla přijata', body),
+  });
+}
+
+module.exports = { sendNabidka, sendKomando, sendDekujeme, sendPotvrzeniPoptavky };
