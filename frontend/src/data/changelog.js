@@ -1,9 +1,26 @@
 // Changelog – Catering LD CRM
 // Typy změn: 'new' | 'improvement' | 'fix' | 'security'
 
-export const APP_VERSION = '2.7.0';
+export const APP_VERSION = '2.8.0';
 
 export const CHANGELOG = [
+  {
+    version: '2.8.0',
+    date: '2026-03-17',
+    changes: [
+      { type: 'security',    text: 'Klientský výběr – opravena bezpečnostní chyba: poznámka ke změně šla zapsat k libovolné položce jiného výběru (ownership check)' },
+      { type: 'security',    text: 'Backend – server se nespustí bez bezpečného JWT_SECRET (min. 32 znaků), stack trace se neposílá klientům' },
+      { type: 'security',    text: 'Personál – mazání záznamu nyní vyžaduje roli admin (dříve mohl mazat každý přihlášený)' },
+      { type: 'security',    text: 'Šablony – vytváření, úprava a mazání šablon nyní vyžaduje roli admin' },
+      { type: 'fix',         text: 'Zakázky – generování čísla zakázky přesunuto do transakce (zabraňuje duplicitám při souběžných požadavcích)' },
+      { type: 'fix',         text: 'Nabídky – ukládání položek nabídky probíhá v transakci (zabraňuje nekonzistentnímu stavu při chybě)' },
+      { type: 'fix',         text: 'Faktury – ukládání položek faktury probíhá v transakci (zabraňuje nekonzistentnímu stavu při chybě)' },
+      { type: 'fix',         text: 'Šablony – opravena chyba kde falsy hodnoty (0, prázdný řetězec) se ukládaly jako NULL místo správné hodnoty' },
+      { type: 'fix',         text: 'Proposals – smazání neexistujícího záznamu nyní vrací 404 místo falešného úspěchu' },
+      { type: 'fix',         text: 'Backend – chyba při inicializaci databáze nyní správně zastaví start serveru' },
+      { type: 'improvement', text: 'Archiv – opraveny ikony prázdného stavu (Archive, UserX, HardHat namísto emoji)' },
+    ],
+  },
   {
     version: '2.7.0',
     date: '2026-03-17',

@@ -154,16 +154,22 @@ router.patch('/:token/note', async (req, res, next) => {
     if (!p) return res.status(404).json({ error: 'Odkaz nenalezen' });
     if (isLocked(p)) return res.status(403).json({ error: 'Výběr je uzamčen' });
 
-    const { rows: [old] } = await query(
-      'SELECT poznamka_klienta FROM proposal_polozky WHERE id = $1', [polozka_id]
-    );
+    // Verify polozka_id belongs to this proposal (ownership check)
+    const { rows: [pol] } = await query(`
+      SELECT pp.poznamka_klienta AS old_value
+      FROM proposal_polozky pp
+      JOIN proposal_sekce ps ON ps.id = pp.sekce_id
+      WHERE pp.id = $1 AND ps.proposal_id = $2
+    `, [polozka_id, p.id]);
+    if (!pol) return res.status(404).json({ error: 'Položka nenalezena' });
+    const old = pol;
     await query(
       'UPDATE proposal_polozky SET poznamka_klienta = $1 WHERE id = $2', [poznamka || null, polozka_id]
     );
     await query(
       `INSERT INTO proposal_selection_log (proposal_id, polozka_id, akce, old_value, new_value, ip_adresa)
        VALUES ($1,$2,'note_updated',$3,$4,$5)`,
-      [p.id, polozka_id, old?.poznamka_klienta || '', poznamka || '', ip]
+      [p.id, polozka_id, old?.old_value || '', poznamka || '', ip]
     );
     res.json({ message: 'Poznámka uložena' });
   } catch (err) { next(err); }

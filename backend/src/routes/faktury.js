@@ -138,15 +138,17 @@ router.patch('/:id', auth, async (req, res, next) => {
     if (!rows[0]) return res.status(404).json({ error: 'Faktura nenalezena' });
 
     if (polozky) {
-      await query('DELETE FROM faktury_polozky WHERE faktura_id=$1', [req.params.id]);
-      for (const [i, pol] of polozky.entries()) {
-        await query(
-          `INSERT INTO faktury_polozky (faktura_id, nazev, jednotka, mnozstvi, cena_jednotka, dph_sazba, poradi)
-           VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-          [req.params.id, pol.nazev, pol.jednotka || 'os.',
-           pol.mnozstvi, pol.cena_jednotka, pol.dph_sazba || 12, i]
-        );
-      }
+      await withTransaction(async (client) => {
+        await client.query('DELETE FROM faktury_polozky WHERE faktura_id=$1', [req.params.id]);
+        for (const [i, pol] of polozky.entries()) {
+          await client.query(
+            `INSERT INTO faktury_polozky (faktura_id, nazev, jednotka, mnozstvi, cena_jednotka, dph_sazba, poradi)
+             VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+            [req.params.id, pol.nazev, pol.jednotka || 'os.',
+             pol.mnozstvi, pol.cena_jednotka, pol.dph_sazba || 12, i]
+          );
+        }
+      });
     }
     res.json(rows[0]);
   } catch (err) { next(err); }

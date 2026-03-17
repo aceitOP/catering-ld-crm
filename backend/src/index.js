@@ -1,4 +1,11 @@
 require('dotenv').config();
+
+// Fail fast if critical env vars are missing
+if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
+  console.error('❌  JWT_SECRET není nastaven nebo je příliš krátký (min. 32 znaků). Server se nespustí.');
+  process.exit(1);
+}
+
 const express = require('express');
 const cors    = require('cors');
 const helmet  = require('helmet');
@@ -50,12 +57,13 @@ app.get('/api/health', (_req, res) => {
 });
 
 // ── Frontend SPA (production) ─────────────────────────────────
-const frontendDist = path.join(__dirname, '../../frontend/dist');
-const indexHtml    = path.join(frontendDist, 'index.html');
+const frontendDist  = path.join(__dirname, '../../frontend/dist');
+const indexHtml     = path.join(frontendDist, 'index.html');
+const indexHtmlExists = fs.existsSync(indexHtml); // cache at startup
 app.use(express.static(frontendDist));
 app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api/')) return next();
-  if (fs.existsSync(indexHtml)) {
+  if (indexHtmlExists) {
     res.sendFile(indexHtml);
   } else {
     next();
@@ -73,7 +81,6 @@ app.use((err, _req, res, _next) => {
   const status = err.status || 500;
   res.status(status).json({
     error: err.message || 'Interní chyba serveru',
-    ...(process.env.NODE_ENV !== 'production' && { stack: err.stack }),
   });
 });
 
@@ -85,4 +92,7 @@ initDb().then(() => {
     console.log(`✅  Catering LD API běží na portu ${PORT}`);
     console.log(`   Prostředí: ${process.env.NODE_ENV || 'development'}`);
   });
+}).catch((err) => {
+  console.error('❌  Chyba při startu serveru:', err.message);
+  process.exit(1);
 });

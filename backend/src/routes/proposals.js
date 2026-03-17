@@ -148,7 +148,8 @@ router.post('/:id/send', auth, async (req, res, next) => {
 // DELETE /api/proposals/:id
 router.delete('/:id', auth, async (req, res, next) => {
   try {
-    await query('DELETE FROM proposals WHERE id = $1', [req.params.id]);
+    const { rowCount } = await query('DELETE FROM proposals WHERE id = $1', [req.params.id]);
+    if (!rowCount) return res.status(404).json({ error: 'Proposal nenalezen' });
     res.json({ message: 'Odstraněno' });
   } catch (err) { next(err); }
 });

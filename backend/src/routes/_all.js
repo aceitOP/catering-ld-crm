@@ -249,7 +249,7 @@ personalRouter.patch('/:id/obnovit', auth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-personalRouter.delete('/:id', auth, async (req, res, next) => {
+personalRouter.delete('/:id', auth, requireRole('admin'), async (req, res, next) => {
   try {
     const { rows } = await query('DELETE FROM personal WHERE id = $1 RETURNING id', [req.params.id]);
     if (!rows[0]) return res.status(404).json({ error: 'Osoba nenalezena' });
@@ -360,12 +360,14 @@ nabidkyRouter.patch('/:id', auth, async (req, res, next) => {
       [nazev, uvodni_text||null, zaverecny_text||null, platnost_do||null, sleva_procent||0, totalBezDph, dph, celkem, req.params.id]);
     if (!rows[0]) return res.status(404).json({ error: 'Nabídka nenalezena' });
     if (polozky) {
-      await query('DELETE FROM nabidky_polozky WHERE nabidka_id = $1', [req.params.id]);
-      for (const [i,pol] of polozky.entries()) {
-        await query(
-          `INSERT INTO nabidky_polozky (nabidka_id,kategorie,nazev,jednotka,mnozstvi,cena_jednotka,poradi) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-          [req.params.id, pol.kategorie||'jidlo', pol.nazev||'', pol.jednotka||'os.', parseFloat(pol.mnozstvi)||1, parseFloat(pol.cena_jednotka)||0, i]);
-      }
+      await withTransaction(async (client) => {
+        await client.query('DELETE FROM nabidky_polozky WHERE nabidka_id = $1', [req.params.id]);
+        for (const [i,pol] of polozky.entries()) {
+          await client.query(
+            `INSERT INTO nabidky_polozky (nabidka_id,kategorie,nazev,jednotka,mnozstvi,cena_jednotka,poradi) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+            [req.params.id, pol.kategorie||'jidlo', pol.nazev||'', pol.jednotka||'os.', parseFloat(pol.mnozstvi)||1, parseFloat(pol.cena_jednotka)||0, i]);
+        }
+      });
     }
     const newPol = await query('SELECT * FROM nabidky_polozky WHERE nabidka_id=$1 ORDER BY poradi,id', [req.params.id]);
     res.json({ ...rows[0], polozky: newPol.rows });

@@ -149,7 +149,7 @@ async function initDb() {
 
   } catch (err) {
     console.error('❌  Chyba při inicializaci DB:', err.message);
-    // Nekončíme – databáze mohla být inicializována jinak
+    throw err;
   }
 }
 

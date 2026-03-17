@@ -5,11 +5,11 @@ const { sendKomando, sendDekujeme } = require('../emailService');
 const { createNotif } = require('../notifHelper');
 const { upsertEvent, deleteEvent } = require('../googleCalendar');
 
-// Generátor čísla zakázky
-async function genCislo() {
+// Generátor čísla zakázky – musí být voláno uvnitř transakce (FOR UPDATE zabrání race condition)
+async function genCislo(client) {
   const rok = new Date().getFullYear();
-  const { rows } = await query(
-    `SELECT cislo FROM zakazky WHERE cislo LIKE $1 ORDER BY cislo DESC LIMIT 1`,
+  const { rows } = await client.query(
+    `SELECT cislo FROM zakazky WHERE cislo LIKE $1 ORDER BY cislo DESC LIMIT 1 FOR UPDATE`,
     [`ZAK-${rok}-%`]
   );
   if (!rows.length) return `ZAK-${rok}-001`;
@@ -126,30 +126,31 @@ router.get('/:id', auth, async (req, res, next) => {
 // POST /api/zakazky
 router.post('/', auth, async (req, res, next) => {
   try {
-    const cislo = await genCislo();
     const { nazev, typ, klient_id, obchodnik_id, datum_akce, cas_zacatek, cas_konec,
             misto, pocet_hostu, rozpocet_klienta, poznamka_klient, poznamka_interni } = req.body;
 
-    const { rows } = await query(`
-      INSERT INTO zakazky (cislo, nazev, typ, stav, klient_id, obchodnik_id, datum_akce,
-        cas_zacatek, cas_konec, misto, pocet_hostu, rozpocet_klienta, poznamka_klient, poznamka_interni)
-      VALUES ($1,$2,$3,'rozpracovano',$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
-      [cislo, nazev, typ, klient_id, obchodnik_id || req.user.id, datum_akce,
-       cas_zacatek, cas_konec, misto, pocet_hostu, rozpocet_klienta, poznamka_klient, poznamka_interni]);
-
-    // Záznam do historie
-    await query(`INSERT INTO zakazky_history (zakazka_id, stav_po, uzivatel_id, poznamka)
-                 VALUES ($1, 'rozpracovano', $2, 'Zakázka vytvořena')`,
-      [rows[0].id, req.user.id]);
+    const newZakazka = await withTransaction(async (client) => {
+      const cislo = await genCislo(client);
+      const { rows } = await client.query(`
+        INSERT INTO zakazky (cislo, nazev, typ, stav, klient_id, obchodnik_id, datum_akce,
+          cas_zacatek, cas_konec, misto, pocet_hostu, rozpocet_klienta, poznamka_klient, poznamka_interni)
+        VALUES ($1,$2,$3,'rozpracovano',$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
+        [cislo, nazev, typ, klient_id, obchodnik_id || req.user.id, datum_akce,
+         cas_zacatek, cas_konec, misto, pocet_hostu, rozpocet_klienta, poznamka_klient, poznamka_interni]);
+      await client.query(`INSERT INTO zakazky_history (zakazka_id, stav_po, uzivatel_id, poznamka)
+                   VALUES ($1, 'rozpracovano', $2, 'Zakázka vytvořena')`,
+        [rows[0].id, req.user.id]);
+      return rows[0];
+    });
 
     createNotif({
       typ: 'nova_zakazka',
-      titulek: `Nová zakázka — ${rows[0].nazev}`,
-      zprava: `Číslo: ${rows[0].cislo}${misto ? ` · Místo: ${misto}` : ''}`,
-      odkaz: `/zakazky/${rows[0].id}`,
+      titulek: `Nová zakázka — ${newZakazka.nazev}`,
+      zprava: `Číslo: ${newZakazka.cislo}${misto ? ` · Místo: ${misto}` : ''}`,
+      odkaz: `/zakazky/${newZakazka.id}`,
     });
 
-    res.status(201).json(rows[0]);
+    res.status(201).json(newZakazka);
   } catch (err) { next(err); }
 });
 

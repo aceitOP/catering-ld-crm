@@ -1,6 +1,6 @@
 const router = require('express').Router();
 const { query } = require('../db');
-const { auth } = require('../middleware/auth');
+const { auth, requireRole } = require('../middleware/auth');
 
 // GET /api/sablony
 router.get('/', auth, async (req, res, next) => {
@@ -20,7 +20,7 @@ router.get('/:id', auth, async (req, res, next) => {
 });
 
 // POST /api/sablony
-router.post('/', auth, async (req, res, next) => {
+router.post('/', auth, requireRole('admin'), async (req, res, next) => {
   try {
     const { nazev, popis, typ, cas_zacatek, cas_konec, misto, pocet_hostu, poznamka_klient, poznamka_interni } = req.body;
     if (!nazev) return res.status(400).json({ error: 'Název šablony je povinný' });
@@ -34,7 +34,7 @@ router.post('/', auth, async (req, res, next) => {
 });
 
 // PATCH /api/sablony/:id
-router.patch('/:id', auth, async (req, res, next) => {
+router.patch('/:id', auth, requireRole('admin'), async (req, res, next) => {
   try {
     const allowed = ['nazev','popis','typ','cas_zacatek','cas_konec','misto','pocet_hostu','poznamka_klient','poznamka_interni'];
     const fields = Object.keys(req.body).filter(k => allowed.includes(k));
@@ -42,7 +42,7 @@ router.patch('/:id', auth, async (req, res, next) => {
     const sets = fields.map((f, i) => `${f} = $${i + 2}`).join(', ');
     const { rows } = await query(
       `UPDATE zakazky_sablony SET ${sets}, updated_at = NOW() WHERE id = $1 RETURNING *`,
-      [req.params.id, ...fields.map(f => req.body[f] || null)]
+      [req.params.id, ...fields.map(f => req.body[f] ?? null)]
     );
     if (!rows[0]) return res.status(404).json({ error: 'Šablona nenalezena' });
     res.json(rows[0]);
@@ -50,7 +50,7 @@ router.patch('/:id', auth, async (req, res, next) => {
 });
 
 // DELETE /api/sablony/:id
-router.delete('/:id', auth, async (req, res, next) => {
+router.delete('/:id', auth, requireRole('admin'), async (req, res, next) => {
   try {
     const { rows } = await query('DELETE FROM zakazky_sablony WHERE id = $1 RETURNING id', [req.params.id]);
     if (!rows[0]) return res.status(404).json({ error: 'Šablona nenalezena' });
