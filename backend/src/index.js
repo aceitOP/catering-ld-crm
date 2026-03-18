@@ -52,6 +52,7 @@ app.use('/api/archiv',          require('./routes/archiv'));
 app.use('/api/sablony',         require('./routes/sablony'));
 app.use('/api/followup',        require('./routes/followup'));
 app.use('/api/kapacity',        require('./routes/kapacity'));
+app.use('/api/email',           require('./routes/email'));
 
 // ── Health check ─────────────────────────────────────────────
 app.get('/api/health', (_req, res) => {

@@ -27,6 +27,7 @@ import VyrobniListPage  from './pages/VyrobniListPage';
 import ClientProposalPage from './pages/ClientProposalPage';
 import ArchivPage        from './pages/ArchivPage';
 import SablonyPage       from './pages/SablonyPage';
+import EmailPage         from './pages/EmailPage';
 import Layout           from './components/Layout';
 
 const qc = new QueryClient({
@@ -77,6 +78,7 @@ function App() {
               <Route path="nastaveni"         element={<NastaveniPage />} />
               <Route path="archiv"            element={<ArchivPage />} />
               <Route path="sablony"           element={<SablonyPage />} />
+              <Route path="email"             element={<EmailPage />} />
             </Route>
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>

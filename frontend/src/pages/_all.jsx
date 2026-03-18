@@ -1991,7 +1991,7 @@ export function NastaveniPage() {
     onError: (e) => toast.error(e?.response?.data?.error || 'Chyba při změně hesla'),
   });
 
-  const TABS = [['firma','Profil firmy'],['uziv','Uživatelé'],['heslo','Změna hesla'],['podpis','E-mail podpis'],['notif','Notifikace'],['integrace','Integrace'],['google','Google Kalendář'],['kapacity','Kapacity']];
+  const TABS = [['firma','Profil firmy'],['uziv','Uživatelé'],['heslo','Změna hesla'],['podpis','E-mail podpis'],['notif','Notifikace'],['integrace','Integrace'],['google','Google Kalendář'],['kapacity','Kapacity'],['email','E-mail (IMAP)']];
   const [podpisPreview, setPodpisPreview] = useState(false);
 
   const { data: gcStatus, refetch: refetchGcStatus } = useQuery({
@@ -2243,6 +2243,77 @@ export function NastaveniPage() {
                   <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-red-500 inline-block"/>Plná kapacita (&gt;85 %)</span>
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+
+        {tab === 'email' && nastavData && (
+          <div className="space-y-4">
+            <div className="bg-white rounded-xl border border-stone-200 p-5 space-y-4">
+              <div>
+                <div className="text-sm font-semibold text-stone-800 mb-0.5">IMAP – příchozí pošta</div>
+                <div className="text-xs text-stone-500">Připojení k e-mailovému účtu přes IMAP pro čtení a správu pošty přímo v CRM.</div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-2">
+                  <label className="text-xs text-stone-500 block mb-1.5">IMAP server (host)</label>
+                  <input
+                    className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                    placeholder="imap.vasdomena.cz"
+                    defaultValue={nastavData?.data?.email_imap_host || ''}
+                    onChange={e => setForm(f => ({ ...f, email_imap_host: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-stone-500 block mb-1.5">Port</label>
+                  <input
+                    type="number"
+                    className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                    placeholder="993"
+                    defaultValue={nastavData?.data?.email_imap_port || '993'}
+                    onChange={e => setForm(f => ({ ...f, email_imap_port: e.target.value }))}
+                  />
+                </div>
+                <div className="flex items-end pb-1 gap-3">
+                  <label className="text-xs text-stone-500">TLS / SSL</label>
+                  <select
+                    className="border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                    defaultValue={nastavData?.data?.email_imap_tls ?? 'true'}
+                    onChange={e => setForm(f => ({ ...f, email_imap_tls: e.target.value }))}
+                  >
+                    <option value="true">Zapnuto (doporučeno)</option>
+                    <option value="false">Vypnuto</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-stone-500 block mb-1.5">Uživatelské jméno (e-mail)</label>
+                  <input
+                    className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                    placeholder="info@vasdomena.cz"
+                    defaultValue={nastavData?.data?.email_imap_user || ''}
+                    onChange={e => setForm(f => ({ ...f, email_imap_user: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-stone-500 block mb-1.5">Heslo</label>
+                  <input
+                    type="password"
+                    className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                    placeholder="••••••••"
+                    defaultValue={nastavData?.data?.email_imap_pass || ''}
+                    onChange={e => setForm(f => ({ ...f, email_imap_pass: e.target.value }))}
+                  />
+                </div>
+              </div>
+              <div className="flex items-center gap-3 pt-2 border-t border-stone-100">
+                <Btn variant="primary" onClick={() => saveMut.mutate(form)} disabled={saveMut.isPending}>
+                  {saveMut.isPending ? 'Ukládám…' : 'Uložit nastavení'}
+                </Btn>
+              </div>
+            </div>
+            <div className="bg-stone-50 rounded-xl border border-stone-200 p-4 text-xs text-stone-500 space-y-1.5">
+              <div className="font-semibold text-stone-700 mb-2">Odchozí pošta (SMTP)</div>
+              <p>Pro odesílání odpovědí se používá SMTP konfigurace nastavená přes proměnné prostředí (<code className="bg-stone-100 px-1 rounded">SMTP_HOST</code>, <code className="bg-stone-100 px-1 rounded">SMTP_USER</code>, <code className="bg-stone-100 px-1 rounded">SMTP_PASS</code> atd.). Tyto hodnoty jsou společné pro všechny odeslané e-maily ze systému. Pokud IMAP přihlašovací údaje a SMTP jsou totožné, systém je automaticky použije jako zálohu.</p>
             </div>
           </div>
         )}

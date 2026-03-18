@@ -212,6 +212,20 @@ export const archivApi = {
   list: () => api.get('/archiv'),
 };
 
+// ── E-mail modul ─────────────────────────────────────────────
+export const emailApi = {
+  status:    ()               => api.get('/email/status'),
+  folders:   ()               => api.get('/email/folders'),
+  messages:  (params)         => api.get('/email/messages', { params }),
+  getMessage:(uid, folder)    => api.get(`/email/messages/${uid}`, { params: { folder } }),
+  markSeen:  (uid, seen, folder) => api.patch(`/email/messages/${uid}/seen`, { seen }, { params: { folder } }),
+  markFlagged:(uid, flagged, folder) => api.patch(`/email/messages/${uid}/flagged`, { flagged }, { params: { folder } }),
+  delete:    (uid, folder, permanent) => api.delete(`/email/messages/${uid}`, { params: { folder, permanent } }),
+  move:      (uid, folder, target) => api.post(`/email/messages/${uid}/move`, { target }, { params: { folder } }),
+  send:      (data)           => api.post('/email/send', data),
+  createZakazka: (uid, folder) => api.post(`/email/messages/${uid}/zakazka`, {}, { params: { folder } }),
+};
+
 // ── Šablony zakázek ──────────────────────────────────────────
 export const sablonyApi = {
   list:   ()       => api.get('/sablony'),

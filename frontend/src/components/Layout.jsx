@@ -6,7 +6,7 @@ import {
   LayoutDashboard, ClipboardList, Users, FileText,
   Calendar, UserCheck, FolderOpen, Tag, Settings, LogOut, BarChart2,
   Bell, X, Globe, Info, Trash2, CheckCheck, Inbox, Receipt, Archive,
-  ChevronDown, BookCopy,
+  ChevronDown, BookCopy, Mail,
 } from 'lucide-react';
 import { APP_VERSION, CHANGELOG } from '../data/changelog';
 import { notifikaceApi, zakazkyApi } from '../api';
@@ -52,6 +52,7 @@ const NAV = [
       { to: '/sablony',  label: 'Šablony',   icon: BookCopy },
     ],
   },
+  { to: '/email', label: 'E-mail', icon: Mail },
   {
     label: 'Správa', icon: Users,
     children: [
