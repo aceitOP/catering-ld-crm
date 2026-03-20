@@ -548,10 +548,10 @@ export function NastaveniPage() {
                 </Btn>
               </div>
             </div>
-          </div>
 
-          {/* Šablony odpovědí */}
-          <EmailSablonyManager />
+            {/* Šablony odpovědí */}
+            <EmailSablonyManager />
+          </div>
         )}
 
         {tab === 'integrace' && (
