@@ -1,9 +1,20 @@
 // Changelog – Catering LD CRM
 // Typy změn: 'new' | 'improvement' | 'fix' | 'security'
 
-export const APP_VERSION = '3.5.0';
+export const APP_VERSION = '3.6.0';
 
 export const CHANGELOG = [
+  {
+    version: '3.6.0',
+    date: '2026-03-20',
+    changes: [
+      { type: 'new',         text: 'Dokumenty: složkový systém – vytvářejte, přejmenujte a mažte složky' },
+      { type: 'new',         text: 'Dokumenty: přesouvání souborů mezi složkami' },
+      { type: 'fix',         text: 'Dashboard: oprava widgetu Nové poptávky (zobrazovalo 0)' },
+      { type: 'improvement', text: 'E-mail: SMTP nastavení přesunuto do UI (Nastavení → E-mail)' },
+      { type: 'fix',         text: 'E-mail: oprava chyby při odesílání – konkrétní chybová zpráva místo generické' },
+    ],
+  },
   {
     version: '3.5.0',
     date: '2026-03-19',

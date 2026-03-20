@@ -112,11 +112,16 @@ export const personalApi = {
 
 // ── Dokumenty ────────────────────────────────────────────────
 export const dokumentyApi = {
-  list:   (params) => api.get('/dokumenty', { params }),
-  upload: (formData) => api.post('/dokumenty/upload', formData, {
+  list:         (params) => api.get('/dokumenty', { params }),
+  upload:       (formData) => api.post('/dokumenty/upload', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   }),
-  delete: (id) => api.delete(`/dokumenty/${id}`),
+  delete:       (id) => api.delete(`/dokumenty/${id}`),
+  move:         (id, slozka_id) => api.patch(`/dokumenty/${id}`, { slozka_id }),
+  listSlozky:   () => api.get('/dokumenty/slozky'),
+  createSlozka: (data) => api.post('/dokumenty/slozky', data),
+  updateSlozka: (id, data) => api.patch(`/dokumenty/slozky/${id}`, data),
+  deleteSlozka: (id) => api.delete(`/dokumenty/slozky/${id}`),
 };
 
 // ── Uživatelé ────────────────────────────────────────────────

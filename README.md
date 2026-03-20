@@ -29,7 +29,7 @@ Interní CRM pro správu zakázek, klientů, personálu, fakturace a dalších o
 | Kalendář | Zakázky + Google Calendar events, Kapacity (vytíženost) |
 | Klienti | Databáze klientů, ARES lookup, archiv |
 | Personál | Správa personálu, přiřazení na zakázky |
-| Dokumenty | Upload souborů k zakázkám |
+| Dokumenty | Upload souborů k zakázkám, složkový systém |
 | Ceník | Kategorie + položky ceníku |
 | Reporty | Přehledy tržeb a zakázek |
 | Error log | Přehled backendových chyb, stav vyřešení, audit detailů |
@@ -322,6 +322,13 @@ GET/POST       /api/personal
 GET/PATCH/DEL  /api/personal/:id
 POST           /api/personal/:id/prirazeni
 PATCH          /api/personal/:id/archivovat|obnovit
+
+GET/POST       /api/dokumenty
+POST           /api/dokumenty/upload
+DEL            /api/dokumenty/:id
+PATCH          /api/dokumenty/:id
+GET/POST       /api/dokumenty/slozky
+PATCH/DEL      /api/dokumenty/slozky/:id
 
 GET            /api/kalendar
 GET            /api/kapacity

@@ -207,7 +207,16 @@ async function initDb() {
         CREATE INDEX IF NOT EXISTS idx_error_logs_resolved
         ON error_logs(resolved, created_at DESC)
       `);
-      console.log('✅  Migrace OK (google_event_id, faktury, proposals, archivovano, sablony, planovaní, pravidelny, followup, password reset, error logs).');
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS dokumenty_slozky (
+          id SERIAL PRIMARY KEY,
+          nazev VARCHAR(255) NOT NULL,
+          vytvoril_id INTEGER REFERENCES uzivatele(id) ON DELETE SET NULL,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+      `);
+      await pool.query(`ALTER TABLE dokumenty ADD COLUMN IF NOT EXISTS slozka_id INTEGER REFERENCES dokumenty_slozky(id) ON DELETE SET NULL`);
+      console.log('✅  Migrace OK (google_event_id, faktury, proposals, archivovano, sablony, planovaní, pravidelny, followup, password reset, error logs, dokumenty_slozky).');
       return;
     }
 

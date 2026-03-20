@@ -17,7 +17,7 @@ const nodemailer   = require('nodemailer');
 const { simpleParser } = require('mailparser');
 const { auth }     = require('../middleware/auth');
 const { withImap, getImapConfig } = require('../emailImapService');
-const { withTransaction } = require('../db');
+const { withTransaction, query } = require('../db');
 const { createNotif } = require('../notifHelper');
 
 router.use(auth);
@@ -275,31 +275,45 @@ router.post('/messages/:uid/move', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// ── Načtení SMTP konfigurace z nastavení (s fallbackem na env proměnné) ───────
+async function getSmtpConfig() {
+  const { rows } = await query(
+    `SELECT klic, hodnota FROM nastaveni WHERE klic LIKE 'email_smtp_%'`
+  );
+  const db = rows.reduce((acc, r) => { acc[r.klic] = r.hodnota; return acc; }, {});
+  return {
+    host:   db.email_smtp_host   || process.env.SMTP_HOST   || null,
+    port:   parseInt(db.email_smtp_port   || process.env.SMTP_PORT   || '587', 10),
+    user:   db.email_smtp_user   || process.env.SMTP_USER   || null,
+    pass:   db.email_smtp_pass   || process.env.SMTP_PASS   || null,
+    from:   db.email_smtp_from   || process.env.SMTP_FROM   || null,
+    secure: (db.email_smtp_secure || process.env.SMTP_SECURE || 'false') === 'true',
+  };
+}
+
 // ── POST /send ────────────────────────────────────────────────────────────────
 router.post('/send', async (req, res, next) => {
   try {
     const { to, cc, subject, html, text, inReplyTo, references } = req.body;
     if (!to || !subject) return res.status(400).json({ error: 'Chybí příjemce nebo předmět' });
 
-    // SMTP konfigurace – primárně env proměnné (jako emailService.js), fallback IMAP user
-    const imapCfg = await getImapConfig();
-    const smtpHost = process.env.SMTP_HOST || imapCfg.host;
-    const smtpPort = parseInt(process.env.SMTP_PORT || '587', 10);
-    const smtpUser = process.env.SMTP_USER || imapCfg.user;
-    const smtpPass = process.env.SMTP_PASS || imapCfg.pass;
-    const smtpFrom = process.env.SMTP_FROM || smtpUser;
+    const smtpCfg = await getSmtpConfig();
 
-    if (!smtpHost || !smtpUser) {
-      return res.status(500).json({ error: 'SMTP není nakonfigurován' });
+    if (!smtpCfg.host || !smtpCfg.user) {
+      return res.status(500).json({ error: 'SMTP není nakonfigurováno – nastavte v Nastavení → E-mail (IMAP) → SMTP sekce' });
     }
 
     const transporter = nodemailer.createTransport({
-      host:   smtpHost,
-      port:   smtpPort,
-      secure: process.env.SMTP_SECURE === 'true',
-      auth:   { user: smtpUser, pass: smtpPass },
-      tls:    { rejectUnauthorized: false },
+      host:               smtpCfg.host,
+      port:               smtpCfg.port,
+      secure:             smtpCfg.secure,
+      auth:               { user: smtpCfg.user, pass: smtpCfg.pass || '' },
+      tls:                { rejectUnauthorized: false },
+      connectionTimeout:  10000,
+      greetingTimeout:    10000,
+      socketTimeout:      10000,
     });
+    const smtpFrom = smtpCfg.from || smtpCfg.user;
 
     await transporter.sendMail({
       from:       smtpFrom,

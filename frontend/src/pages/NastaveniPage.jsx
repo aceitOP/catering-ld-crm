@@ -355,9 +355,76 @@ export function NastaveniPage() {
                 </Btn>
               </div>
             </div>
-            <div className="bg-stone-50 rounded-xl border border-stone-200 p-4 text-xs text-stone-500 space-y-1.5">
-              <div className="font-semibold text-stone-700 mb-2">Odchozí pošta (SMTP)</div>
-              <p>Pro odesílání odpovědí se používá SMTP konfigurace nastavená přes proměnné prostředí (<code className="bg-stone-100 px-1 rounded">SMTP_HOST</code>, <code className="bg-stone-100 px-1 rounded">SMTP_USER</code>, <code className="bg-stone-100 px-1 rounded">SMTP_PASS</code> atd.). Tyto hodnoty jsou společné pro všechny odeslané e-maily ze systému. Pokud IMAP přihlašovací údaje a SMTP jsou totožné, systém je automaticky použije jako zálohu.</p>
+            <div className="bg-white rounded-xl border border-stone-200 p-5 space-y-4">
+              <div>
+                <div className="text-sm font-semibold text-stone-800 mb-0.5">SMTP – odchozí pošta</div>
+                <div className="text-xs text-stone-500">Konfigurace pro odesílání e-mailů (odpovědi, nové zprávy). U většiny e-mailových serverů je SMTP host stejný jako IMAP host.</div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-2">
+                  <label className="text-xs text-stone-500 block mb-1.5">SMTP server (host)</label>
+                  <input
+                    className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                    placeholder="smtp.vasdomena.cz"
+                    defaultValue={nastavData?.data?.email_smtp_host || ''}
+                    onChange={e => setForm(f => ({ ...f, email_smtp_host: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-stone-500 block mb-1.5">Port</label>
+                  <input
+                    type="number"
+                    className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                    placeholder="587"
+                    defaultValue={nastavData?.data?.email_smtp_port || '587'}
+                    onChange={e => setForm(f => ({ ...f, email_smtp_port: e.target.value }))}
+                  />
+                </div>
+                <div className="flex items-end pb-1 gap-3">
+                  <label className="text-xs text-stone-500">Šifrování</label>
+                  <select
+                    className="border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                    defaultValue={nastavData?.data?.email_smtp_secure ?? 'false'}
+                    onChange={e => setForm(f => ({ ...f, email_smtp_secure: e.target.value }))}
+                  >
+                    <option value="false">STARTTLS – port 587 (doporučeno)</option>
+                    <option value="true">SSL/TLS – port 465</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-stone-500 block mb-1.5">Uživatelské jméno (e-mail)</label>
+                  <input
+                    className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                    placeholder="info@vasdomena.cz"
+                    defaultValue={nastavData?.data?.email_smtp_user || ''}
+                    onChange={e => setForm(f => ({ ...f, email_smtp_user: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-stone-500 block mb-1.5">Heslo</label>
+                  <input
+                    type="password"
+                    className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                    placeholder="••••••••"
+                    defaultValue={nastavData?.data?.email_smtp_pass || ''}
+                    onChange={e => setForm(f => ({ ...f, email_smtp_pass: e.target.value }))}
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="text-xs text-stone-500 block mb-1.5">Odesílací adresa (From)</label>
+                  <input
+                    className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                    placeholder="Catering LD <info@vasdomena.cz>"
+                    defaultValue={nastavData?.data?.email_smtp_from || ''}
+                    onChange={e => setForm(f => ({ ...f, email_smtp_from: e.target.value }))}
+                  />
+                </div>
+              </div>
+              <div className="flex items-center gap-3 pt-2 border-t border-stone-100">
+                <Btn variant="primary" onClick={() => saveMut.mutate(form)} disabled={saveMut.isPending}>
+                  {saveMut.isPending ? 'Ukládám…' : 'Uložit nastavení'}
+                </Btn>
+              </div>
             </div>
           </div>
         )}

@@ -173,6 +173,11 @@ export default function DashboardPage() {
     queryFn:  () => followupApi.list({ splneno: 'false', limit: 10 }),
     refetchInterval: 60_000,
   });
+  const { data: poptavkyData } = useQuery({
+    queryKey: ['poptavky-dashboard'],
+    queryFn:  () => zakazkyApi.list({ stav: 'nova_poptavka', limit: 4 }),
+    refetchInterval: 60_000,
+  });
   const { data: dashboardSummaryData } = useQuery({
     queryKey: ['dashboard-summary'],
     queryFn:  () => reportyApi.dashboardSummary(),
@@ -226,10 +231,7 @@ export default function DashboardPage() {
   const isTodayTl = nearestDate === today;
 
   // ── Poptávky widget ──
-  const novePoptavkyList = zakazky
-    .filter(z => z.stav === 'nova_poptavka')
-    .sort((a,b) => (b.created_at||'').localeCompare(a.created_at||''))
-    .slice(0, 4);
+  const novePoptavkyList = poptavkyData?.data?.data || [];
 
   // ── Auth ──
   const { user } = useAuth();
