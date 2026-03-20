@@ -6,8 +6,9 @@ import {
   LayoutDashboard, ClipboardList, Users, FileText,
   Calendar, UserCheck, FolderOpen, Tag, Settings, LogOut, BarChart2,
   Bell, X, Globe, Info, Trash2, CheckCheck, Inbox, Receipt, Archive,
-  ChevronDown, BookCopy, Mail,
+  ChevronDown, BookCopy, Mail, Sun, Moon, Clock,
 } from 'lucide-react';
+import { useTheme } from '../context/ThemeContext';
 import { APP_VERSION, CHANGELOG } from '../data/changelog';
 import { notifikaceApi, zakazkyApi } from '../api';
 
@@ -82,6 +83,34 @@ function BrandLogo({ size = 28 }) {
 }
 
 // ── Layout ───────────────────────────────────────────────────
+// ── Theme toggle ─────────────────────────────────────────────
+function ThemeToggle() {
+  const { mode, setMode } = useTheme();
+  const options = [
+    { value: 'light', icon: Sun,   title: 'Světlý režim' },
+    { value: 'auto',  icon: Clock, title: 'Automaticky (tmavý od 19:00)' },
+    { value: 'dark',  icon: Moon,  title: 'Tmavý režim' },
+  ];
+  return (
+    <div className="flex items-center gap-0.5 bg-stone-100 rounded-lg p-0.5">
+      {options.map(({ value, icon: Icon, title }) => (
+        <button
+          key={value}
+          onClick={() => setMode(value)}
+          title={title}
+          className={`flex items-center justify-center w-7 h-6 rounded-md transition-all ${
+            mode === value
+              ? 'bg-white shadow-sm text-brand-600'
+              : 'text-stone-400 hover:text-stone-600'
+          }`}
+        >
+          <Icon size={13} />
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export default function Layout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -273,15 +302,18 @@ export default function Layout() {
             </button>
           </div>
 
-          {/* Version badge */}
-          <button
-            onClick={() => setChangelogOpen(true)}
-            className="w-full mt-2 px-3 py-2 flex items-center justify-center gap-1.5 rounded-xl hover:bg-surface transition-colors group"
-            title="Zobrazit historii změn"
-          >
-            <span className="text-stone-400 text-xs font-medium group-hover:text-brand-600 transition-colors">v{APP_VERSION}</span>
-            <span className="text-stone-300 text-xs group-hover:text-stone-500 transition-colors">· Co je nového?</span>
-          </button>
+          {/* Version badge + theme toggle */}
+          <div className="mt-2 flex items-center gap-2 px-1">
+            <button
+              onClick={() => setChangelogOpen(true)}
+              className="flex-1 px-2 py-2 flex items-center gap-1 rounded-xl hover:bg-surface transition-colors group"
+              title="Zobrazit historii změn"
+            >
+              <span className="text-stone-400 text-xs font-medium group-hover:text-brand-600 transition-colors">v{APP_VERSION}</span>
+              <span className="text-stone-300 text-xs group-hover:text-stone-500 transition-colors">· Co je nového?</span>
+            </button>
+            <ThemeToggle />
+          </div>
         </div>
       </aside>
 

@@ -1,9 +1,18 @@
 // Changelog – Catering LD CRM
 // Typy změn: 'new' | 'improvement' | 'fix' | 'security'
 
-export const APP_VERSION = '3.4.0';
+export const APP_VERSION = '3.5.0';
 
 export const CHANGELOG = [
+  {
+    version: '3.5.0',
+    date: '2026-03-19',
+    changes: [
+      { type: 'new',         text: 'Dark mode – přepínač Světlý / Auto / Tmavý v levém panelu (vedle verze)' },
+      { type: 'new',         text: 'Automatická detekce podle denní doby – tmavý režim se zapne automaticky od 19:00 do 7:00' },
+      { type: 'new',         text: 'Preference uložena v prohlížeči (localStorage) – nastavení se zachová po přihlášení' },
+    ],
+  },
   {
     version: '3.4.0',
     date: '2026-03-19',

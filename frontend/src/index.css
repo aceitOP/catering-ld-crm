@@ -13,3 +13,124 @@
   ::-webkit-scrollbar-thumb { @apply bg-stone-200 rounded-full; }
   ::-webkit-scrollbar-thumb:hover { @apply bg-stone-300; }
 }
+
+/* ── Dark mode ────────────────────────────────────────────────
+   Místo přidávání dark: prefixu ke každé třídě přepisujeme
+   nejčastěji použité Tailwind utility třídy přes .dark rodič.
+   Vyšší specificita (.dark .třída > .třída) nepotřebuje !important.
+   ─────────────────────────────────────────────────────────── */
+.dark {
+  color-scheme: dark;
+}
+
+/* Základní barvy stránky */
+.dark body {
+  background-color: #111318;
+  color: #e4e4e7;
+}
+
+/* ── Pozadí ── */
+.dark .bg-white          { background-color: #1d1f2b; }
+.dark .bg-stone-50       { background-color: #181a24; }
+.dark .bg-stone-100      { background-color: #252836; }
+.dark .bg-stone-200      { background-color: #2e3144; }
+.dark .bg-surface        { background-color: #111318; }
+
+/* ── Texty ── */
+.dark .text-stone-900    { color: #f4f4f5; }
+.dark .text-stone-800    { color: #e4e4e7; }
+.dark .text-stone-700    { color: #d4d4d8; }
+.dark .text-stone-600    { color: #a1a1aa; }
+.dark .text-stone-500    { color: #71717a; }
+.dark .text-stone-400    { color: #52525b; }
+.dark .text-stone-300    { color: #3f3f46; }
+
+/* ── Bordery ── */
+.dark .border-stone-200         { border-color: #3f3f46; }
+.dark .border-stone-100         { border-color: #2a2c38; }
+.dark .border-stone-50          { border-color: #1f2130; }
+.dark .border-b                 { border-color: #2a2c38; }
+
+/* ── Dělítka (divide-*) ── */
+.dark .divide-stone-50  > * + * { border-color: #1f2130; }
+.dark .divide-stone-100 > * + * { border-color: #2a2c38; }
+.dark .divide-stone-200 > * + * { border-color: #3f3f46; }
+
+/* ── Hover pozadí ── */
+.dark .hover\:bg-surface:hover      { background-color: #252836; }
+.dark .hover\:bg-stone-50:hover     { background-color: #252836; }
+.dark .hover\:bg-stone-100:hover    { background-color: #2e3144; }
+.dark .hover\:bg-white:hover        { background-color: #252836; }
+
+/* ── Brand barvy (zesvětlené pro dark) ── */
+.dark .bg-brand-50      { background-color: #1e1b4b; }
+.dark .bg-brand-100     { background-color: #27249a; }
+.dark .text-brand-600   { color: #a78bfa; }
+.dark .text-brand-500   { color: #c4b5fd; }
+.dark .border-brand-500 { border-color: #7c3aed; }
+.dark .border-brand-100 { border-color: #312e81; }
+
+/* ── Accent (oranžovo-červená) ── */
+.dark .bg-accent\/10    { background-color: rgba(235, 89, 57, 0.15); }
+
+/* ── Formulářové prvky ── */
+.dark input:not([type=checkbox]):not([type=radio]):not([type=range]),
+.dark textarea,
+.dark select {
+  background-color: #1d1f2b;
+  border-color: #3f3f46;
+  color: #e4e4e7;
+}
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #52525b;
+}
+.dark input:focus,
+.dark textarea:focus,
+.dark select:focus {
+  border-color: #7c3aed;
+  outline: none;
+}
+
+/* Checkboxy a radio ponechány beze změny (prohlížečový styl) */
+
+/* ── Speciální komponenty ── */
+
+/* Sidebar (bg-white + border-r) */
+.dark aside.w-\[280px\] {
+  background-color: #151720;
+  border-color: #2a2c38;
+}
+
+/* Karty (bg-white border border-stone-200) */
+.dark .rounded-xl.border.border-stone-200,
+.dark .rounded-2xl.border.border-stone-200,
+.dark .rounded-3xl.border.border-stone-200 {
+  border-color: #2a2c38;
+}
+
+/* Modální overlay */
+.dark .bg-black\/40 {
+  background-color: rgba(0, 0, 0, 0.65);
+}
+
+/* Scrollbar v dark mode */
+.dark ::-webkit-scrollbar-thumb        { background-color: #3f3f46; }
+.dark ::-webkit-scrollbar-thumb:hover  { background-color: #52525b; }
+
+/* ── Stavové barvy (zůstávají) ──
+   bg-emerald-*, bg-blue-*, bg-amber-*, bg-red-*, bg-orange-*, bg-purple-*
+   mají dostatečný kontrast i v dark mode – nepřepisujeme.
+   Výjimka: velmi světlé 50/100 varianty v kartách ── */
+.dark .bg-emerald-50  { background-color: #052e16; }
+.dark .bg-blue-50     { background-color: #0c1a3a; }
+.dark .bg-amber-50    { background-color: #2d1f06; }
+.dark .bg-red-50      { background-color: #2d0a0a; }
+.dark .bg-orange-50   { background-color: #2d1200; }
+.dark .bg-purple-50   { background-color: #1a0a3d; }
+
+/* ── Stín karet ── */
+.dark .shadow-card,
+.dark .shadow-card-hover {
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.3), 0 6px 24px -4px rgb(0 0 0 / 0.4);
+}
