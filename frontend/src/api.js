@@ -240,6 +240,7 @@ export const emailApi = {
   delete:    (uid, folder, permanent) => api.delete(`/email/messages/${uid}`, { params: { folder, permanent } }),
   move:      (uid, folder, target) => api.post(`/email/messages/${uid}/move`, { target }, { params: { folder } }),
   send:      (data)           => api.post('/email/send', data),
+  smtpTest:  ()               => api.post('/email/smtp-test'),
   createZakazka: (uid, folder) => api.post(`/email/messages/${uid}/zakazka`, {}, { params: { folder } }),
 };
 

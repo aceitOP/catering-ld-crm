@@ -291,6 +291,35 @@ async function getSmtpConfig() {
   };
 }
 
+// ── POST /smtp-test ───────────────────────────────────────────────────────────
+router.post('/smtp-test', async (req, res) => {
+  const smtpCfg = await getSmtpConfig().catch(err => ({ _err: err.message }));
+  if (smtpCfg._err) return res.status(500).json({ ok: false, error: smtpCfg._err });
+  if (!smtpCfg.host || !smtpCfg.user) {
+    return res.json({ ok: false, error: 'SMTP není nakonfigurováno (chybí host nebo uživatel)' });
+  }
+  const info = { host: smtpCfg.host, port: smtpCfg.port, secure: smtpCfg.secure, user: smtpCfg.user };
+  try {
+    const transporter = nodemailer.createTransport({
+      host: smtpCfg.host, port: smtpCfg.port, secure: smtpCfg.secure,
+      auth: { user: smtpCfg.user, pass: smtpCfg.pass || '' },
+      tls: { rejectUnauthorized: false },
+      connectionTimeout: 8000, greetingTimeout: 8000, socketTimeout: 8000,
+    });
+    await transporter.verify();
+    res.json({ ok: true, info });
+  } catch (err) {
+    const hint = err.message.includes('timeout')
+      ? `Connection timeout na ${smtpCfg.host}:${smtpCfg.port}. Zkuste port 2525 (Render blokuje 587/465). Nebo použijte Brevo/Mailgun SMTP relay.`
+      : err.message.includes('ENOTFOUND') || err.message.includes('ECONNREFUSED')
+        ? `Server ${smtpCfg.host}:${smtpCfg.port} není dostupný. Zkontrolujte SMTP host.`
+        : err.message.includes('auth') || err.message.includes('535')
+          ? 'Chybné přihlašovací údaje (uživatel nebo heslo).'
+          : null;
+    res.json({ ok: false, error: err.message, hint, info });
+  }
+});
+
 // ── POST /send ────────────────────────────────────────────────────────────────
 router.post('/send', async (req, res, next) => {
   try {

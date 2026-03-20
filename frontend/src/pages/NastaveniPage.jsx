@@ -1,11 +1,49 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { nastaveniApi, uzivateleApi, authApi, googleCalendarApi } from '../api';
+import { nastaveniApi, uzivateleApi, authApi, googleCalendarApi, emailApi } from '../api';
 import { useAuth as useAuthNS } from '../context/AuthContext';
 import { PageHeader, Btn, Modal, Spinner } from '../components/ui';
 import toast from 'react-hot-toast';
 import { Plus, Settings, Trash2 as Trash2NS } from 'lucide-react';
+
+function SmtpTestButton() {
+  const [result, setResult] = useState(null);
+  const [testing, setTesting] = useState(false);
+
+  const run = async () => {
+    setTesting(true);
+    setResult(null);
+    try {
+      const res = await emailApi.smtpTest();
+      setResult(res.data);
+    } catch (err) {
+      setResult({ ok: false, error: err.response?.data?.error || err.message });
+    }
+    setTesting(false);
+  };
+
+  return (
+    <div className="pt-2 border-t border-stone-100 space-y-2">
+      <button
+        type="button"
+        onClick={run}
+        disabled={testing}
+        className="text-xs font-medium px-3 py-1.5 rounded-lg border border-stone-200 bg-stone-50 hover:bg-stone-100 text-stone-700 transition-colors disabled:opacity-50"
+      >
+        {testing ? 'Testuji spojení…' : 'Otestovat SMTP připojení'}
+      </button>
+      {result && (
+        <div className={`rounded-lg p-3 text-xs space-y-1 ${result.ok ? 'bg-emerald-50 text-emerald-800 border border-emerald-100' : 'bg-red-50 text-red-800 border border-red-100'}`}>
+          <div className="font-semibold">{result.ok ? '✓ Připojení úspěšné' : '✗ Připojení selhalo'}</div>
+          {result.info && <div className="text-stone-500">{result.info.host}:{result.info.port} · {result.info.secure ? 'SSL' : 'STARTTLS'} · {result.info.user}</div>}
+          {!result.ok && <div>{result.error}</div>}
+          {result.hint && <div className="font-medium mt-1">{result.hint}</div>}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function NastaveniPage() {
   const qc = useQueryClient();
@@ -420,6 +458,7 @@ export function NastaveniPage() {
                   />
                 </div>
               </div>
+              <SmtpTestButton />
               <div className="flex items-center gap-3 pt-2 border-t border-stone-100">
                 <Btn variant="primary" onClick={() => saveMut.mutate(form)} disabled={saveMut.isPending}>
                   {saveMut.isPending ? 'Ukládám…' : 'Uložit nastavení'}
