@@ -358,7 +358,7 @@ export function NastaveniPage() {
             <div className="bg-white rounded-xl border border-stone-200 p-5 space-y-4">
               <div>
                 <div className="text-sm font-semibold text-stone-800 mb-0.5">SMTP – odchozí pošta</div>
-                <div className="text-xs text-stone-500">Konfigurace pro odesílání e-mailů (odpovědi, nové zprávy). U většiny e-mailových serverů je SMTP host stejný jako IMAP host.</div>
+                <div className="text-xs text-stone-500">Konfigurace pro odesílání e-mailů. U většiny serverů je SMTP host stejný jako IMAP host. Na Render.com použijte port <strong>2525</strong> místo 587 (Render blokuje standardní SMTP porty).</div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2">
@@ -387,7 +387,7 @@ export function NastaveniPage() {
                     value={form.email_smtp_secure ?? 'false'}
                     onChange={e => setForm(f => ({ ...f, email_smtp_secure: e.target.value }))}
                   >
-                    <option value="false">STARTTLS – port 587 (doporučeno)</option>
+                    <option value="false">STARTTLS – port 587 / 2525 (doporučeno)</option>
                     <option value="true">SSL/TLS – port 465</option>
                   </select>
                 </div>
