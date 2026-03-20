@@ -196,6 +196,17 @@ export const notifikaceApi = {
   deleteRead: ()   => api.delete('/notifikace'),
 };
 
+// ── Backup ───────────────────────────────────────────────────
+export const backupApi = {
+  info:     () => api.get('/backup/info'),
+  download: async () => {
+    const res = await api.get('/backup', { responseType: 'blob' });
+    const date = new Date().toISOString().slice(0, 10);
+    downloadBlob(res.data, `crm-backup-${date}.json`, 'application/json');
+    return res;
+  },
+};
+
 // ── Error log ────────────────────────────────────────────────
 export const errorLogApi = {
   list:           (params) => api.get('/error-log', { params }),

@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { nastaveniApi, uzivateleApi, authApi, googleCalendarApi, emailApi } from '../api';
+import { nastaveniApi, uzivateleApi, authApi, googleCalendarApi, emailApi, backupApi } from '../api';
 import { useAuth as useAuthNS } from '../context/AuthContext';
 import { PageHeader, Btn, Modal, Spinner } from '../components/ui';
 import toast from 'react-hot-toast';
-import { Plus, Settings, Trash2 as Trash2NS, Pencil } from 'lucide-react';
+import { Plus, Settings, Trash2 as Trash2NS, Pencil, Download, Database } from 'lucide-react';
 
 function EmailSablonyManager() {
   const qc = useQueryClient();
@@ -156,7 +156,7 @@ export function NastaveniPage() {
     onError: (e) => toast.error(e?.response?.data?.error || 'Chyba při změně hesla'),
   });
 
-  const TABS = [['firma','Profil firmy'],['uziv','Uživatelé'],['heslo','Změna hesla'],['podpis','E-mail podpis'],['notif','Notifikace'],['integrace','Integrace'],['google','Google Kalendář'],['kapacity','Kapacity'],['email','E-mail (IMAP)']];
+  const TABS = [['firma','Profil firmy'],['uziv','Uživatelé'],['heslo','Změna hesla'],['podpis','E-mail podpis'],['notif','Notifikace'],['integrace','Integrace'],['google','Google Kalendář'],['kapacity','Kapacity'],['email','E-mail (IMAP)'],['zaloha','Zálohy']];
   const [podpisPreview, setPodpisPreview] = useState(false);
 
   const { data: gcStatus, refetch: refetchGcStatus } = useQuery({
@@ -166,6 +166,26 @@ export function NastaveniPage() {
     retry: false,
     select: (r) => r.data,
   });
+
+  const { data: backupInfo, isLoading: backupInfoLoading } = useQuery({
+    queryKey: ['backup-info'],
+    queryFn: backupApi.info,
+    enabled: tab === 'zaloha',
+    retry: false,
+    select: (r) => r.data,
+  });
+  const [backupLoading, setBackupLoading] = useState(false);
+  const handleDownloadBackup = async () => {
+    setBackupLoading(true);
+    try {
+      await backupApi.download();
+      toast.success('Záloha stažena');
+    } catch {
+      toast.error('Zálohu se nepodařilo vytvořit');
+    } finally {
+      setBackupLoading(false);
+    }
+  };
   const uzivatele = uzivData?.data?.data || [];
   const setU = (k,v) => setUserForm(f=>({...f,[k]:v}));
   const ROLES = {admin:'Administrátor', obchodnik:'Obchodník / koordinátor', provoz:'Provoz / realizace'};
@@ -610,6 +630,57 @@ export function NastaveniPage() {
               <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs text-amber-700">
                 <strong>Povinné zabezpečení:</strong> Nastavte proměnnou prostředí <code className="bg-amber-100 px-1 rounded">TALLY_KEY</code> a stejný klíč zadejte v Tally jako <em>Secret key</em> (hlavička <code className="bg-amber-100 px-1 rounded">x-api-key</code>). Bez něj webhook požadavky odmítne.
               </div>
+            </div>
+          </div>
+        )}
+
+        {tab === 'zaloha' && (
+          <div className="space-y-4">
+            <div className="bg-white rounded-xl border border-stone-200 p-5 space-y-4">
+              <div className="flex items-start gap-3">
+                <div className="w-9 h-9 rounded-lg bg-stone-100 flex items-center justify-center flex-shrink-0">
+                  <Database size={16} className="text-stone-500"/>
+                </div>
+                <div>
+                  <div className="text-sm font-semibold text-stone-800 mb-0.5">Záloha databáze</div>
+                  <div className="text-xs text-stone-500">Stáhne kompletní zálohu všech dat CRM jako JSON soubor. Zálohu si ukládejte pravidelně na bezpečné místo.</div>
+                </div>
+              </div>
+
+              {backupInfoLoading ? (
+                <div className="text-xs text-stone-400">Načítám přehled…</div>
+              ) : backupInfo?.counts ? (
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                  {[
+                    ['Zakázky', backupInfo.counts.zakazky],
+                    ['Klienti', backupInfo.counts.klienti],
+                    ['Personál', backupInfo.counts.personal],
+                    ['Faktury', backupInfo.counts.faktury],
+                    ['Nabídky', backupInfo.counts.nabidky],
+                    ['Dokumenty', backupInfo.counts.dokumenty],
+                    ['Ceník', backupInfo.counts.cenik],
+                    ['Uživatelé', backupInfo.counts.uzivatele],
+                  ].map(([label, count]) => (
+                    <div key={label} className="bg-stone-50 rounded-lg p-2.5 text-center">
+                      <div className="text-xs text-stone-400">{label}</div>
+                      <div className="text-sm font-semibold text-stone-700 mt-0.5">{count ?? '—'}</div>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+
+              <div className="flex items-center gap-3 pt-2 border-t border-stone-100">
+                <Btn variant="primary" onClick={handleDownloadBackup} disabled={backupLoading}>
+                  <Download size={12}/>
+                  {backupLoading ? 'Připravuji zálohu…' : 'Stáhnout zálohu (JSON)'}
+                </Btn>
+              </div>
+            </div>
+
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-xs text-amber-800 space-y-1">
+              <div className="font-medium">Jak zálohu obnovit?</div>
+              <p>Záloha je ve formátu JSON se strukturou tabulek. Pro obnovu kontaktujte správce systému nebo použijte přímý přístup k PostgreSQL databázi.</p>
+              <p>Doporučujeme zálohu provádět alespoň jednou týdně, ideálně každý den.</p>
             </div>
           </div>
         )}
