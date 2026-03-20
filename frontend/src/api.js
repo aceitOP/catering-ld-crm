@@ -5,6 +5,18 @@ const api = axios.create({
   timeout: 15000,
 });
 
+function downloadBlob(data, fallbackName, contentType) {
+  const blob = new Blob([data], { type: contentType || 'application/octet-stream' });
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fallbackName || 'download';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+}
+
 // Přidej JWT token ke každému requestu
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
@@ -59,6 +71,7 @@ export const klientiApi = {
   obnovit:        (id)    => api.patch(`/klienti/${id}/obnovit`),
   pravidelni:     ()      => api.get('/klienti/pravidelni'),
   setPravidelny:  (id, v) => api.patch(`/klienti/${id}`, { pravidelny: v }),
+  import:         (rows)  => api.post('/klienti/import', { rows }),
 };
 
 // ── Follow-up úkoly ──────────────────────────────────────────
@@ -108,6 +121,7 @@ export const personalApi = {
   priradZakazku: (id, d) => api.post(`/personal/${id}/prirazeni`, d),
   archivovat: (id)    => api.patch(`/personal/${id}/archivovat`),
   obnovit:    (id)    => api.patch(`/personal/${id}/obnovit`),
+  import:     (rows)  => api.post('/personal/import', { rows }),
 };
 
 // ── Dokumenty ────────────────────────────────────────────────
@@ -118,6 +132,14 @@ export const dokumentyApi = {
   }),
   delete:       (id) => api.delete(`/dokumenty/${id}`),
   move:         (id, slozka_id) => api.patch(`/dokumenty/${id}`, { slozka_id }),
+  download:     async (id, fallbackName) => {
+    const res = await api.get(`/dokumenty/${id}/download`, { responseType: 'blob' });
+    const disposition = res.headers['content-disposition'] || '';
+    const match = disposition.match(/filename\*=UTF-8''([^;]+)|filename="([^"]+)"|filename=([^;]+)/i);
+    const filename = decodeURIComponent(match?.[1] || match?.[2] || match?.[3] || fallbackName || `dokument-${id}`);
+    downloadBlob(res.data, filename, res.headers['content-type']);
+    return res;
+  },
   listSlozky:   () => api.get('/dokumenty/slozky'),
   createSlozka: (data) => api.post('/dokumenty/slozky', data),
   updateSlozka: (id, data) => api.patch(`/dokumenty/slozky/${id}`, data),
@@ -195,6 +217,7 @@ export const proposalsApi = {
   update:         (id, d)           => api.patch(`/proposals/${id}`, d),
   delete:         (id)              => api.delete(`/proposals/${id}`),
   send:           (id, d)           => api.post(`/proposals/${id}/send`, d),
+  unlock:         (id)              => api.patch(`/proposals/${id}/unlock`),
   log:            (id)              => api.get(`/proposals/${id}/log`),
   // sekce
   addSekce:       (id, d)           => api.post(`/proposals/${id}/sekce`, d),
@@ -239,9 +262,26 @@ export const emailApi = {
   markFlagged:(uid, flagged, folder) => api.patch(`/email/messages/${uid}/flagged`, { flagged }, { params: { folder } }),
   delete:    (uid, folder, permanent) => api.delete(`/email/messages/${uid}`, { params: { folder, permanent } }),
   move:      (uid, folder, target) => api.post(`/email/messages/${uid}/move`, { target }, { params: { folder } }),
-  send:      (data)           => api.post('/email/send', data),
-  smtpTest:  ()               => api.post('/email/smtp-test'),
-  createZakazka: (uid, folder) => api.post(`/email/messages/${uid}/zakazka`, {}, { params: { folder } }),
+  send:           (data)                  => api.post('/email/send', data),
+  smtpTest:       ()                      => api.post('/email/smtp-test'),
+  extractData:    (uid, folder)           => api.get(`/email/messages/${uid}/extract`, { params: { folder } }),
+  createZakazka:  (uid, folder, data)     => api.post(`/email/messages/${uid}/zakazka`, data || {}, { params: { folder } }),
+  // Přílohy
+  getAttachments: (uid, folder)           => api.get(`/email/messages/${uid}/attachments`, { params: { folder } }),
+  saveAttachment: (uid, idx, folder, data)=> api.post(`/email/messages/${uid}/attachments/${idx}/save`, data, { params: { folder } }),
+  // Followup
+  createFollowup: (uid, data)             => api.post(`/email/messages/${uid}/followup`, data),
+  // Propojení se zakázkou
+  linkZakazka:    (uid, folder, zakazka_id) => api.post(`/email/messages/${uid}/link`, { zakazka_id }, { params: { folder } }),
+  unlinkZakazka:  (uid, zakazka_id)       => api.delete(`/email/messages/${uid}/link`, { params: { zakazka_id } }),
+  getLinks:       (zakazka_id)            => api.get('/email/links', { params: { zakazka_id } }),
+  // Kontrola inboxu
+  checkInbox:     (folder)                => api.post('/email/check-inbox', { folder }),
+  // Šablony odpovědí
+  listSablony:    ()                      => api.get('/email/sablony'),
+  createSablona:  (data)                  => api.post('/email/sablony', data),
+  updateSablona:  (id, data)              => api.patch(`/email/sablony/${id}`, data),
+  deleteSablona:  (id)                    => api.delete(`/email/sablony/${id}`),
 };
 
 // ── Šablony zakázek ──────────────────────────────────────────

@@ -265,4 +265,27 @@ router.get('/:id/log', auth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// ── PATCH /:id/unlock – odemknutí potvrzeného výběru adminem ─────────────────
+router.patch('/:id/unlock', auth, async (req, res, next) => {
+  try {
+    const { rows: [p] } = await query('SELECT id, status FROM proposals WHERE id = $1', [req.params.id]);
+    if (!p) return res.status(404).json({ error: 'Výběr nenalezen' });
+    if (p.status !== 'signed') return res.status(400).json({ error: 'Výběr není v podepsaném stavu' });
+
+    await query(`
+      UPDATE proposals
+      SET status = 'draft', signed_by = NULL, signed_at = NULL, signed_ip = NULL, updated_at = NOW()
+      WHERE id = $1
+    `, [req.params.id]);
+
+    await query(
+      `INSERT INTO proposal_selection_log (proposal_id, akce, new_value, ip_adresa)
+       VALUES ($1, 'unlocked', $2, $3)`,
+      [req.params.id, req.user?.jmeno || 'admin', req.ip || '']
+    );
+
+    res.json({ message: 'Výběr byl odemknut' });
+  } catch (err) { next(err); }
+});
+
 module.exports = router;

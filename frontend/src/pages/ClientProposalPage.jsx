@@ -41,6 +41,10 @@ export function ClientProposalPage() {
     mutationFn: ({ polozka_id, je_vybrana }) =>
       publicProposalApi.select(token, { polozka_id, je_vybrana }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['pub-proposal', token] }),
+    onError: (err) => {
+      const msg = err?.response?.data?.error;
+      if (msg) alert(msg);
+    },
   });
 
   const noteMut = useMutation({

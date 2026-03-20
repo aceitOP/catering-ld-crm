@@ -8,6 +8,10 @@
 const { ImapFlow }    = require('imapflow');
 const { query }       = require('./db');
 
+function allowInsecureTls() {
+  return process.env.ALLOW_SELF_SIGNED_EMAIL_TLS === 'true';
+}
+
 async function getImapConfig() {
   const { rows } = await query(
     `SELECT klic, hodnota FROM nastaveni WHERE klic LIKE 'email_imap_%'`
@@ -32,7 +36,7 @@ async function createImapClient() {
     secure: cfg.tls,
     auth:   { user: cfg.user, pass: cfg.pass || '' },
     logger: false,
-    tls:    { rejectUnauthorized: false }, // povolení self-signed certifikátů
+    tls:    { rejectUnauthorized: !allowInsecureTls() },
   });
 }
 

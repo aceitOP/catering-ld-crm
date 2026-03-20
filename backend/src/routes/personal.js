@@ -90,4 +90,43 @@ router.post('/:id/prirazeni', auth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// ── POST /import ──────────────────────────────────────────────────────────────
+router.post('/import', auth, async (req, res, next) => {
+  try {
+    const rows = req.body?.rows;
+    if (!Array.isArray(rows) || rows.length === 0)
+      return res.status(400).json({ error: 'Chybí data (rows)' });
+
+    let imported = 0, skipped = 0;
+    const errors = [];
+
+    // Deduplikace podle emailu v rámci importu i vůči DB
+    const { rows: existing } = await query(`SELECT LOWER(email) AS email FROM personal WHERE email IS NOT NULL`);
+    const knownEmails = new Set(existing.map(r => r.email));
+
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i];
+      if (!r.jmeno) { errors.push({ row: i + 1, reason: 'Chybí jméno' }); continue; }
+
+      const email = (r.email || '').trim().toLowerCase() || null;
+      if (email && knownEmails.has(email)) { skipped++; continue; }
+
+      try {
+        await query(
+          `INSERT INTO personal (jmeno,prijmeni,typ,role,email,telefon,poznamka)
+           VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+          [r.jmeno, r.prijmeni || null, r.typ || 'interni', r.role || null,
+           email, r.telefon || null, r.poznamka || null]
+        );
+        if (email) knownEmails.add(email);
+        imported++;
+      } catch (e) {
+        errors.push({ row: i + 1, reason: e.message });
+      }
+    }
+
+    res.json({ imported, skipped, errors });
+  } catch (err) { next(err); }
+});
+
 module.exports = router;

@@ -3,7 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { personalApi } from '../api';
 import { PageHeader, EmptyState, Btn, Modal, Spinner, ExportMenu, useSort, SortTh } from '../components/ui';
 import toast from 'react-hot-toast';
-import { Plus, UserCheck, Pencil, Trash2 as Trash2Personal, Archive as ArchivePersonal } from 'lucide-react';
+import { Plus, UserCheck, Pencil, Trash2 as Trash2Personal, Archive as ArchivePersonal, Upload } from 'lucide-react';
+import { ImportModal } from '../components/ImportModal';
 
 const ROLE_LABELS = { koordinator:'Koordinátor', cisnik:'Číšník / servírka', kuchar:'Kuchař', ridic:'Řidič', barman:'Barman', pomocna_sila:'Pomocná síla' };
 
@@ -22,6 +23,7 @@ const EMPTY_PERSON = { jmeno:'', prijmeni:'', typ:'interni', role:'cisnik', emai
 export function PersonalPage() {
   const qc = useQueryClient();
   const [modal, setModal]       = useState(false);
+  const [importModal, setImportModal] = useState(false);
   const [editModal, setEditModal] = useState(false);
   const [editPerson, setEditPerson] = useState(null);
   const [form, setForm]         = useState(EMPTY_PERSON);
@@ -165,6 +167,7 @@ export function PersonalPage() {
         actions={
           <div className="flex items-center gap-2">
             <ExportMenu data={personal} columns={PERSONAL_EXPORT_COLS} filename="personal"/>
+            <Btn size="sm" onClick={() => setImportModal(true)}><Upload size={12}/> Import CSV</Btn>
             <Btn variant="primary" size="sm" onClick={() => setModal(true)}><Plus size={12}/> Přidat osobu</Btn>
           </div>
         }/>
@@ -194,6 +197,14 @@ export function PersonalPage() {
           {personal.length === 0 && <EmptyState icon={UserCheck} title="Žádný personál"/>}
         </>}
       </div>
+
+      {importModal && (
+        <ImportModal
+          type="personal"
+          onClose={() => setImportModal(false)}
+          onDone={() => { setImportModal(false); qc.invalidateQueries({ queryKey: ['personal'] }); }}
+        />
+      )}
 
       {/* Modal – přidat */}
       <Modal open={modal} onClose={() => { setModal(false); setForm(EMPTY_PERSON); }} title="Přidat osobu"

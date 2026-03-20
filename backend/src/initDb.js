@@ -216,7 +216,37 @@ async function initDb() {
         )
       `);
       await pool.query(`ALTER TABLE dokumenty ADD COLUMN IF NOT EXISTS slozka_id INTEGER REFERENCES dokumenty_slozky(id) ON DELETE SET NULL`);
-      console.log('✅  Migrace OK (google_event_id, faktury, proposals, archivovano, sablony, planovaní, pravidelny, followup, password reset, error logs, dokumenty_slozky).');
+
+      // ── E-mail integrace ───────────────────────────────────────────────────
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS email_links (
+          id          SERIAL PRIMARY KEY,
+          message_id  VARCHAR(500),
+          uid         INTEGER NOT NULL,
+          folder      VARCHAR(255) NOT NULL DEFAULT 'INBOX',
+          subject     VARCHAR(500),
+          from_email  VARCHAR(255),
+          from_name   VARCHAR(255),
+          zakazka_id  INTEGER NOT NULL REFERENCES zakazky(id) ON DELETE CASCADE,
+          linked_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          linked_by   INTEGER REFERENCES uzivatele(id) ON DELETE SET NULL
+        )
+      `);
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_email_links_zakazka ON email_links(zakazka_id)`);
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_email_links_message_id ON email_links(message_id)`);
+
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS email_sablony (
+          id             SERIAL PRIMARY KEY,
+          nazev          VARCHAR(255) NOT NULL,
+          predmet_prefix VARCHAR(255),
+          telo           TEXT NOT NULL DEFAULT '',
+          poradi         INTEGER NOT NULL DEFAULT 0,
+          created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+      `);
+
+      console.log('✅  Migrace OK (google_event_id, faktury, proposals, archivovano, sablony, planovaní, pravidelny, followup, password reset, error logs, dokumenty_slozky, email_links, email_sablony).');
       return;
     }
 

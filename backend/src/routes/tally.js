@@ -1,7 +1,7 @@
 /**
  * POST /api/tally/webhook
  * Webhook pro příjem poptávek z Tally.so formuláře.
- * Zabezpečení: volitelný API klíč v env TALLY_KEY (hlavička x-api-key).
+ * Zabezpečení: povinný API klíč v env TALLY_KEY (hlavička x-api-key).
  *
  * Tally payload: { data: { fields: [{ key, label, type, value }] } }
  */
@@ -19,6 +19,10 @@ const webhookLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'Příliš mnoho požadavků, zkuste to za chvíli' },
 });
+
+function getTallySecret() {
+  return process.env.TALLY_KEY?.trim() || '';
+}
 
 // Pomocník: najde hodnotu pole podle regex shody s label
 function getField(fields, regex) {
@@ -71,9 +75,15 @@ async function genCislo(client) {
 // POST /api/tally/webhook
 router.post('/webhook', webhookLimiter, async (req, res, next) => {
   try {
-    // Ověření API klíče
-    const secret = process.env.TALLY_KEY;
-    if (secret && req.headers['x-api-key'] !== secret) {
+    // V produkci musí být webhook vždy chráněný sdíleným secretem.
+    const secret = getTallySecret();
+    if (process.env.NODE_ENV === 'production' && !secret) {
+      return res.status(503).json({ error: 'Tally webhook není nakonfigurován bezpečně' });
+    }
+    if (!secret) {
+      return res.status(503).json({ error: 'Tally webhook vyžaduje nastavený TALLY_KEY' });
+    }
+    if (req.headers['x-api-key'] !== secret) {
       return res.status(403).json({ error: 'Neplatný API klíč' });
     }
 

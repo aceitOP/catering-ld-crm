@@ -178,7 +178,8 @@ Všechny proměnné patří do `backend/.env`. Frontend nepoužívá žádné ru
 | `SMTP_FROM` | — | Odesílací adresa (default: SMTP_USER) |
 | `SMTP_SECURE` | — | `true` pro port 465 (TLS), jinak `false` |
 | `GOOGLE_SERVICE_ACCOUNT_JSON` | — | JSON service account pro Google Calendar |
-| `TALLY_KEY` | — | Volitelný secret key pro Tally.so webhook |
+| `TALLY_KEY` | ✅ | Secret key pro Tally.so webhook (`x-api-key`); bez něj webhook požadavky odmítne |
+| `ALLOW_SELF_SIGNED_EMAIL_TLS` | — | `true` pouze pokud vědomě potřebujete povolit self-signed certifikát pro SMTP/IMAP |
 | `MAX_FILE_SIZE_MB` | — | Maximální velikost nahrávaného souboru v MB (default: `25`) |
 
 IMAP pro e-mail modul se konfiguruje přes UI v **Nastavení → E-mail (IMAP)** (uloženo v DB).

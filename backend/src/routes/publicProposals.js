@@ -87,7 +87,7 @@ router.patch('/:token/select', async (req, res, next) => {
 
     // Load item with its section config
     const { rows: [pol] } = await query(`
-      SELECT pp.*, ps.typ, ps.max_vyberu, ps.min_vyberu, ps.sekce_id,
+      SELECT pp.*, ps.typ, ps.max_vyberu, ps.min_vyberu,
              ps.id AS sid, ps.proposal_id
       FROM proposal_polozky pp
       JOIN proposal_sekce ps ON ps.id = pp.sekce_id

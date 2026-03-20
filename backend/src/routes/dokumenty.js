@@ -74,6 +74,27 @@ router.get('/', auth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+router.get('/:id/download', auth, async (req, res, next) => {
+  try {
+    const { rows } = await query(
+      'SELECT nazev, filename, mime_type FROM dokumenty WHERE id = $1 LIMIT 1',
+      [req.params.id]
+    );
+    const doc = rows[0];
+    if (!doc) return res.status(404).json({ error: 'Dokument nenalezen' });
+
+    const fp = path.join(uploadDir, doc.filename);
+    if (!fs.existsSync(fp)) {
+      return res.status(404).json({ error: 'Soubor na disku nebyl nalezen' });
+    }
+
+    if (doc.mime_type) {
+      res.type(doc.mime_type);
+    }
+    return res.download(fp, doc.nazev || doc.filename);
+  } catch (err) { next(err); }
+});
+
 router.post('/upload', auth, uploadSingleDocument, async (req, res, next) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'Žádný soubor nahrán' });

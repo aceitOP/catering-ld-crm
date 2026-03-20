@@ -126,6 +126,13 @@ export function DokumentyPage() {
 
   const formatSize = (b) => b > 1024 * 1024 ? `${(b / 1024 / 1024).toFixed(1)} MB` : `${Math.round(b / 1024)} KB`;
   const formatDatum = (d) => new Date(d).toLocaleDateString('cs-CZ');
+  const handleDownload = async (doc) => {
+    try {
+      await dokumentyApi.download(doc.id, doc.nazev || doc.filename);
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Dokument se nepodařilo stáhnout');
+    }
+  };
 
   const totalDocs = slozky.reduce((s, f) => s + (f.pocet_dokumentu || 0), 0);
 
@@ -314,7 +321,13 @@ export function DokumentyPage() {
                         <td className="px-4 py-3 text-xs text-stone-500">{formatDatum(d.created_at)}</td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
-                            <a href={`/uploads/${d.filename}`} target="_blank" rel="noreferrer" className="text-xs text-stone-500 hover:text-stone-800">Stáhnout</a>
+                            <button
+                              onClick={() => handleDownload(d)}
+                              type="button"
+                              className="text-xs text-stone-500 hover:text-stone-800"
+                            >
+                              Stáhnout
+                            </button>
                             <button
                               onClick={() => setMovingDocId(d.id)}
                               className="text-xs text-stone-400 hover:text-stone-600 flex items-center gap-0.5"

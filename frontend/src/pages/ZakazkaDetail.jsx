@@ -1,10 +1,10 @@
 import { useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { zakazkyApi, personalApi, dokumentyApi, proposalsApi, nabidkyApi, uzivateleApi, followupApi } from '../api';
+import { zakazkyApi, personalApi, dokumentyApi, proposalsApi, nabidkyApi, uzivateleApi, followupApi, emailApi } from '../api';
 import { StavBadge, TypBadge, formatCena, formatDatum, Spinner, Btn, Modal } from '../components/ui';
 import toast from 'react-hot-toast';
-import { ArrowLeft, ChevronRight, Send, Heart, Printer, Pencil, Upload, UserPlus, Trash2, Search, Receipt, ChefHat, Link, Plus, ExternalLink, Copy, CheckSquare, Square, X as XIcon, ListChecks, Check } from 'lucide-react';
+import { ArrowLeft, ChevronRight, Send, Heart, Printer, Pencil, Upload, UserPlus, Trash2, Search, Receipt, ChefHat, Link, Plus, ExternalLink, Copy, CheckSquare, Square, X as XIcon, ListChecks, Check, LockOpen } from 'lucide-react';
 import { printKomandoPdf } from '../utils/print';
 
 const WORKFLOW = [
@@ -25,6 +25,70 @@ const TYP_OPTIONS = [
 ];
 const MAX_FILE_SIZE_MB = 25;
 
+// ── EmailyTab – propojené e-maily zakázky ────────────────────────────────────
+function EmailyTab({ zakazkaId }) {
+  const qc = useQueryClient();
+  const { data, isLoading } = useQuery({
+    queryKey: ['email-links', zakazkaId],
+    queryFn:  () => emailApi.getLinks(zakazkaId),
+  });
+  const links = data?.data?.data || data?.data || [];
+
+  const unlinkMut = useMutation({
+    mutationFn: ({ uid }) => emailApi.unlinkZakazka(uid, zakazkaId),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['email-links', zakazkaId] }); toast.success('Propojení odstraněno'); },
+    onError: () => toast.error('Nepodařilo se odebrat propojení'),
+  });
+
+  if (isLoading) return <div className="px-6 py-8 text-center text-sm text-stone-400">Načítám…</div>;
+
+  return (
+    <div className="px-6 py-6 space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-semibold text-stone-800">Propojené e-maily</h3>
+          <p className="text-xs text-stone-500 mt-0.5">E-maily přiřazené k této zakázce z e-mailového modulu</p>
+        </div>
+        <Btn size="sm" onClick={() => window.location.href = '/email'}>
+          Otevřít poštu
+        </Btn>
+      </div>
+
+      {links.length === 0 ? (
+        <div className="bg-stone-50 rounded-xl border border-stone-100 px-5 py-8 text-center">
+          <div className="text-2xl mb-2">📭</div>
+          <div className="text-sm text-stone-400">Žádné propojené e-maily</div>
+          <div className="text-xs text-stone-400 mt-1">Přiřaďte e-mail pomocí tlačítka „Přiřadit" v e-mailovém modulu</div>
+        </div>
+      ) : (
+        <div className="bg-white border border-stone-200 rounded-xl overflow-hidden divide-y divide-stone-100">
+          {links.map(l => (
+            <div key={l.id} className="flex items-start justify-between px-4 py-3 hover:bg-stone-50">
+              <div className="flex-1 min-w-0">
+                <div className="text-xs font-semibold text-stone-800 truncate">{l.subject || '(bez předmětu)'}</div>
+                <div className="text-xs text-stone-500 mt-0.5">
+                  Od: {l.from_name ? `${l.from_name} <${l.from_email}>` : l.from_email}
+                </div>
+                <div className="text-xs text-stone-400 mt-0.5">
+                  {new Date(l.linked_at).toLocaleString('cs-CZ', { day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' })}
+                  {l.linked_by_jmeno && ` · ${l.linked_by_jmeno}`}
+                </div>
+              </div>
+              <button
+                onClick={() => { if (confirm('Odebrat toto propojení?')) unlinkMut.mutate({ uid: l.uid }); }}
+                className="ml-3 p-1 text-stone-300 hover:text-red-500 transition-colors flex-shrink-0"
+                title="Odebrat propojení"
+              >
+                <Trash2 size={13}/>
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ZakazkaDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -38,6 +102,13 @@ export default function ZakazkaDetail() {
   const [komandoModal, setKomandoModal] = useState(false);
   const [komandoPozn, setKomandoPozn] = useState('');
   const [dekujemeModal, setDekujemeModal] = useState(false);
+  const handleDocumentDownload = async (doc) => {
+    try {
+      await dokumentyApi.download(doc.id, doc.nazev || doc.filename);
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Dokument se nepodařilo stáhnout');
+    }
+  };
   const [dekujemeForm, setDekujemeForm] = useState({ to: '', text: '' });
 
   // Klientský výběr (proposals)
@@ -117,6 +188,12 @@ export default function ZakazkaDetail() {
   const deleteProposalMut = useMutation({
     mutationFn: (pid) => proposalsApi.delete(pid),
     onSuccess: () => { refetchProposals(); toast.success('Odstraněno'); },
+  });
+
+  const unlockProposalMut = useMutation({
+    mutationFn: (pid) => proposalsApi.unlock(pid),
+    onSuccess: () => { refetchProposals(); toast.success('Výběr odemknut – klient může znovu upravovat'); },
+    onError: (err) => toast.error(err?.response?.data?.error || 'Chyba při odemykání'),
   });
 
   const sendProposalMut = useMutation({
@@ -333,7 +410,7 @@ export default function ZakazkaDetail() {
 
       {/* Tabs */}
       <div className="bg-white border-b border-stone-100 px-6 flex gap-0">
-        {[['detaily','Detaily'],['planovaní','Plánování'],['historie','Historie'],['personal','Personál'],['dokumenty','Dokumenty'],['vybermenu','Výběr menu']].map(([k,l]) => (
+        {[['detaily','Detaily'],['planovaní','Plánování'],['historie','Historie'],['personal','Personál'],['dokumenty','Dokumenty'],['vybermenu','Výběr menu'],['emaily','E-maily']].map(([k,l]) => (
           <button key={k} onClick={() => { setTab(k); if (k === 'planovaní') initPlan(); }}
             className={`px-4 py-3 text-sm border-b-2 transition-colors ${
               tab === k ? 'border-stone-900 text-stone-900 font-medium' : 'border-transparent text-stone-500 hover:text-stone-700'
@@ -725,10 +802,12 @@ export default function ZakazkaDetail() {
                     <div className="text-sm font-medium text-stone-800">{d.nazev}</div>
                     <div className="text-xs text-stone-400">{d.kategorie} · {Math.round(d.velikost/1024)} KB · {formatDatum(d.created_at)}</div>
                   </div>
-                  <a href={`/uploads/${d.filename}`} target="_blank" rel="noreferrer"
+                  <button
+                    onClick={() => handleDocumentDownload(d)}
+                    type="button"
                     className="text-xs text-stone-500 hover:text-stone-800 transition-colors">
                     Stáhnout
-                  </a>
+                  </button>
                 </div>
               ))}
               {!z.dokumenty?.length && <div className="py-8 text-center text-sm text-stone-400">Žádné dokumenty</div>}
@@ -799,6 +878,13 @@ export default function ZakazkaDetail() {
                         className={`p-1.5 rounded-lg transition-colors ${editingProposalId === pr.id ? 'bg-purple-100 text-purple-700' : 'text-stone-400 hover:text-purple-600 hover:bg-purple-50'}`} title="Upravit menu">
                         <Pencil size={13}/>
                       </button>
+                      {pr.status === 'signed' && (
+                        <button
+                          onClick={() => { if (confirm('Odemknout výběr? Klient bude moci znovu upravovat svůj výběr.')) unlockProposalMut.mutate(pr.id); }}
+                          className="p-1.5 text-stone-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title="Odemknout výběr">
+                          <LockOpen size={13}/>
+                        </button>
+                      )}
                       {pr.status !== 'signed' && (
                         <button
                           onClick={() => { if (confirm('Odstranit tento výběr menu?')) deleteProposalMut.mutate(pr.id); }}
@@ -862,6 +948,11 @@ export default function ZakazkaDetail() {
               );
             })}
           </div>
+        )}
+
+        {/* ── Tab: E-maily ───────────────────────────────────────── */}
+        {tab === 'emaily' && (
+          <EmailyTab zakazkaId={id} />
         )}
       </div>
 

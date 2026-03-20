@@ -4,7 +4,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { klientiApi } from '../api';
 import { PageHeader, KlientTypBadge, StavBadge, formatCena, formatDatum, Spinner, EmptyState, Btn, Modal, ExportMenu } from '../components/ui';
 import toast from 'react-hot-toast';
-import { Plus, Pencil, Search, Users, X, RefreshCw, Archive, Star } from 'lucide-react';
+import { Plus, Pencil, Search, Users, X, RefreshCw, Archive, Star, Upload } from 'lucide-react';
+import { ImportModal } from '../components/ImportModal';
 
 async function fetchAres(ico) {
   const res = await fetch(`https://ares.gov.cz/ekonomicke-subjekty-v-be/rest/ekonomicke-subjekty/${ico.trim()}`);
@@ -36,6 +37,7 @@ export default function KlientiPage() {
   const [typ, setTyp] = useState('');
   const [selected, setSelected] = useState(null);
   const [modal, setModal]       = useState(false);
+  const [importModal, setImportModal] = useState(false);
   const [form, setForm]         = useState(emptyForm);
 
   // Otevři modal pokud přišel navigate('/klienti', { state: { openNew: true } })
@@ -151,6 +153,9 @@ export default function KlientiPage() {
               ]}
               filename="klienti"
             />
+            <Btn size="sm" onClick={() => setImportModal(true)}>
+              <Upload size={12}/> Import CSV
+            </Btn>
             <Btn variant="primary" size="sm" onClick={() => setModal(true)}>
               <Plus size={12}/> Nový klient
             </Btn>
@@ -356,6 +361,14 @@ export default function KlientiPage() {
           <button onClick={exportSelCsv} className="text-xs bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg transition-colors">Export CSV</button>
           <button onClick={() => setSel(new Set())} className="text-xs text-stone-400 hover:text-white ml-1 transition-colors">✕</button>
         </div>
+      )}
+
+      {importModal && (
+        <ImportModal
+          type="klienti"
+          onClose={() => setImportModal(false)}
+          onDone={() => { setImportModal(false); qc.invalidateQueries({ queryKey: ['klienti'] }); }}
+        />
       )}
 
       {/* Modal nový klient */}

@@ -124,4 +124,44 @@ router.delete('/:id', auth, requireRole('admin'), async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// ── POST /import ──────────────────────────────────────────────────────────────
+router.post('/import', auth, async (req, res, next) => {
+  try {
+    const rows = req.body?.rows;
+    if (!Array.isArray(rows) || rows.length === 0)
+      return res.status(400).json({ error: 'Chybí data (rows)' });
+
+    let imported = 0, skipped = 0;
+    const errors = [];
+
+    // Načti existující emaily jednou pro rychlé vyhledání duplicit
+    const { rows: existing } = await query(`SELECT LOWER(email) AS email FROM klienti WHERE email IS NOT NULL`);
+    const knownEmails = new Set(existing.map(r => r.email));
+
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i];
+      if (!r.jmeno && !r.firma) { errors.push({ row: i + 1, reason: 'Chybí jméno i firma' }); continue; }
+
+      const email = (r.email || '').trim().toLowerCase() || null;
+      if (email && knownEmails.has(email)) { skipped++; continue; }
+
+      try {
+        await query(
+          `INSERT INTO klienti (jmeno,prijmeni,firma,typ,email,telefon,adresa,ico,dic,zdroj,poznamka)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'import',$10)`,
+          [r.jmeno || null, r.prijmeni || null, r.firma || null,
+           r.typ || 'soukromy', email, r.telefon || null, r.adresa || null,
+           r.ico || null, r.dic || null, r.poznamka || null]
+        );
+        if (email) knownEmails.add(email);
+        imported++;
+      } catch (e) {
+        errors.push({ row: i + 1, reason: e.message });
+      }
+    }
+
+    res.json({ imported, skipped, errors });
+  } catch (err) { next(err); }
+});
+
 module.exports = router;

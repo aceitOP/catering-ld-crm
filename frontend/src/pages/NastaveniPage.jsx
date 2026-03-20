@@ -5,7 +5,90 @@ import { nastaveniApi, uzivateleApi, authApi, googleCalendarApi, emailApi } from
 import { useAuth as useAuthNS } from '../context/AuthContext';
 import { PageHeader, Btn, Modal, Spinner } from '../components/ui';
 import toast from 'react-hot-toast';
-import { Plus, Settings, Trash2 as Trash2NS } from 'lucide-react';
+import { Plus, Settings, Trash2 as Trash2NS, Pencil } from 'lucide-react';
+
+function EmailSablonyManager() {
+  const qc = useQueryClient();
+  const { data } = useQuery({ queryKey: ['email-sablony'], queryFn: emailApi.listSablony });
+  const sablony  = data?.data?.data || data?.data || [];
+  const [editing, setEditing] = useState(null); // null | {} | { id, ... }
+  const [form, setForm] = useState({ nazev: '', predmet_prefix: '', telo: '', poradi: 0 });
+
+  const createMut = useMutation({
+    mutationFn: (d) => emailApi.createSablona(d),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['email-sablony'] }); setEditing(null); toast.success('Šablona přidána'); },
+    onError: () => toast.error('Chyba při ukládání'),
+  });
+  const updateMut = useMutation({
+    mutationFn: ({ id, ...d }) => emailApi.updateSablona(id, d),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['email-sablony'] }); setEditing(null); toast.success('Šablona upravena'); },
+    onError: () => toast.error('Chyba při ukládání'),
+  });
+  const deleteMut = useMutation({
+    mutationFn: (id) => emailApi.deleteSablona(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['email-sablony'] }),
+  });
+
+  const openNew  = () => { setForm({ nazev: '', predmet_prefix: '', telo: '', poradi: 0 }); setEditing({}); };
+  const openEdit = (s) => { setForm({ nazev: s.nazev, predmet_prefix: s.predmet_prefix || '', telo: s.telo, poradi: s.poradi }); setEditing(s); };
+  const save     = () => editing?.id ? updateMut.mutate({ id: editing.id, ...form }) : createMut.mutate(form);
+
+  return (
+    <div className="bg-white rounded-xl border border-stone-200 p-5 space-y-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="text-sm font-semibold text-stone-800">Šablony odpovědí</div>
+          <div className="text-xs text-stone-500">Připravené texty pro rychlé vložení při psaní e-mailu</div>
+        </div>
+        <Btn size="sm" onClick={openNew}><Plus size={12}/> Přidat</Btn>
+      </div>
+
+      {sablony.length === 0 && !editing && (
+        <div className="text-xs text-stone-400 py-3 text-center">Žádné šablony — klikněte Přidat</div>
+      )}
+
+      {sablony.map(s => (
+        <div key={s.id} className="flex items-start justify-between gap-3 py-2 border-t border-stone-100">
+          <div className="flex-1 min-w-0">
+            <div className="text-xs font-semibold text-stone-800">{s.nazev}</div>
+            {s.predmet_prefix && <div className="text-xs text-stone-400">Předmět: {s.predmet_prefix}</div>}
+            <div className="text-xs text-stone-500 truncate mt-0.5">{s.telo?.slice(0, 80)}{s.telo?.length > 80 ? '…' : ''}</div>
+          </div>
+          <div className="flex gap-1 flex-shrink-0">
+            <button onClick={() => openEdit(s)} className="p-1 text-stone-400 hover:text-stone-700 rounded transition-colors"><Pencil size={12}/></button>
+            <button onClick={() => { if (confirm('Smazat šablonu?')) deleteMut.mutate(s.id); }}
+              className="p-1 text-stone-300 hover:text-red-500 rounded transition-colors"><Trash2NS size={12}/></button>
+          </div>
+        </div>
+      ))}
+
+      {editing !== null && (
+        <div className="border-t border-stone-100 pt-3 space-y-2">
+          <div className="text-xs font-semibold text-stone-700">{editing?.id ? 'Upravit šablonu' : 'Nová šablona'}</div>
+          <div className="grid grid-cols-2 gap-2">
+            <div><label className="text-xs text-stone-400 block mb-0.5">Název *</label>
+              <input className="w-full border border-stone-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none"
+                value={form.nazev} onChange={e => setForm(f=>({...f, nazev: e.target.value}))} autoFocus/></div>
+            <div><label className="text-xs text-stone-400 block mb-0.5">Prefix předmětu</label>
+              <input className="w-full border border-stone-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none"
+                placeholder="Potvrzení: / Nabídka:" value={form.predmet_prefix} onChange={e => setForm(f=>({...f, predmet_prefix: e.target.value}))}/></div>
+          </div>
+          <div><label className="text-xs text-stone-400 block mb-0.5">Text šablony</label>
+            <textarea rows={4} className="w-full border border-stone-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none resize-none"
+              placeholder="Vážení, potvrzujeme Váš termín…"
+              value={form.telo} onChange={e => setForm(f=>({...f, telo: e.target.value}))}/></div>
+          <div className="flex gap-2 pt-1">
+            <Btn size="sm" onClick={() => setEditing(null)}>Zrušit</Btn>
+            <Btn size="sm" variant="primary" onClick={save}
+              disabled={!form.nazev || createMut.isPending || updateMut.isPending}>
+              {createMut.isPending || updateMut.isPending ? 'Ukládám…' : 'Uložit šablonu'}
+            </Btn>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function SmtpTestButton() {
   const [result, setResult] = useState(null);
@@ -466,6 +549,9 @@ export function NastaveniPage() {
               </div>
             </div>
           </div>
+
+          {/* Šablony odpovědí */}
+          <EmailSablonyManager />
         )}
 
         {tab === 'integrace' && (
@@ -522,7 +608,7 @@ export function NastaveniPage() {
                 </div>
               </div>
               <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs text-amber-700">
-                <strong>Volitelné zabezpečení:</strong> Nastavte proměnnou prostředí <code className="bg-amber-100 px-1 rounded">TALLY_KEY</code> a stejný klíč zadejte v Tally jako <em>Secret key</em> (hlavička <code className="bg-amber-100 px-1 rounded">x-api-key</code>).
+                <strong>Povinné zabezpečení:</strong> Nastavte proměnnou prostředí <code className="bg-amber-100 px-1 rounded">TALLY_KEY</code> a stejný klíč zadejte v Tally jako <em>Secret key</em> (hlavička <code className="bg-amber-100 px-1 rounded">x-api-key</code>). Bez něj webhook požadavky odmítne.
               </div>
             </div>
           </div>

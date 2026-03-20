@@ -3,12 +3,20 @@ const { query } = require('../db');
 const { auth, requireRole } = require('../middleware/auth');
 
 const router = express.Router();
+const SECRET_KEYS = new Set([
+  'email_imap_pass',
+  'email_smtp_pass',
+]);
 
 router.get('/', auth, async (req, res, next) => {
   try {
     const { rows } = await query('SELECT klic, hodnota, popis FROM nastaveni ORDER BY klic');
     const obj = {};
-    rows.forEach(r => { obj[r.klic] = r.hodnota; });
+    const isAdmin = req.user?.role === 'admin';
+    rows.forEach((r) => {
+      if (SECRET_KEYS.has(r.klic) && !isAdmin) return;
+      obj[r.klic] = r.hodnota;
+    });
     res.json(obj);
   } catch (err) { next(err); }
 });
