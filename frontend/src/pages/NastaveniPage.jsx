@@ -21,7 +21,7 @@ export function NastaveniPage() {
 
   useEffect(() => { if (nastavData?.data) setForm(nastavData.data); }, [nastavData]);
 
-  const saveMut   = useMutation({ mutationFn: nastaveniApi.update, onSuccess: () => toast.success('Nastavení uloženo') });
+  const saveMut   = useMutation({ mutationFn: nastaveniApi.update, onSuccess: () => { qc.invalidateQueries({ queryKey: ['nastaveni'] }); toast.success('Nastavení uloženo'); } });
   const userMut   = useMutation({ mutationFn: uzivateleApi.create, onSuccess: () => { qc.invalidateQueries({ queryKey: ['uzivatele'] }); toast.success('Uživatel přidán'); setUserModal(false); } });
   const toggleMut = useMutation({ mutationFn: ({id,aktivni}) => uzivateleApi.update(id,{aktivni}), onSuccess: () => qc.invalidateQueries({ queryKey: ['uzivatele'] }) });
   const deleteMut = useMutation({
@@ -366,7 +366,7 @@ export function NastaveniPage() {
                   <input
                     className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
                     placeholder="smtp.vasdomena.cz"
-                    defaultValue={nastavData?.data?.email_smtp_host || ''}
+                    value={form.email_smtp_host || ''}
                     onChange={e => setForm(f => ({ ...f, email_smtp_host: e.target.value }))}
                   />
                 </div>
@@ -376,7 +376,7 @@ export function NastaveniPage() {
                     type="number"
                     className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
                     placeholder="587"
-                    defaultValue={nastavData?.data?.email_smtp_port || '587'}
+                    value={form.email_smtp_port || '587'}
                     onChange={e => setForm(f => ({ ...f, email_smtp_port: e.target.value }))}
                   />
                 </div>
@@ -384,7 +384,7 @@ export function NastaveniPage() {
                   <label className="text-xs text-stone-500">Šifrování</label>
                   <select
                     className="border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
-                    defaultValue={nastavData?.data?.email_smtp_secure ?? 'false'}
+                    value={form.email_smtp_secure ?? 'false'}
                     onChange={e => setForm(f => ({ ...f, email_smtp_secure: e.target.value }))}
                   >
                     <option value="false">STARTTLS – port 587 (doporučeno)</option>
@@ -396,7 +396,7 @@ export function NastaveniPage() {
                   <input
                     className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
                     placeholder="info@vasdomena.cz"
-                    defaultValue={nastavData?.data?.email_smtp_user || ''}
+                    value={form.email_smtp_user || ''}
                     onChange={e => setForm(f => ({ ...f, email_smtp_user: e.target.value }))}
                   />
                 </div>
@@ -406,7 +406,7 @@ export function NastaveniPage() {
                     type="password"
                     className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
                     placeholder="••••••••"
-                    defaultValue={nastavData?.data?.email_smtp_pass || ''}
+                    value={form.email_smtp_pass || ''}
                     onChange={e => setForm(f => ({ ...f, email_smtp_pass: e.target.value }))}
                   />
                 </div>
@@ -415,7 +415,7 @@ export function NastaveniPage() {
                   <input
                     className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
                     placeholder="Catering LD <info@vasdomena.cz>"
-                    defaultValue={nastavData?.data?.email_smtp_from || ''}
+                    value={form.email_smtp_from || ''}
                     onChange={e => setForm(f => ({ ...f, email_smtp_from: e.target.value }))}
                   />
                 </div>
