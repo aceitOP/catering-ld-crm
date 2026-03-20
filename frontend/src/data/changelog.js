@@ -1,9 +1,20 @@
 // Changelog – Catering LD CRM
 // Typy změn: 'new' | 'improvement' | 'fix' | 'security'
 
-export const APP_VERSION = '3.3.0';
+export const APP_VERSION = '3.4.0';
 
 export const CHANGELOG = [
+  {
+    version: '3.4.0',
+    date: '2026-03-19',
+    changes: [
+      { type: 'new',         text: 'E-mail modul – čtení příchozí pošty přes IMAP přímo v CRM (3-panelový layout: složky, seznam zpráv, detail)' },
+      { type: 'new',         text: 'E-mail – zobrazení, odpověď (Reply), přeposlání (Forward), smazání, označení hvězdičkou, přesun do složky' },
+      { type: 'new',         text: 'E-mail – vytvořit zakázku z e-mailu jedním kliknutím (automaticky vytvoří klienta a zakázku v stavu Nová poptávka)' },
+      { type: 'new',         text: 'Nastavení → E-mail (IMAP) – konfigurace IMAP připojení (host, port, uživatel, heslo, TLS) přímo v CRM' },
+      { type: 'new',         text: 'E-mail – odesílání přes stávající SMTP nastavení, sandboxed HTML rendering příchozích zpráv' },
+    ],
+  },
   {
     version: '3.3.0',
     date: '2026-03-17',

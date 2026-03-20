@@ -15,9 +15,9 @@
 const router       = require('express').Router();
 const nodemailer   = require('nodemailer');
 const { simpleParser } = require('mailparser');
-const auth         = require('../middleware/auth');
+const { auth }     = require('../middleware/auth');
 const { withImap, getImapConfig } = require('../emailImapService');
-const { query, withTransaction } = require('../db');
+const { withTransaction } = require('../db');
 const { createNotif } = require('../notifHelper');
 
 router.use(auth);
