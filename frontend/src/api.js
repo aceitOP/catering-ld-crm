@@ -27,6 +27,8 @@ api.interceptors.response.use(
 // ── Auth ─────────────────────────────────────────────────────
 export const authApi = {
   login:          (data) => api.post('/auth/login', data),
+  forgotPassword: (data) => api.post('/auth/forgot-password', data),
+  resetPassword:  (data) => api.post('/auth/reset-password', data),
   me:             ()     => api.get('/auth/me'),
   changePassword: (data) => api.post('/auth/change-password', data),
 };
@@ -92,6 +94,8 @@ export const cenikApi = {
   delete:         (id)     => api.delete(`/cenik/${id}`),
   listKategorie:  ()       => api.get('/cenik/kategorie'),
   addKategorie:   (data)   => api.post('/cenik/kategorie', data),
+  updateKategorie:(klic, d) => api.patch(`/cenik/kategorie/${klic}`, d),
+  deleteKategorie:(klic, d) => api.delete(`/cenik/kategorie/${klic}`, { data: d }),
 };
 
 // ── Personál ─────────────────────────────────────────────────
@@ -137,6 +141,7 @@ export const kalendarApi = {
 // ── Reporty ──────────────────────────────────────────────────
 export const reportyApi = {
   get: (params) => api.get('/reporty', { params }),
+  dashboardSummary: () => api.get('/reporty/dashboard-summary'),
 };
 
 // ── Google Calendar ───────────────────────────────────────────
@@ -162,6 +167,13 @@ export const notifikaceApi = {
   readAll:    ()   => api.patch('/notifikace/read-all'),
   delete:     (id) => api.delete(`/notifikace/${id}`),
   deleteRead: ()   => api.delete('/notifikace'),
+};
+
+// ── Error log ────────────────────────────────────────────────
+export const errorLogApi = {
+  list:           (params) => api.get('/error-log', { params }),
+  setResolved:    (id, resolved) => api.patch(`/error-log/${id}/resolve`, { resolved }),
+  deleteResolved: () => api.delete('/error-log/resolved'),
 };
 
 // ── Production / Výrobní list ─────────────────────────────────

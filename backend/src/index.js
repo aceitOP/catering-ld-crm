@@ -13,6 +13,7 @@ const morgan  = require('morgan');
 const path    = require('path');
 const fs      = require('fs');
 const { initDb } = require('./initDb');
+const { logAppError } = require('./errorLog');
 
 const app = express();
 
@@ -53,6 +54,7 @@ app.use('/api/sablony',         require('./routes/sablony'));
 app.use('/api/followup',        require('./routes/followup'));
 app.use('/api/kapacity',        require('./routes/kapacity'));
 app.use('/api/email',           require('./routes/email'));
+app.use('/api/error-log',       require('./routes/errorLog'));
 
 // ── Health check ─────────────────────────────────────────────
 app.get('/api/health', (_req, res) => {
@@ -82,6 +84,9 @@ app.use((_req, res) => {
 app.use((err, _req, res, _next) => {
   console.error(err);
   const status = err.status || 500;
+  if (status >= 500) {
+    logAppError(err, _req);
+  }
   res.status(status).json({
     error: err.message || 'Interní chyba serveru',
   });

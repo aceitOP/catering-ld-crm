@@ -332,4 +332,58 @@ async function sendPotvrzeniPoptavky({ to, jmeno, zakazka, firma }) {
   });
 }
 
-module.exports = { sendNabidka, sendKomando, sendDekujeme, sendPotvrzeniPoptavky };
+// ── 5. RESET HESLA ────────────────────────────────────────────
+/**
+ * @param {object} opts
+ * @param {string} opts.to
+ * @param {string} opts.jmeno
+ * @param {string} opts.resetUrl
+ * @param {object} opts.firma
+ */
+async function sendPasswordReset({ to, jmeno, resetUrl, firma }) {
+  const transporter = createTransporter();
+  const nazevFirmy = firma?.firma_nazev || 'Catering LD';
+
+  const body = `
+    <p style="font-size:15px;line-height:1.8;margin:0 0 20px;">
+      Dobrý den${jmeno ? `, <strong>${esc(jmeno)}</strong>` : ''},<br><br>
+      obdrželi jsme žádost o obnovení hesla do interního CRM systému.
+    </p>
+
+    <p style="font-size:15px;line-height:1.8;margin:0 0 24px;">
+      Pro nastavení nového hesla klikněte na tlačítko níže. Odkaz je platný 60 minut a lze jej použít pouze jednou.
+    </p>
+
+    <div style="margin:0 0 24px;">
+      <a href="${esc(resetUrl)}" style="display:inline-block;background:#ea580c;color:#fff;text-decoration:none;padding:14px 22px;border-radius:10px;font-weight:bold;">
+        Obnovit heslo
+      </a>
+    </div>
+
+    <p style="font-size:14px;line-height:1.7;color:#57534e;margin:0 0 12px;">
+      Pokud tlačítko nefunguje, otevřete tento odkaz ručně:
+    </p>
+    <p style="font-size:13px;line-height:1.7;word-break:break-word;margin:0 0 24px;">
+      <a href="${esc(resetUrl)}" style="color:#ea580c;">${esc(resetUrl)}</a>
+    </p>
+
+    <p style="font-size:14px;line-height:1.7;color:#57534e;margin:0;">
+      Pokud jste o změnu hesla nežádali, můžete tento e-mail bezpečně ignorovat.
+    </p>
+  `;
+
+  await transporter.sendMail({
+    from: `"${nazevFirmy}" <${FROM()}>`,
+    to,
+    subject: `Obnovení hesla – ${nazevFirmy}`,
+    html: wrapHtml(firma, 'Obnovení hesla', body),
+  });
+}
+
+module.exports = {
+  sendNabidka,
+  sendKomando,
+  sendDekujeme,
+  sendPotvrzeniPoptavky,
+  sendPasswordReset,
+};

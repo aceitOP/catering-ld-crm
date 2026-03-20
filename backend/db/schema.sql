@@ -25,6 +25,39 @@ CREATE TABLE uzivatele (
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE password_reset_tokens (
+  id          SERIAL PRIMARY KEY,
+  user_id     INTEGER NOT NULL REFERENCES uzivatele(id) ON DELETE CASCADE,
+  token_hash  VARCHAR(64) NOT NULL UNIQUE,
+  expires_at  TIMESTAMPTZ NOT NULL,
+  used_at     TIMESTAMPTZ,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_password_reset_tokens_user_id ON password_reset_tokens(user_id);
+CREATE INDEX idx_password_reset_tokens_expires_at ON password_reset_tokens(expires_at);
+
+CREATE TABLE error_logs (
+  id            BIGSERIAL PRIMARY KEY,
+  source        VARCHAR(30) NOT NULL DEFAULT 'http',
+  method        VARCHAR(10),
+  path          TEXT,
+  status_code   INTEGER NOT NULL DEFAULT 500,
+  error_message TEXT NOT NULL,
+  stack_trace   TEXT,
+  user_id       INTEGER REFERENCES uzivatele(id) ON DELETE SET NULL,
+  ip_address    VARCHAR(100),
+  user_agent    TEXT,
+  meta          JSONB,
+  resolved      BOOLEAN NOT NULL DEFAULT false,
+  resolved_at   TIMESTAMPTZ,
+  resolved_by   INTEGER REFERENCES uzivatele(id) ON DELETE SET NULL,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_error_logs_created_at ON error_logs(created_at DESC);
+CREATE INDEX idx_error_logs_resolved ON error_logs(resolved, created_at DESC);
+
 -- ============================================================
 -- KLIENTI
 -- ============================================================

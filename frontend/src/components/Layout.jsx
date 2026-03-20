@@ -6,7 +6,7 @@ import {
   LayoutDashboard, ClipboardList, Users, FileText,
   Calendar, UserCheck, FolderOpen, Tag, Settings, LogOut, BarChart2,
   Bell, X, Globe, Info, Trash2, CheckCheck, Inbox, Receipt, Archive,
-  ChevronDown, BookCopy, Mail, Sun, Moon, Clock,
+  ChevronDown, BookCopy, Mail, Sun, Moon, Clock, ShieldAlert,
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { APP_VERSION, CHANGELOG } from '../data/changelog';
@@ -68,6 +68,7 @@ const NAV = [
       { to: '/dokumenty', label: 'Dokumenty', icon: FolderOpen },
       { to: '/cenik',     label: 'Ceníky',    icon: Tag },
       { to: '/reporty',   label: 'Reporty',   icon: BarChart2 },
+      { to: '/error-log', label: 'Error log', icon: ShieldAlert, adminOnly: true },
     ],
   },
   { to: '/nastaveni', label: 'Nastavení', icon: Settings },
@@ -240,7 +241,9 @@ export default function Layout() {
                   </button>
                   {isOpen && (
                     <div className="ml-4 mt-0.5 pl-3 border-l-2 border-stone-100 space-y-0.5">
-                      {item.children.map(({ to, label, icon: CIcon, badge }) => (
+                      {item.children
+                        .filter(({ adminOnly }) => !adminOnly || user?.role === 'admin')
+                        .map(({ to, label, icon: CIcon, badge }) => (
                         <NavLink
                           key={to}
                           to={to}

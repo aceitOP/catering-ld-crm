@@ -29,6 +29,7 @@ import ClientProposalPage from './pages/ClientProposalPage';
 import ArchivPage        from './pages/ArchivPage';
 import SablonyPage       from './pages/SablonyPage';
 import EmailPage         from './pages/EmailPage';
+import ErrorLogPage      from './pages/ErrorLogPage';
 import Layout           from './components/Layout';
 
 const qc = new QueryClient({
@@ -81,6 +82,7 @@ function App() {
               <Route path="archiv"            element={<ArchivPage />} />
               <Route path="sablony"           element={<SablonyPage />} />
               <Route path="email"             element={<EmailPage />} />
+              <Route path="error-log"         element={<ErrorLogPage />} />
             </Route>
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>

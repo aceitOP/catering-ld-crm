@@ -1,7 +1,7 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { zakazkyApi, kalendarApi, notifikaceApi, fakturyApi, klientiApi, followupApi } from '../api';
+import { zakazkyApi, kalendarApi, notifikaceApi, fakturyApi, klientiApi, followupApi, reportyApi } from '../api';
 import { useAuth } from '../context/AuthContext';
 
 // Český 5. pád (vokatív) pro pozdrav
@@ -142,8 +142,6 @@ export default function DashboardPage() {
   const navigate = useNavigate();
   const now      = new Date();
   const today    = now.toISOString().slice(0, 10);
-  const startOfYear = `${now.getFullYear()}-01-01`;
-  const endOfMonth  = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
   const in30days    = new Date(now.getTime() + 30 * 86400000).toISOString().slice(0, 10);
   const nowPct      = ((now.getHours() * 60 + now.getMinutes() - MIN_START) / MIN_RANGE) * 100;
 
@@ -170,9 +168,14 @@ export default function DashboardPage() {
     queryFn:  () => klientiApi.pravidelni(),
     retry: false,
   });
-  const { data: followupData, refetch: refetchFollowup } = useQuery({
+  const { data: followupData } = useQuery({
     queryKey: ['followup-dashboard'],
     queryFn:  () => followupApi.list({ splneno: 'false', limit: 10 }),
+    refetchInterval: 60_000,
+  });
+  const { data: dashboardSummaryData } = useQuery({
+    queryKey: ['dashboard-summary'],
+    queryFn:  () => reportyApi.dashboardSummary(),
     refetchInterval: 60_000,
   });
   const qcDash = useQueryClient();
@@ -190,12 +193,10 @@ export default function DashboardPage() {
   const followupUkoly     = followupData?.data?.data || [];
 
   // ── Stats ──
-  const novePoptavky   = zakazky.filter(z => z.stav === 'nova_poptavka').length;
-  const cekaNaAkci     = zakazky.filter(z => ['nabidka_pripravena','nabidka_odeslana','ceka_na_vyjadreni'].includes(z.stav)).length;
-  const potvrzenoLetos = zakazky.filter(z => z.stav === 'potvrzeno' && (z.datum_akce||'').slice(0,10) >= startOfYear).length;
-  const obratMesic     = zakazky
-    .filter(z => (z.datum_akce||'').slice(0,10) >= today && (z.datum_akce||'').slice(0,10) <= endOfMonth && ['potvrzeno','ve_priprave','realizovano','uzavreno'].includes(z.stav))
-    .reduce((s, z) => s + parseFloat(z.cena_celkem || 0), 0);
+  const novePoptavky   = Number(dashboardSummaryData?.data?.nove_poptavky ?? 0);
+  const cekaNaAkci     = Number(dashboardSummaryData?.data?.ceka_na_akci ?? 0);
+  const potvrzenoLetos = Number(dashboardSummaryData?.data?.potvrzeno_letos ?? 0);
+  const obratMesic     = Number(dashboardSummaryData?.data?.obrat_mesic ?? 0);
 
   // ── Faktury stats ──
   const dnes = new Date();

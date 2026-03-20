@@ -23,6 +23,7 @@ const TYP_OPTIONS = [
   {v:'svatba',l:'Svatba'},{v:'soukroma_akce',l:'Soukromá akce'},{v:'firemni_akce',l:'Firemní akce'},
   {v:'zavoz',l:'Závoz'},{v:'bistro',l:'Bistro'},{v:'pohreb',l:'Pohřeb'},{v:'ostatni',l:'Ostatní'},
 ];
+const MAX_FILE_SIZE_MB = 25;
 
 export default function ZakazkaDetail() {
   const { id } = useParams();
@@ -213,12 +214,17 @@ export default function ZakazkaDetail() {
   const uploadMut = useMutation({
     mutationFn: (formData) => dokumentyApi.upload(formData),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['zakazka', id] }); toast.success('Dokument nahrán'); },
-    onError: () => toast.error('Chyba při nahrávání dokumentu'),
+    onError: (err) => toast.error(err.response?.data?.error || 'Chyba při nahrávání dokumentu'),
   });
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
+    if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
+      toast.error(`Soubor je příliš velký. Maximum je ${MAX_FILE_SIZE_MB} MB.`);
+      e.target.value = '';
+      return;
+    }
     const fd = new FormData();
     fd.append('soubor', file);
     fd.append('zakazka_id', id);
@@ -699,11 +705,16 @@ export default function ZakazkaDetail() {
           <div className="max-w-2xl">
             <div className="bg-white rounded-xl border border-stone-200">
               <div className="px-5 py-3.5 border-b border-stone-100 flex justify-between items-center">
-                <span className="text-sm font-semibold text-stone-700">Přílohy a dokumenty</span>
-                <Btn size="sm" onClick={() => fileInputRef.current?.click()} disabled={uploadMut.isPending}>
-                  <Upload size={12}/> {uploadMut.isPending ? 'Nahrávám…' : 'Nahrát'}
-                </Btn>
-                <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileChange}/>
+                <div>
+                  <span className="text-sm font-semibold text-stone-700">Přílohy a dokumenty</span>
+                  <div className="text-xs text-stone-400 mt-1">Maximální velikost souboru: {MAX_FILE_SIZE_MB} MB</div>
+                </div>
+                <div>
+                  <Btn size="sm" onClick={() => fileInputRef.current?.click()} disabled={uploadMut.isPending}>
+                    <Upload size={12}/> {uploadMut.isPending ? 'Nahrávám…' : 'Nahrát'}
+                  </Btn>
+                  <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileChange}/>
+                </div>
               </div>
               {(z.dokumenty || []).map(d => (
                 <div key={d.id} className="flex items-center gap-3 px-5 py-3 border-b border-stone-50 last:border-0">
