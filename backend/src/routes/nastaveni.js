@@ -1,6 +1,6 @@
 const express = require('express');
 const { query } = require('../db');
-const { auth, requireRole } = require('../middleware/auth');
+const { auth, requireMinRole, userLevel } = require('../middleware/auth');
 
 const router = express.Router();
 const SECRET_KEYS = new Set([
@@ -12,16 +12,16 @@ router.get('/', auth, async (req, res, next) => {
   try {
     const { rows } = await query('SELECT klic, hodnota, popis FROM nastaveni ORDER BY klic');
     const obj = {};
-    const isAdmin = req.user?.role === 'admin';
+    const isAdminPlus = userLevel(req) >= 2; // admin nebo super_admin
     rows.forEach((r) => {
-      if (SECRET_KEYS.has(r.klic) && !isAdmin) return;
+      if (SECRET_KEYS.has(r.klic) && !isAdminPlus) return;
       obj[r.klic] = r.hodnota;
     });
     res.json(obj);
   } catch (err) { next(err); }
 });
 
-router.patch('/', auth, requireRole('admin'), async (req, res, next) => {
+router.patch('/', auth, requireMinRole('admin'), async (req, res, next) => {
   try {
     for (const [klic, hodnota] of Object.entries(req.body)) {
       await query(

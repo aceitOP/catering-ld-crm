@@ -1,6 +1,6 @@
 const router = require('express').Router();
 const { query } = require('../db');
-const { auth, requireRole } = require('../middleware/auth');
+const { auth, requireMinRole } = require('../middleware/auth');
 
 // GET /api/sablony
 router.get('/', auth, async (req, res, next) => {
@@ -20,7 +20,7 @@ router.get('/:id', auth, async (req, res, next) => {
 });
 
 // POST /api/sablony
-router.post('/', auth, requireRole('admin'), async (req, res, next) => {
+router.post('/', auth, requireMinRole('admin'), async (req, res, next) => {
   try {
     const { nazev, popis, typ, cas_zacatek, cas_konec, misto, pocet_hostu, poznamka_klient, poznamka_interni, polozky } = req.body;
     if (!nazev) return res.status(400).json({ error: 'Název šablony je povinný' });
@@ -35,7 +35,7 @@ router.post('/', auth, requireRole('admin'), async (req, res, next) => {
 });
 
 // PATCH /api/sablony/:id
-router.patch('/:id', auth, requireRole('admin'), async (req, res, next) => {
+router.patch('/:id', auth, requireMinRole('admin'), async (req, res, next) => {
   try {
     const allowed = ['nazev','popis','typ','cas_zacatek','cas_konec','misto','pocet_hostu','poznamka_klient','poznamka_interni','polozky'];
     const fields = Object.keys(req.body).filter(k => allowed.includes(k));
@@ -51,7 +51,7 @@ router.patch('/:id', auth, requireRole('admin'), async (req, res, next) => {
 });
 
 // DELETE /api/sablony/:id
-router.delete('/:id', auth, requireRole('admin'), async (req, res, next) => {
+router.delete('/:id', auth, requireMinRole('admin'), async (req, res, next) => {
   try {
     const { rows } = await query('DELETE FROM zakazky_sablony WHERE id = $1 RETURNING id', [req.params.id]);
     if (!rows[0]) return res.status(404).json({ error: 'Šablona nenalezena' });

@@ -1,7 +1,7 @@
 'use strict';
 const express = require('express');
 const { query } = require('../db');
-const { auth, requireRole } = require('../middleware/auth');
+const { auth, requireMinRole } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -69,7 +69,7 @@ router.patch('/:id/obnovit', auth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.delete('/:id', auth, requireRole('admin'), async (req, res, next) => {
+router.delete('/:id', auth, requireMinRole('admin'), async (req, res, next) => {
   try {
     const { rows } = await query('DELETE FROM personal WHERE id = $1 RETURNING id', [req.params.id]);
     if (!rows[0]) return res.status(404).json({ error: 'Osoba nenalezena' });

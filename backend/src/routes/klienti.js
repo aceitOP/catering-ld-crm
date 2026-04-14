@@ -1,7 +1,7 @@
 'use strict';
 const express = require('express');
 const { query } = require('../db');
-const { auth, requireRole } = require('../middleware/auth');
+const { auth, requireMinRole } = require('../middleware/auth');
 const { createNotif } = require('../notifHelper');
 
 const router = express.Router();
@@ -117,7 +117,7 @@ router.patch('/:id/obnovit', auth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.delete('/:id', auth, requireRole('admin'), async (req, res, next) => {
+router.delete('/:id', auth, requireMinRole('admin'), async (req, res, next) => {
   try {
     await query('DELETE FROM klienti WHERE id = $1', [req.params.id]);
     res.json({ message: 'Klient smazán' });

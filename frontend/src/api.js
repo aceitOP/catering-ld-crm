@@ -58,6 +58,7 @@ export const zakazkyApi = {
   removePersonal: (id, pid) => api.delete(`/zakazky/${id}/personal/${pid}`),
   archivovat: (id) => api.patch(`/zakazky/${id}/archivovat`),
   obnovit:    (id) => api.patch(`/zakazky/${id}/obnovit`),
+  getPodklady: (id) => api.get(`/zakazky/${id}/podklady`, { responseType: 'text' }),
 };
 
 // ── Klienti ──────────────────────────────────────────────────

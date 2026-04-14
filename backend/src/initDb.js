@@ -246,7 +246,12 @@ async function initDb() {
         )
       `);
 
-      console.log('✅  Migrace OK (google_event_id, faktury, proposals, archivovano, sablony, planovaní, pravidelny, followup, password reset, error logs, dokumenty_slozky, email_links, email_sablony).');
+      // ── Role migrace ──────────────────────────────────────────────────────────
+      await pool.query(`ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'super_admin'`);
+      await pool.query(`ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'uzivatel'`);
+      await pool.query(`UPDATE uzivatele SET role = 'uzivatel' WHERE role IN ('obchodnik', 'provoz')`);
+
+      console.log('✅  Migrace OK (google_event_id, faktury, proposals, archivovano, sablony, planovaní, pravidelny, followup, password reset, error logs, dokumenty_slozky, email_links, email_sablony, user_roles).');
       return;
     }
 

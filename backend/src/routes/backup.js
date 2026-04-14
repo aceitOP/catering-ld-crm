@@ -1,7 +1,7 @@
 'use strict';
 const express = require('express');
 const { pool } = require('../db');
-const { auth, requireRole } = require('../middleware/auth');
+const { auth, requireMinRole } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -34,7 +34,7 @@ const TABLES = [
 ];
 
 // GET /api/backup – stáhne JSON zálohu celé DB (pouze admin)
-router.get('/', auth, requireRole('admin'), async (req, res, next) => {
+router.get('/', auth, requireMinRole('admin'), async (req, res, next) => {
   try {
     const backup = {
       version: 1,
@@ -61,7 +61,7 @@ router.get('/', auth, requireRole('admin'), async (req, res, next) => {
 });
 
 // GET /api/backup/info – počty řádků v tabulkách (pro přehled)
-router.get('/info', auth, requireRole('admin'), async (req, res, next) => {
+router.get('/info', auth, requireMinRole('admin'), async (req, res, next) => {
   try {
     const counts = {};
     for (const table of TABLES) {

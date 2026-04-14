@@ -134,7 +134,7 @@ export function NastaveniPage() {
   const [tab, setTab] = useState('firma');
   const [form, setForm] = useState({});
   const [userModal, setUserModal] = useState(false);
-  const [userForm, setUserForm] = useState({ jmeno:'', prijmeni:'', email:'', heslo:'', role:'obchodnik', telefon:'' });
+  const [userForm, setUserForm] = useState({ jmeno:'', prijmeni:'', email:'', heslo:'', role:'uzivatel', telefon:'' });
   const [passForm, setPassForm] = useState({ stare_heslo:'', nove_heslo:'', nove_heslo2:'' });
 
   const { data: nastavData } = useQuery({ queryKey:['nastaveni'], queryFn: nastaveniApi.get });
@@ -188,7 +188,12 @@ export function NastaveniPage() {
   };
   const uzivatele = uzivData?.data?.data || [];
   const setU = (k,v) => setUserForm(f=>({...f,[k]:v}));
-  const ROLES = {admin:'Administrátor', obchodnik:'Obchodník / koordinátor', provoz:'Provoz / realizace'};
+  const isSuperAdmin = currentUser?.role === 'super_admin';
+  const ROLES = {
+    ...(isSuperAdmin ? { super_admin: 'Super admin' } : {}),
+    admin:    'Administrátor',
+    uzivatel: 'Uživatel',
+  };
 
   return (
     <div>
@@ -235,7 +240,12 @@ export function NastaveniPage() {
                   <div className="w-8 h-8 rounded-full bg-stone-200 flex items-center justify-center text-xs font-medium text-stone-600">{u.jmeno?.[0]}{u.prijmeni?.[0]}</div>
                   <div className="flex-1">
                     <div className="text-sm font-medium text-stone-800">{u.jmeno} {u.prijmeni}</div>
-                    <div className="text-xs text-stone-400">{u.email} · {ROLES[u.role]||u.role}</div>
+                    <div className="text-xs text-stone-400 flex items-center gap-1.5">
+                      {u.email}
+                      <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold ${u.role==='super_admin'?'bg-purple-100 text-purple-700':u.role==='admin'?'bg-blue-100 text-blue-700':'bg-stone-100 text-stone-500'}`}>
+                        {ROLES[u.role]||u.role}
+                      </span>
+                    </div>
                   </div>
                   <span className={`text-xs px-2 py-0.5 rounded-full ${u.aktivni?'bg-green-50 text-green-700':'bg-stone-100 text-stone-400'}`}>{u.aktivni?'Aktivní':'Neaktivní'}</span>
                   <button onClick={() => toggleMut.mutate({id:u.id,aktivni:!u.aktivni})} className="text-xs text-stone-400 hover:text-stone-700">{u.aktivni?'Deaktivovat':'Aktivovat'}</button>

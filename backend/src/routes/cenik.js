@@ -1,7 +1,7 @@
 'use strict';
 const express = require('express');
 const { query, withTransaction } = require('../db');
-const { auth, requireRole } = require('../middleware/auth');
+const { auth, requireMinRole } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -26,7 +26,7 @@ router.get('/kategorie', auth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.post('/kategorie', auth, requireRole('admin'), async (req, res, next) => {
+router.post('/kategorie', auth, requireMinRole('admin'), async (req, res, next) => {
   try {
     const { klic } = req.body;
     if (!isValidCategoryKey(klic)) {
@@ -43,7 +43,7 @@ router.post('/kategorie', auth, requireRole('admin'), async (req, res, next) => 
   } catch (err) { next(err); }
 });
 
-router.patch('/kategorie/:klic', auth, requireRole('admin'), async (req, res, next) => {
+router.patch('/kategorie/:klic', auth, requireMinRole('admin'), async (req, res, next) => {
   try {
     const puvodniKlic = req.params.klic;
     const novyKlic = req.body?.klic;
@@ -68,7 +68,7 @@ router.patch('/kategorie/:klic', auth, requireRole('admin'), async (req, res, ne
   } catch (err) { next(err); }
 });
 
-router.delete('/kategorie/:klic', auth, requireRole('admin'), async (req, res, next) => {
+router.delete('/kategorie/:klic', auth, requireMinRole('admin'), async (req, res, next) => {
   try {
     const mazana = req.params.klic;
     const nahraditZa = req.body?.nahraditZa;
@@ -125,7 +125,7 @@ router.get('/', auth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.post('/', auth, requireRole('admin', 'obchodnik'), async (req, res, next) => {
+router.post('/', auth, requireMinRole('uzivatel'), async (req, res, next) => {
   try {
     const { nazev, kategorie, jednotka, cena_nakup, cena_prodej, dph_sazba, poznamka } = req.body;
     const { rows } = await query(
@@ -136,7 +136,7 @@ router.post('/', auth, requireRole('admin', 'obchodnik'), async (req, res, next)
   } catch (err) { next(err); }
 });
 
-router.patch('/:id', auth, requireRole('admin', 'obchodnik'), async (req, res, next) => {
+router.patch('/:id', auth, requireMinRole('uzivatel'), async (req, res, next) => {
   try {
     const allowed = ['nazev','kategorie','jednotka','cena_nakup','cena_prodej','dph_sazba','aktivni','poznamka'];
     const fields = Object.keys(req.body).filter(k => allowed.includes(k));
@@ -148,7 +148,7 @@ router.patch('/:id', auth, requireRole('admin', 'obchodnik'), async (req, res, n
   } catch (err) { next(err); }
 });
 
-router.delete('/:id', auth, requireRole('admin'), async (req, res, next) => {
+router.delete('/:id', auth, requireMinRole('admin'), async (req, res, next) => {
   try {
     await query('UPDATE cenik SET aktivni = false WHERE id = $1', [req.params.id]);
     res.json({ message: 'Položka deaktivována' });

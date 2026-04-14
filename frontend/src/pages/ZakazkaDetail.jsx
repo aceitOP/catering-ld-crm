@@ -541,7 +541,15 @@ export default function ZakazkaDetail() {
                   <Btn size="sm" onClick={() => navigate(`/zakazky/${id}/vyrobni-list`)}>
                     <ChefHat size={12}/> Výrobní list
                   </Btn>
-                  <Btn size="sm" onClick={() => window.open(`/api/zakazky/${id}/podklady`, '_blank')}>
+                  <Btn size="sm" onClick={async () => {
+                    try {
+                      const res = await zakazkyApi.getPodklady(id);
+                      const blob = new Blob([res.data], { type: 'text/html;charset=utf-8' });
+                      const url = URL.createObjectURL(blob);
+                      const win = window.open(url, '_blank');
+                      if (win) win.onload = () => URL.revokeObjectURL(url);
+                    } catch { toast.error('Nepodařilo se načíst podklady'); }
+                  }}>
                     <FileText size={12}/> Podklady k fakturaci
                   </Btn>
                   <button

@@ -1,6 +1,6 @@
 const router = require('express').Router();
 const { query, withTransaction } = require('../db');
-const { auth, requireRole } = require('../middleware/auth');
+const { auth, requireMinRole } = require('../middleware/auth');
 const { sendKomando, sendDekujeme } = require('../emailService');
 const { createNotif } = require('../notifHelper');
 const { upsertEvent, deleteEvent } = require('../googleCalendar');
@@ -606,7 +606,7 @@ router.get('/:id/podklady', auth, async (req, res, next) => {
 });
 
 // DELETE /api/zakazky/:id (pouze admin)
-router.delete('/:id', auth, requireRole('admin'), async (req, res, next) => {
+router.delete('/:id', auth, requireMinRole('admin'), async (req, res, next) => {
   try {
     const { rows } = await query('DELETE FROM zakazky WHERE id = $1 RETURNING id', [req.params.id]);
     if (!rows[0]) return res.status(404).json({ error: 'Zakázka nenalezena' });
