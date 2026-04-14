@@ -197,6 +197,12 @@ export const notifikaceApi = {
   deleteRead: ()   => api.delete('/notifikace'),
 };
 
+// ── Login log ────────────────────────────────────────────────
+export const loginLogApi = {
+  list:    (params) => api.get('/login-log', { params }),
+  deleteOld: (days) => api.delete('/login-log/old', { params: { days } }),
+};
+
 // ── Backup ───────────────────────────────────────────────────
 export const backupApi = {
   info:     () => api.get('/backup/info'),

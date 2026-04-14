@@ -246,6 +246,22 @@ async function initDb() {
         )
       `);
 
+      // ── Login log ─────────────────────────────────────────────────────────────
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS login_log (
+          id            BIGSERIAL PRIMARY KEY,
+          user_id       INTEGER REFERENCES uzivatele(id) ON DELETE SET NULL,
+          email         VARCHAR(255),
+          uspech        BOOLEAN NOT NULL,
+          ip_adresa     VARCHAR(100),
+          user_agent    TEXT,
+          duvod         VARCHAR(100),
+          created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+      `);
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_login_log_created_at ON login_log(created_at DESC)`);
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_login_log_user_id ON login_log(user_id)`);
+
       // ── Role migrace ──────────────────────────────────────────────────────────
       await pool.query(`ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'super_admin'`);
       await pool.query(`ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'uzivatel'`);

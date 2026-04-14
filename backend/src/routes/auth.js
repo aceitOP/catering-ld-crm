@@ -44,26 +44,56 @@ async function loadFirmaSettings() {
   }, {});
 }
 
+// Helper – zaloguje pokus o přihlášení
+async function logLogin({ user_id, email, uspech, ip_adresa, user_agent, duvod }) {
+  try {
+    await query(
+      `INSERT INTO login_log (user_id, email, uspech, ip_adresa, user_agent, duvod)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [user_id || null, email || null, uspech, ip_adresa || null, user_agent || null, duvod || null]
+    );
+  } catch { /* logování nesmí shodit login */ }
+}
+
+function getIp(req) {
+  return (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket?.remoteAddress || null;
+}
+
 // POST /api/auth/login
 router.post('/login', loginLimiter, async (req, res, next) => {
   try {
     const { email, heslo } = req.body;
+    const ip = getIp(req);
+    const ua = req.headers['user-agent'] || null;
+
     if (!email || !heslo) {
       return res.status(400).json({ error: 'E-mail a heslo jsou povinné' });
     }
 
-    const { rows } = await query(
-      'SELECT * FROM uzivatele WHERE email = $1 AND aktivni = true',
-      [email.toLowerCase().trim()]
-    );
+    const emailNorm = email.toLowerCase().trim();
 
-    const uzivatel = rows[0];
-    if (!uzivatel || !(await bcrypt.compare(heslo, uzivatel.heslo_hash))) {
+    // Nejdřív zkus najít uživatele (i neaktivního – abychom zalogovali správný důvod)
+    const { rows: allRows } = await query(
+      'SELECT * FROM uzivatele WHERE email = $1',
+      [emailNorm]
+    );
+    const uzivatel = allRows[0];
+
+    // Neaktivní účet
+    if (uzivatel && !uzivatel.aktivni) {
+      await logLogin({ user_id: uzivatel.id, email: emailNorm, uspech: false, ip_adresa: ip, user_agent: ua, duvod: 'neaktivni_ucet' });
       return res.status(401).json({ error: 'Neplatné přihlašovací údaje' });
     }
 
-    // Aktualizace posledního přihlášení
+    // Špatné heslo nebo uživatel neexistuje
+    if (!uzivatel || !(await bcrypt.compare(heslo, uzivatel.heslo_hash))) {
+      await logLogin({ user_id: uzivatel?.id || null, email: emailNorm, uspech: false, ip_adresa: ip, user_agent: ua, duvod: 'nespravne_heslo' });
+      return res.status(401).json({ error: 'Neplatné přihlašovací údaje' });
+    }
+
+    // Úspěšné přihlášení
     await query('UPDATE uzivatele SET posledni_prihlaseni = NOW() WHERE id = $1', [uzivatel.id]);
+    await logLogin({ user_id: uzivatel.id, email: emailNorm, uspech: true, ip_adresa: ip, user_agent: ua, duvod: null });
 
     const token = jwt.sign(
       { id: uzivatel.id, email: uzivatel.email, role: uzivatel.role,

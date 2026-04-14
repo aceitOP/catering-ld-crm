@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { nastaveniApi, uzivateleApi, authApi, googleCalendarApi, emailApi, backupApi } from '../api';
+import { nastaveniApi, uzivateleApi, authApi, googleCalendarApi, emailApi, backupApi, loginLogApi } from '../api';
 import { useAuth as useAuthNS } from '../context/AuthContext';
 import { PageHeader, Btn, Modal, Spinner } from '../components/ui';
 import toast from 'react-hot-toast';
-import { Plus, Settings, Trash2 as Trash2NS, Pencil, Download, Database } from 'lucide-react';
+import { Plus, Settings, Trash2 as Trash2NS, Pencil, Download, Database, ShieldCheck, ShieldAlert } from 'lucide-react';
 
 function EmailSablonyManager() {
   const qc = useQueryClient();
@@ -156,7 +156,7 @@ export function NastaveniPage() {
     onError: (e) => toast.error(e?.response?.data?.error || 'Chyba při změně hesla'),
   });
 
-  const TABS = [['firma','Profil firmy'],['uziv','Uživatelé'],['heslo','Změna hesla'],['podpis','E-mail podpis'],['notif','Notifikace'],['integrace','Integrace'],['google','Google Kalendář'],['kapacity','Kapacity'],['email','E-mail (IMAP)'],['zaloha','Zálohy']];
+  const TABS = [['firma','Profil firmy'],['uziv','Uživatelé'],['heslo','Změna hesla'],['podpis','E-mail podpis'],['notif','Notifikace'],['integrace','Integrace'],['google','Google Kalendář'],['kapacity','Kapacity'],['email','E-mail (IMAP)'],['zaloha','Zálohy'],['login-log','Přihlášení']];
   const [podpisPreview, setPodpisPreview] = useState(false);
 
   const { data: gcStatus, refetch: refetchGcStatus } = useQuery({
@@ -165,6 +165,19 @@ export function NastaveniPage() {
     enabled: tab === 'google',
     retry: false,
     select: (r) => r.data,
+  });
+
+  const [loginFilter, setLoginFilter] = useState({ only_failures: false });
+  const { data: loginLogData, isLoading: loginLogLoading, refetch: refetchLog } = useQuery({
+    queryKey: ['login-log', loginFilter],
+    queryFn: () => loginLogApi.list(loginFilter),
+    enabled: tab === 'login-log',
+    select: (r) => r.data,
+  });
+  const deleteOldMut = useMutation({
+    mutationFn: (days) => loginLogApi.deleteOld(days),
+    onSuccess: (r) => { toast.success(r.data.message); refetchLog(); },
+    onError: () => toast.error('Chyba při mazání'),
   });
 
   const { data: backupInfo, isLoading: backupInfoLoading } = useQuery({
@@ -640,6 +653,103 @@ export function NastaveniPage() {
               <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs text-amber-700">
                 <strong>Povinné zabezpečení:</strong> Nastavte proměnnou prostředí <code className="bg-amber-100 px-1 rounded">TALLY_KEY</code> a stejný klíč zadejte v Tally jako <em>Secret key</em> (hlavička <code className="bg-amber-100 px-1 rounded">x-api-key</code>). Bez něj webhook požadavky odmítne.
               </div>
+            </div>
+          </div>
+        )}
+
+        {tab === 'login-log' && (
+          <div className="space-y-4">
+            {/* Statistiky */}
+            {loginLogData?.stats && (
+              <div className="grid grid-cols-4 gap-3">
+                {[
+                  ['Celkem záznamů', loginLogData.stats.total, 'text-stone-700'],
+                  ['Úspěšných', loginLogData.stats.uspesnych, 'text-green-700'],
+                  ['Neúspěšných', loginLogData.stats.neuspesnych, 'text-red-600'],
+                  ['Selhání za 24 h', loginLogData.stats.neuspesnych_24h, loginLogData.stats.neuspesnych_24h > 5 ? 'text-red-600 font-bold' : 'text-stone-700'],
+                ].map(([label, val, cls]) => (
+                  <div key={label} className="bg-white rounded-xl border border-stone-200 p-4 text-center">
+                    <div className="text-xs text-stone-400 mb-1">{label}</div>
+                    <div className={`text-2xl font-bold ${cls}`}>{val ?? '—'}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Filtry + akce */}
+            <div className="bg-white rounded-xl border border-stone-200 p-4 flex items-center gap-4 flex-wrap">
+              <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                <input type="checkbox" className="rounded" checked={loginFilter.only_failures}
+                  onChange={e => setLoginFilter(f => ({ ...f, only_failures: e.target.checked }))}/>
+                Jen neúspěšná přihlášení
+              </label>
+              <div className="flex-1"/>
+              {isSuperAdmin && (
+                <Btn size="sm" variant="ghost"
+                  onClick={() => window.confirm('Smazat záznamy starší než 90 dní?') && deleteOldMut.mutate(90)}
+                  disabled={deleteOldMut.isPending}>
+                  <Trash2NS size={12}/> Smazat starší 90 dní
+                </Btn>
+              )}
+              <Btn size="sm" onClick={() => refetchLog()}>Obnovit</Btn>
+            </div>
+
+            {/* Tabulka */}
+            <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
+              {loginLogLoading ? (
+                <div className="p-8 text-center text-sm text-stone-400">Načítám…</div>
+              ) : !loginLogData?.data?.length ? (
+                <div className="p-8 text-center text-sm text-stone-400">Žádné záznamy</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-stone-50 border-b border-stone-100">
+                      <tr>
+                        <th className="text-left px-4 py-2.5 text-xs font-medium text-stone-500">Datum a čas</th>
+                        <th className="text-left px-4 py-2.5 text-xs font-medium text-stone-500">Uživatel / E-mail</th>
+                        <th className="text-left px-4 py-2.5 text-xs font-medium text-stone-500">Výsledek</th>
+                        <th className="text-left px-4 py-2.5 text-xs font-medium text-stone-500">IP adresa</th>
+                        <th className="text-left px-4 py-2.5 text-xs font-medium text-stone-500">Prohlížeč</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-stone-50">
+                      {loginLogData.data.map(r => (
+                        <tr key={r.id} className={r.uspech ? '' : 'bg-red-50/40'}>
+                          <td className="px-4 py-2.5 text-xs text-stone-500 whitespace-nowrap">
+                            {new Date(r.created_at).toLocaleString('cs-CZ')}
+                          </td>
+                          <td className="px-4 py-2.5">
+                            {r.jmeno ? (
+                              <div>
+                                <div className="text-sm font-medium text-stone-800">{r.jmeno} {r.prijmeni}</div>
+                                <div className="text-xs text-stone-400">{r.email}</div>
+                              </div>
+                            ) : (
+                              <div className="text-sm text-stone-500">{r.email || '—'}</div>
+                            )}
+                          </td>
+                          <td className="px-4 py-2.5">
+                            {r.uspech ? (
+                              <span className="inline-flex items-center gap-1 text-xs text-green-700 bg-green-50 px-2 py-0.5 rounded-full font-medium">
+                                <ShieldCheck size={11}/> Úspěch
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-xs text-red-600 bg-red-50 px-2 py-0.5 rounded-full font-medium">
+                                <ShieldAlert size={11}/>
+                                {r.duvod === 'neaktivni_ucet' ? 'Neaktivní účet' : 'Chybné heslo'}
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-2.5 text-xs text-stone-500 font-mono">{r.ip_adresa || '—'}</td>
+                          <td className="px-4 py-2.5 text-xs text-stone-400 max-w-[220px] truncate" title={r.user_agent}>
+                            {r.user_agent ? r.user_agent.replace(/\(.*?\)/g, '').trim().split(' ')[0] : '—'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </div>
         )}

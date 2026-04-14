@@ -53,6 +53,7 @@ app.use('/api/kapacity',        require('./routes/kapacity'));
 app.use('/api/email',           require('./routes/email'));
 app.use('/api/error-log',       require('./routes/errorLog'));
 app.use('/api/backup',          require('./routes/backup'));
+app.use('/api/login-log',       require('./routes/loginLog'));
 
 // ── Health check ─────────────────────────────────────────────
 app.get('/api/health', (_req, res) => {
