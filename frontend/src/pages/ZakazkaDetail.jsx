@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { zakazkyApi, personalApi, dokumentyApi, proposalsApi, nabidkyApi, uzivateleApi, followupApi, emailApi } from '../api';
 import { StavBadge, TypBadge, formatCena, formatDatum, Spinner, Btn, Modal } from '../components/ui';
 import toast from 'react-hot-toast';
-import { ArrowLeft, ChevronRight, Send, Heart, Printer, Pencil, Upload, UserPlus, Trash2, Search, Receipt, ChefHat, Link, Plus, ExternalLink, Copy, CheckSquare, Square, X as XIcon, ListChecks, Check, LockOpen } from 'lucide-react';
+import { ArrowLeft, ChevronRight, Send, Heart, Printer, Pencil, Upload, UserPlus, Trash2, Search, Receipt, ChefHat, Link, Plus, ExternalLink, Copy, CheckSquare, Square, X as XIcon, ListChecks, Check, LockOpen, FileText } from 'lucide-react';
 import { printKomandoPdf } from '../utils/print';
 
 const WORKFLOW = [
@@ -540,6 +540,9 @@ export default function ZakazkaDetail() {
                   </Btn>
                   <Btn size="sm" onClick={() => navigate(`/zakazky/${id}/vyrobni-list`)}>
                     <ChefHat size={12}/> Výrobní list
+                  </Btn>
+                  <Btn size="sm" onClick={() => window.open(`/api/zakazky/${id}/podklady`, '_blank')}>
+                    <FileText size={12}/> Podklady k fakturaci
                   </Btn>
                   <button
                     onClick={() => window.confirm('Archivovat zakázku?') && archivMut.mutate()}

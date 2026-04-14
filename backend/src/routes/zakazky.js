@@ -325,6 +325,286 @@ router.patch('/:id/obnovit', auth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// GET /api/zakazky/:id/podklady – HTML dokument k tisku / uložení jako PDF
+router.get('/:id/podklady', auth, async (req, res, next) => {
+  try {
+    const { rows } = await query(`
+      SELECT z.*,
+        k.jmeno  AS klient_jmeno, k.prijmeni AS klient_prijmeni, k.firma AS klient_firma,
+        k.email  AS klient_email, k.telefon AS klient_telefon, k.adresa AS klient_adresa,
+        u.jmeno  AS obch_jmeno,   u.prijmeni AS obch_prijmeni,  u.telefon AS obch_telefon
+      FROM zakazky z
+      LEFT JOIN klienti k  ON k.id = z.klient_id
+      LEFT JOIN uzivatele u ON u.id = z.obchodnik_id
+      WHERE z.id = $1`, [req.params.id]);
+    if (!rows[0]) return res.status(404).json({ error: 'Zakázka nenalezena' });
+    const z = rows[0];
+
+    // Personál
+    const { rows: personal } = await query(`
+      SELECT zp.role_na_akci, zp.cas_prichod, zp.cas_odchod, zp.poznamka,
+             p.jmeno, p.prijmeni, p.role, p.telefon
+      FROM zakazky_personal zp
+      JOIN personal p ON p.id = zp.personal_id
+      WHERE zp.zakazka_id = $1
+      ORDER BY p.role`, [req.params.id]);
+
+    // Kalkulace – nejnovější verze s položkami
+    const { rows: kalc } = await query(
+      `SELECT * FROM kalkulace WHERE zakazka_id = $1 ORDER BY verze DESC LIMIT 1`,
+      [req.params.id]);
+    let kalcPolozky = [];
+    if (kalc[0]) {
+      const { rows: pol } = await query(
+        `SELECT * FROM kalkulace_polozky WHERE kalkulace_id = $1 ORDER BY kategorie, poradi`,
+        [kalc[0].id]);
+      kalcPolozky = pol;
+    }
+    const kalkulace = kalc[0] || null;
+
+    // Firma (nastavení)
+    const { rows: nastaveni } = await query('SELECT klic, hodnota FROM nastaveni');
+    const firma = {};
+    nastaveni.forEach(r => { firma[r.klic] = r.hodnota; });
+
+    // Pomocné formátovací funkce (server-side)
+    const fDate = (d) => d ? new Date(d).toLocaleDateString('cs-CZ', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';
+    const fTime = (t) => t ? t.slice(0, 5) : '—';
+    const fMoney = (n) => n != null ? Number(n).toLocaleString('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 }) : '—';
+    const typMap = { svatba: 'Svatba', soukroma_akce: 'Soukromá akce', firemni_akce: 'Firemní akce', zavoz: 'Závoz', bistro: 'Bistro' };
+    const stavMap = { nova_poptavka: 'Nová poptávka', rozpracovano: 'Rozpracováno', nabidka_pripravena: 'Nabídka připravena', nabidka_odeslana: 'Nabídka odeslána', ceka_na_vyjadreni: 'Čeká na vyjádření', potvrzeno: 'Potvrzeno', ve_priprave: 'Ve přípravě', realizovano: 'Realizováno', uzavreno: 'Uzavřeno', stornovano: 'Stornováno' };
+    const rolMap = { koordinator: 'Koordinátor', cisnik: 'Číšník', kuchar: 'Kuchař', ridic: 'Řidič', barman: 'Barman', pomocna_sila: 'Pomocná síla' };
+    const katMap = { jidlo: 'Jídlo', napoje: 'Nápoje', personal: 'Personál', doprava: 'Doprava', vybaveni: 'Vybavení', pronajem: 'Pronájem', externi: 'Externí' };
+
+    const klientNazev = z.klient_firma || [z.klient_jmeno, z.klient_prijmeni].filter(Boolean).join(' ') || '—';
+    const obchodnikNazev = [z.obch_jmeno, z.obch_prijmeni].filter(Boolean).join(' ') || '—';
+
+    // Skupiny položek kalkulace
+    const skupiny = {};
+    for (const p of kalcPolozky) {
+      if (!skupiny[p.kategorie]) skupiny[p.kategorie] = [];
+      skupiny[p.kategorie].push(p);
+    }
+    const polozkyRows = Object.entries(skupiny).map(([kat, items]) => {
+      const katHeader = `<tr style="background:#f5f5f0"><td colspan="5" style="padding:6px 8px;font-size:11px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.5px">${katMap[kat] || kat}</td></tr>`;
+      const itemRows = items.map(p => {
+        const radek = (p.mnozstvi * p.cena_prodej);
+        return `<tr>
+          <td style="padding:5px 8px;font-size:12px">${p.nazev}</td>
+          <td style="padding:5px 8px;font-size:12px;text-align:right">${Number(p.mnozstvi).toLocaleString('cs-CZ')}</td>
+          <td style="padding:5px 8px;font-size:12px">${p.jednotka}</td>
+          <td style="padding:5px 8px;font-size:12px;text-align:right">${fMoney(p.cena_prodej)}</td>
+          <td style="padding:5px 8px;font-size:12px;text-align:right;font-weight:600">${fMoney(radek)}</td>
+        </tr>`;
+      }).join('');
+      return katHeader + itemRows;
+    }).join('');
+
+    const personalRows = personal.map(p => `
+      <tr>
+        <td style="padding:5px 8px;font-size:12px">${p.jmeno} ${p.prijmeni}</td>
+        <td style="padding:5px 8px;font-size:12px">${rolMap[p.role] || p.role}${p.role_na_akci ? ` – ${p.role_na_akci}` : ''}</td>
+        <td style="padding:5px 8px;font-size:12px;text-align:center">${fTime(p.cas_prichod)} – ${fTime(p.cas_odchod)}</td>
+        <td style="padding:5px 8px;font-size:12px">${p.telefon || '—'}</td>
+        <td style="padding:5px 8px;font-size:12px;color:#666">${p.poznamka || ''}</td>
+      </tr>`).join('');
+
+    const totalProdej = kalcPolozky.reduce((s, p) => s + p.mnozstvi * p.cena_prodej, 0);
+    const totalNakup  = kalcPolozky.reduce((s, p) => s + p.mnozstvi * p.cena_nakup, 0);
+    const marze = totalProdej > 0 ? ((totalProdej - totalNakup) / totalProdej * 100).toFixed(1) : '—';
+
+    const html = `<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<title>Podklady k fakturaci – ${z.cislo}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 13px; color: #222; background: #fff; }
+  @page { margin: 18mm 15mm; }
+  @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } .no-print { display: none; } }
+  .page { max-width: 800px; margin: 0 auto; padding: 24px; }
+  .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #222; padding-bottom: 14px; margin-bottom: 20px; }
+  .firma-name { font-size: 18px; font-weight: 800; letter-spacing: -0.3px; }
+  .firma-sub { font-size: 11px; color: #666; margin-top: 2px; }
+  .doc-title { text-align: right; }
+  .doc-title h1 { font-size: 16px; font-weight: 700; }
+  .doc-title .cislo { font-size: 11px; color: #666; margin-top: 2px; }
+  .doc-title .datum { font-size: 11px; color: #999; }
+  .section { margin-bottom: 22px; }
+  .section-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; color: #888; border-bottom: 1px solid #e0e0e0; padding-bottom: 5px; margin-bottom: 10px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .info-block { background: #f9f9f7; border-radius: 6px; padding: 12px 14px; }
+  .info-block .label { font-size: 10px; color: #999; text-transform: uppercase; letter-spacing: .4px; margin-bottom: 4px; }
+  .info-block .value { font-size: 13px; font-weight: 600; }
+  .info-block .sub { font-size: 11px; color: #666; margin-top: 2px; }
+  .highlight { background: #f0f0eb; }
+  table { width: 100%; border-collapse: collapse; }
+  th { background: #222; color: #fff; padding: 7px 8px; font-size: 11px; text-align: left; font-weight: 600; }
+  th.right { text-align: right; }
+  tr:nth-child(even) td { background: #fafafa; }
+  .total-row td { font-weight: 700; border-top: 2px solid #222; background: #f5f5f0 !important; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 700; background: #222; color: #fff; }
+  .poznamka-box { background: #fffbeb; border: 1px solid #f0e0a0; border-radius: 6px; padding: 10px 14px; font-size: 12px; color: #555; margin-top: 6px; }
+  .footer { margin-top: 30px; border-top: 1px solid #e0e0e0; padding-top: 12px; font-size: 10px; color: #aaa; display: flex; justify-content: space-between; }
+  .print-btn { position: fixed; top: 16px; right: 16px; background: #222; color: #fff; border: none; padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; z-index: 100; }
+</style>
+</head>
+<body>
+<button class="print-btn no-print" onclick="window.print()">Tisk / Uložit PDF</button>
+<div class="page">
+
+  <!-- Hlavička -->
+  <div class="header">
+    <div>
+      <div class="firma-name">${firma.firma_nazev || 'Catering LD'}</div>
+      <div class="firma-sub">${firma.firma_adresa || ''}</div>
+      <div class="firma-sub">IČO: ${firma.firma_ico || '—'}${firma.firma_dic ? ' | DIČ: ' + firma.firma_dic : ''}</div>
+    </div>
+    <div class="doc-title">
+      <h1>Podklady k fakturaci</h1>
+      <div class="cislo">${z.cislo}</div>
+      <div class="datum">Vygenerováno: ${fDate(new Date())}</div>
+    </div>
+  </div>
+
+  <!-- Základní informace -->
+  <div class="section">
+    <div class="section-title">Zakázka</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:10px">
+      <div class="info-block highlight">
+        <div class="label">Název akce</div>
+        <div class="value" style="font-size:14px">${z.nazev}</div>
+        <div class="sub">${typMap[z.typ] || z.typ} &nbsp;·&nbsp; <span class="badge">${stavMap[z.stav] || z.stav}</span></div>
+      </div>
+      <div class="info-block">
+        <div class="label">Datum akce</div>
+        <div class="value">${fDate(z.datum_akce)}</div>
+        <div class="sub">${fTime(z.cas_zacatek)} – ${fTime(z.cas_konec)}</div>
+      </div>
+      <div class="info-block">
+        <div class="label">Místo konání</div>
+        <div class="value" style="font-size:12px">${z.misto || '—'}</div>
+      </div>
+      <div class="info-block">
+        <div class="label">Počet hostů</div>
+        <div class="value" style="font-size:20px">${z.pocet_hostu || '—'}</div>
+        <div class="sub">osob</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Klient + Obchodník -->
+  <div class="section">
+    <div class="grid2">
+      <div>
+        <div class="section-title">Klient</div>
+        <div class="info-block">
+          <div class="value">${klientNazev}</div>
+          ${z.klient_email ? `<div class="sub">${z.klient_email}</div>` : ''}
+          ${z.klient_telefon ? `<div class="sub">${z.klient_telefon}</div>` : ''}
+          ${z.klient_adresa ? `<div class="sub">${z.klient_adresa}</div>` : ''}
+        </div>
+      </div>
+      <div>
+        <div class="section-title">Koordinátor / Obchodník</div>
+        <div class="info-block">
+          <div class="value">${obchodnikNazev}</div>
+          ${z.obch_telefon ? `<div class="sub">${z.obch_telefon}</div>` : ''}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  ${kalcPolozky.length > 0 ? `
+  <!-- Kalkulace -->
+  <div class="section">
+    <div class="section-title">Kalkulace${kalkulace ? ` – ${kalkulace.nazev || 'Verze ' + kalkulace.verze}` : ''}</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Položka</th>
+          <th class="right" style="width:70px">Množství</th>
+          <th style="width:50px">Jedn.</th>
+          <th class="right" style="width:90px">Cena/jedn.</th>
+          <th class="right" style="width:100px">Celkem</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${polozkyRows}
+        <tr class="total-row">
+          <td colspan="3" style="padding:7px 8px;font-size:12px">CELKEM BEZ DPH</td>
+          <td style="padding:7px 8px;font-size:12px;text-align:right;color:#666">Marže: ${marze}%</td>
+          <td style="padding:7px 8px;font-size:13px;text-align:right">${fMoney(totalProdej)}</td>
+        </tr>
+      </tbody>
+    </table>
+    ${z.rozpocet_klienta ? `<div style="text-align:right;font-size:11px;color:#888;margin-top:6px">Rozpočet klienta: ${fMoney(z.rozpocet_klienta)}</div>` : ''}
+  </div>` : '<div class="section"><div class="section-title">Kalkulace</div><p style="color:#aaa;font-size:12px">Ke zakázce není přiřazena žádná kalkulace.</p></div>'}
+
+  ${personal.length > 0 ? `
+  <!-- Personál -->
+  <div class="section">
+    <div class="section-title">Personál na akci</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Jméno</th>
+          <th>Role</th>
+          <th style="width:120px;text-align:center">Příchod – Odchod</th>
+          <th style="width:120px">Telefon</th>
+          <th>Poznámka</th>
+        </tr>
+      </thead>
+      <tbody>${personalRows}</tbody>
+    </table>
+  </div>` : ''}
+
+  ${z.poznamka_klient || z.poznamka_interni ? `
+  <!-- Poznámky -->
+  <div class="section">
+    <div class="grid2">
+      ${z.poznamka_klient ? `<div><div class="section-title">Poznámka klienta</div><div class="poznamka-box">${z.poznamka_klient}</div></div>` : '<div></div>'}
+      ${z.poznamka_interni ? `<div><div class="section-title">Interní poznámka</div><div class="poznamka-box" style="background:#f0f4ff;border-color:#c0d0f0">${z.poznamka_interni}</div></div>` : ''}
+    </div>
+  </div>` : ''}
+
+  <!-- Finanční souhrn -->
+  <div class="section">
+    <div class="section-title">Finanční souhrn</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
+      <div class="info-block highlight">
+        <div class="label">Cena celkem</div>
+        <div class="value" style="font-size:15px">${fMoney(z.cena_celkem || totalProdej || null)}</div>
+      </div>
+      <div class="info-block">
+        <div class="label">Náklady</div>
+        <div class="value" style="font-size:15px">${fMoney(z.cena_naklady || totalNakup || null)}</div>
+      </div>
+      <div class="info-block">
+        <div class="label">Záloha</div>
+        <div class="value" style="font-size:15px">${fMoney(z.zaloha)}</div>
+      </div>
+      <div class="info-block">
+        <div class="label">Doplatek</div>
+        <div class="value" style="font-size:15px">${fMoney(z.doplatek)}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <span>${firma.firma_nazev || 'Catering LD'} &nbsp;·&nbsp; ${firma.firma_email || ''} &nbsp;·&nbsp; ${firma.firma_telefon || ''}</span>
+    <span>Dokument vygenerován ${new Date().toLocaleString('cs-CZ')} &nbsp;·&nbsp; ${z.cislo}</span>
+  </div>
+</div>
+</body>
+</html>`;
+
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(html);
+  } catch (err) { next(err); }
+});
+
 // DELETE /api/zakazky/:id (pouze admin)
 router.delete('/:id', auth, requireRole('admin'), async (req, res, next) => {
   try {
