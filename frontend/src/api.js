@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { safeGetItem, safeRemoveItem } from './utils/storage';
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || '/api',
@@ -19,7 +20,7 @@ function downloadBlob(data, fallbackName, contentType) {
 
 // Přidej JWT token ke každému requestu
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
+  const token = safeGetItem('token');
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
@@ -29,7 +30,7 @@ api.interceptors.response.use(
   (res) => res,
   (err) => {
     if (err.response?.status === 401) {
-      localStorage.removeItem('token');
+      safeRemoveItem('token');
       window.location.href = '/login';
     }
     return Promise.reject(err);

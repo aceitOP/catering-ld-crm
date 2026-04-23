@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { authApi, nastaveniApi } from '../api';
 import { isModuleEnabled } from '../data/moduleConfig';
+import { safeGetItem, safeRemoveItem, safeSetItem } from '../utils/storage';
 
 const AuthContext = createContext(null);
 const DEFAULT_BRANDING = {
@@ -34,11 +35,11 @@ export function AuthProvider({ children }) {
   }, [branding.app_title]);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    const token = safeGetItem('token');
     Promise.all([
       refreshBranding().catch(() => setBranding(DEFAULT_BRANDING)),
       token ? refreshUser().catch(() => {
-        localStorage.removeItem('token');
+        safeRemoveItem('token');
         setUser(null);
       }) : Promise.resolve(null),
     ]).finally(() => setLoading(false));
@@ -46,13 +47,13 @@ export function AuthProvider({ children }) {
 
   const login = async (email, heslo) => {
     const response = await authApi.login({ email, heslo });
-    localStorage.setItem('token', response.data.token);
+    safeSetItem('token', response.data.token);
     setUser(response.data.uzivatel);
     return response.data.uzivatel;
   };
 
   const logout = () => {
-    localStorage.removeItem('token');
+    safeRemoveItem('token');
     setUser(null);
   };
 

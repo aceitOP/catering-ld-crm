@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
+import { safeGetItem, safeSetItem } from '../utils/storage';
 
 /**
  * Automatický dark mode:
@@ -26,12 +27,12 @@ const ThemeContext = createContext(null);
 
 export function ThemeProvider({ children }) {
   const [mode, setModeState] = useState(
-    () => localStorage.getItem('theme') || 'auto'
+    () => safeGetItem('theme', 'auto') || 'auto'
   );
 
   function setMode(newMode) {
     setModeState(newMode);
-    localStorage.setItem('theme', newMode);
+    safeSetItem('theme', newMode);
     applyTheme(newMode);
   }
 
