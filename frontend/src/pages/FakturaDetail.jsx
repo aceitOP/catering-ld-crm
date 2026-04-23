@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import { fakturyApi, cenikApi, klientiApi } from '../api';
+import { useAuth } from '../context/AuthContext';
 import { Btn, Spinner, Modal } from '../components/ui';
 import toast from 'react-hot-toast';
 import { ArrowLeft, Trash2, Pencil, Printer, Plus, X as XIcon, CheckCircle2, Ban } from 'lucide-react';
@@ -22,6 +23,7 @@ function FakturaStavBadge({ stav }) {
 export function FakturaDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { hasModule } = useAuth();
   const qc = useQueryClient();
   const [editMode, setEditMode] = useState(false);
   const [editForm, setEditForm] = useState({});
@@ -36,12 +38,14 @@ export function FakturaDetail() {
   });
   const f = data?.data;
 
+  const cenikEnabled = hasModule('cenik');
+
   const { data: cenikData } = useQuery({
     queryKey: ['cenik'],
     queryFn: () => cenikApi.list({ limit: 200 }),
-    enabled: editMode,
+    enabled: editMode && cenikEnabled,
   });
-  const cenikItems = cenikData?.data?.data || [];
+  const cenikItems = cenikEnabled ? (cenikData?.data?.data || []) : [];
   const filteredCenik = cenikFilter
     ? cenikItems.filter(c => c.nazev.toLowerCase().includes(cenikFilter.toLowerCase()))
     : [];
@@ -248,6 +252,7 @@ export function FakturaDetail() {
               </div>
             </div>
             <div className="border border-stone-200 rounded-lg overflow-hidden">
+              {cenikEnabled && (
               <div className="px-3 py-2 bg-stone-50 border-b border-stone-100">
                 <input className="w-full border border-stone-200 rounded px-2 py-1 text-xs focus:outline-none bg-white"
                   placeholder="Hledat v ceníku…" value={cenikFilter} onChange={e => setCenikFilter(e.target.value)}/>
@@ -263,6 +268,7 @@ export function FakturaDetail() {
                   </div>
                 )}
               </div>
+              )}
               <table className="w-full">
                 <thead><tr className="bg-stone-50 border-b border-stone-100">
                   {['Název','Mn.','Jedn.','Cena/jedn.','DPH %','Celkem',''].map(h =>

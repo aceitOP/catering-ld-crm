@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const { query, withTransaction } = require('../db');
 const { auth, requireMinRole } = require('../middleware/auth');
+const { requireAppModule } = require('../moduleAccess');
 const { sendKomando, sendDekujeme } = require('../emailService');
 const { createNotif } = require('../notifHelper');
 const { upsertEvent, deleteEvent } = require('../googleCalendar');
@@ -236,7 +237,7 @@ router.patch('/:id/stav', auth, async (req, res, next) => {
 });
 
 // POST /api/zakazky/:id/komando – odešle komando email přiřazenému personálu
-router.post('/:id/komando', auth, async (req, res, next) => {
+router.post('/:id/komando', auth, requireAppModule('email'), async (req, res, next) => {
   try {
     const { poznamka } = req.body;
 
@@ -269,7 +270,7 @@ router.post('/:id/komando', auth, async (req, res, next) => {
 });
 
 // POST /api/zakazky/:id/dekujeme – odešle děkovací email klientovi
-router.post('/:id/dekujeme', auth, async (req, res, next) => {
+router.post('/:id/dekujeme', auth, requireAppModule('email'), async (req, res, next) => {
   try {
     const { to, text } = req.body;
 

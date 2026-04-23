@@ -31,7 +31,7 @@ const nodemailer   = require('nodemailer');
 const { simpleParser } = require('mailparser');
 const fs           = require('fs');
 const path         = require('path');
-const { auth }     = require('../middleware/auth');
+const { auth, requireMinRole } = require('../middleware/auth');
 const { withImap, getImapConfig } = require('../emailImapService');
 const { withTransaction, query } = require('../db');
 const uploadDir    = process.env.UPLOAD_DIR || './uploads';
@@ -397,7 +397,7 @@ async function getSmtpConfig() {
 }
 
 // ── POST /smtp-test ───────────────────────────────────────────────────────────
-router.post('/smtp-test', async (req, res) => {
+router.post('/smtp-test', requireMinRole('super_admin'), async (req, res) => {
   const smtpCfg = await getSmtpConfig().catch(err => ({ _err: err.message }));
   if (smtpCfg._err) return res.status(500).json({ ok: false, error: smtpCfg._err });
   if (!smtpCfg.host || !smtpCfg.user) {

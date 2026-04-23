@@ -6,11 +6,14 @@ import {
   LayoutDashboard, ClipboardList, Users, FileText,
   Calendar, UserCheck, FolderOpen, Tag, Settings, LogOut, BarChart2,
   Bell, X, Globe, Info, Trash2, CheckCheck, Inbox, Receipt, Archive,
-  ChevronDown, BookCopy, Mail, Sun, Moon, Clock, ShieldAlert,
+  ChevronDown, BookCopy, Mail, Sun, Moon, Clock, ShieldAlert, Bug,
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { APP_VERSION, CHANGELOG } from '../data/changelog';
-import { notifikaceApi, zakazkyApi } from '../api';
+import { isModuleEnabled } from '../data/moduleConfig';
+import { errorLogApi, notifikaceApi, zakazkyApi } from '../api';
+import { Btn, Modal } from './ui';
+import toast from 'react-hot-toast';
 
 // ── Changelog type badges ────────────────────────────────────
 const TYPE_STYLE = {
@@ -48,34 +51,37 @@ const NAV = [
       { to: '/poptavky', label: 'Poptávky',  icon: Inbox,         badge: 'poptavky' },
       { to: '/nabidky',  label: 'Nabídky',   icon: FileText },
       { to: '/zakazky',  label: 'Zakázky',   icon: ClipboardList },
-      { to: '/faktury',  label: 'Fakturace', icon: Receipt },
-      { to: '/kalendar', label: 'Kalendář',  icon: Calendar },
-      { to: '/sablony',  label: 'Šablony',   icon: BookCopy },
+      { to: '/faktury',  label: 'Fakturace', icon: Receipt, moduleKey: 'faktury' },
+      { to: '/kalendar', label: 'Kalendář',  icon: Calendar, moduleKey: 'kalendar' },
+      { to: '/sablony',  label: 'Šablony',   icon: BookCopy, moduleKey: 'sablony' },
     ],
   },
-  { to: '/email', label: 'E-mail', icon: Mail },
+  { to: '/email', label: 'E-mail', icon: Mail, moduleKey: 'email' },
   {
     label: 'Správa', icon: Users,
     children: [
       { to: '/klienti',  label: 'Klienti',   icon: Users },
-      { to: '/personal', label: 'Personál',  icon: UserCheck },
-      { to: '/archiv',   label: 'Archiv',    icon: Archive },
+      { to: '/personal', label: 'Personál',  icon: UserCheck, moduleKey: 'personal' },
+      { to: '/archiv',   label: 'Archiv',    icon: Archive, moduleKey: 'archiv' },
     ],
   },
   {
     label: 'Data', icon: BarChart2,
     children: [
-      { to: '/dokumenty', label: 'Dokumenty', icon: FolderOpen },
-      { to: '/cenik',     label: 'Ceníky',    icon: Tag },
-      { to: '/reporty',   label: 'Reporty',   icon: BarChart2 },
-      { to: '/error-log', label: 'Error log', icon: ShieldAlert, adminOnly: true },
+      { to: '/dokumenty', label: 'Dokumenty', icon: FolderOpen, moduleKey: 'dokumenty' },
+      { to: '/cenik',     label: 'Ceníky',    icon: Tag, moduleKey: 'cenik' },
+      { to: '/reporty',   label: 'Reporty',   icon: BarChart2, moduleKey: 'reporty' },
+      { to: '/error-log', label: 'Error log', icon: ShieldAlert, superAdminOnly: true, moduleKey: 'error_log' },
     ],
   },
   { to: '/nastaveni', label: 'Nastavení', icon: Settings },
 ];
 
 // ── Brand logo ───────────────────────────────────────────────
-function BrandLogo({ size = 28 }) {
+function BrandLogo({ size = 28, logoUrl = '' }) {
+  if (logoUrl) {
+    return <img src={logoUrl} alt="Logo aplikace" className="w-full h-full object-contain" />;
+  }
   return (
     <svg width={size} height={size} viewBox="0 0 175.96 175.94" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path fill="white" d="M49.83,8.82V125.99c.44,.02,.78,.05,1.12,.05,12.99,0,25.98,.2,38.97-.07,12.15-.25,23.11-4.29,32.82-11.61,5.61-4.23,10.28-9.32,14.01-15.27,.18-.3,.35-.6,.62-1.05h-59.33V.5c24.18-2.5,45.06,4.33,61.29,22.77,16.24,18.44,20.38,40.03,14.74,63.81h21.86c.91,33.63-21.01,75.19-67.41,86.34C59.78,185.12,14.29,154.81,2.86,110.06-8.8,64.41,16.84,23.86,49.83,8.82Zm-10.82,19.79C14.77,47.84,1.9,85.4,18.07,120.31c16.24,35.09,55.71,52.96,93.32,41.04,18.72-5.94,33.07-17.62,43.12-34.48,5.3-8.89,8.53-18.52,9.9-28.89h-1.12c-4.13,0-8.26,.03-12.39-.02-.84,0-1.22,.29-1.59,1.02-5.64,11.27-13.75,20.34-24.35,27.14-11.46,7.36-24.04,10.86-37.64,10.84-15.67-.03-31.34,0-47.02-.01-.41,0-.81-.03-1.28-.05V28.6Zm49.84,58.43c.32,.02,.53,.05,.74,.05,17.36,0,34.73,0,52.09,.02,.74,0,.93-.34,1.12-.93,3.13-9.85,3.69-19.85,1.44-29.93-3.66-16.39-12.89-28.82-27.19-37.48-7.25-4.39-15.19-6.79-23.61-7.64-1.52-.15-3.05-.18-4.59-.27V87.03Z"/>
@@ -113,17 +119,25 @@ function ThemeToggle() {
 }
 
 export default function Layout() {
-  const { user, logout } = useAuth();
+  const { user, branding, logout } = useAuth();
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [changelogOpen, setChangelogOpen] = useState(false);
   const [notifOpen, setNotifOpen]         = useState(false);
+  const [bugModalOpen, setBugModalOpen]   = useState(false);
+  const [bugForm, setBugForm]             = useState({ message: '', description: '' });
 
   const location = useLocation();
+  const isVisibleItem = (item) => (!item.moduleKey || isModuleEnabled(user?.modules, item.moduleKey))
+    && (!item.adminOnly || user?.role === 'admin' || user?.role === 'super_admin')
+    && (!item.superAdminOnly || user?.role === 'super_admin');
+  const visibleNav = NAV
+    .map((item) => item.children ? { ...item, children: item.children.filter(isVisibleItem) } : item)
+    .filter((item) => (item.children ? item.children.length > 0 : isVisibleItem(item)));
   const [openSections, setOpenSections] = useState(() => {
     // Auto-open sections that contain the current route
     const open = new Set();
-    NAV.forEach(item => {
+    visibleNav.forEach(item => {
       if (item.children?.some(c => location.pathname.startsWith(c.to))) {
         open.add(item.label);
       }
@@ -138,12 +152,12 @@ export default function Layout() {
 
   // Auto-open section when navigating to a child route
   useEffect(() => {
-    NAV.forEach(item => {
+    visibleNav.forEach(item => {
       if (item.children?.some(c => location.pathname.startsWith(c.to))) {
         setOpenSections(s => { const n = new Set(s); n.add(item.label); return n; });
       }
     });
-  }, [location.pathname]);
+  }, [location.pathname, user?.modules, user?.role]);
 
   const handleLogout = () => { logout(); navigate('/login'); };
 
@@ -170,10 +184,33 @@ export default function Layout() {
   const readAllMut   = useMutation({ mutationFn: notifikaceApi.readAll,    onSuccess: () => qc.invalidateQueries({ queryKey: ['notifikace'] }) });
   const deleteMut    = useMutation({ mutationFn: notifikaceApi.delete,     onSuccess: () => qc.invalidateQueries({ queryKey: ['notifikace'] }) });
   const deleteReadMut= useMutation({ mutationFn: notifikaceApi.deleteRead, onSuccess: () => qc.invalidateQueries({ queryKey: ['notifikace'] }) });
+  const reportBugMut = useMutation({
+    mutationFn: (payload) => errorLogApi.report(payload),
+    onSuccess: () => {
+      toast.success('Hlaseni chyby bylo odeslano');
+      setBugModalOpen(false);
+      setBugForm({ message: '', description: '' });
+    },
+    onError: (err) => toast.error(err.response?.data?.error || 'Hlaseni chyby se nepodarilo odeslat'),
+  });
 
   const handleNotifClick = (n) => {
     if (!n.procitana) readMut.mutate(n.id);
     if (n.odkaz) { navigate(n.odkaz); setNotifOpen(false); }
+  };
+
+  const submitBugReport = () => {
+    reportBugMut.mutate({
+      message: bugForm.message,
+      description: bugForm.description,
+      current_path: `${location.pathname}${location.search}${location.hash}`,
+      page_title: document.title,
+      app_version: APP_VERSION,
+      viewport: typeof window !== 'undefined'
+        ? { width: window.innerWidth, height: window.innerHeight }
+        : null,
+      created_at_client: new Date().toISOString(),
+    });
   };
 
   return (
@@ -183,17 +220,17 @@ export default function Layout() {
 
         {/* Logo */}
         <div className="px-6 py-5 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-800 flex items-center justify-center shadow-md shadow-brand-500/20">
-              <BrandLogo size={22} />
+          <NavLink to="/dashboard" className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-800 flex items-center justify-center shadow-md shadow-brand-500/20 overflow-hidden">
+              <BrandLogo size={22} logoUrl={branding?.app_logo_data_url} />
             </div>
-            <div>
-              <div className="text-stone-900 font-bold text-[15px] tracking-tight leading-tight">
-                Catering <span className="text-brand-600">LD</span>
+            <div className="min-w-0">
+              <div className="text-stone-900 font-bold text-[15px] tracking-tight leading-tight truncate">
+                {branding?.app_title || 'Catering CRM'}
               </div>
               <div className="text-stone-400 text-xs mt-0.5 font-medium">CRM systém</div>
             </div>
-          </div>
+          </NavLink>
 
           {/* Notification bell */}
           <button
@@ -215,7 +252,7 @@ export default function Layout() {
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto py-4 px-3">
-          {NAV.map((item) => {
+          {visibleNav.map((item) => {
             if (item.children) {
               const Icon = item.icon;
               const isOpen = openSections.has(item.label);
@@ -241,9 +278,7 @@ export default function Layout() {
                   </button>
                   {isOpen && (
                     <div className="ml-4 mt-0.5 pl-3 border-l-2 border-stone-100 space-y-0.5">
-                      {item.children
-                        .filter(({ adminOnly }) => !adminOnly || user?.role === 'admin')
-                        .map(({ to, label, icon: CIcon, badge }) => (
+                      {item.children.map(({ to, label, icon: CIcon, badge }) => (
                         <NavLink
                           key={to}
                           to={to}
@@ -315,10 +350,48 @@ export default function Layout() {
               <span className="text-stone-400 text-xs font-medium group-hover:text-brand-600 transition-colors">v{APP_VERSION}</span>
               <span className="text-stone-300 text-xs group-hover:text-stone-500 transition-colors">· Co je nového?</span>
             </button>
+            <button
+              onClick={() => setBugModalOpen(true)}
+              className="px-2 py-2 flex items-center gap-1 rounded-xl hover:bg-surface transition-colors text-stone-400 hover:text-accent"
+              title="Nahlasit chybu"
+            >
+              <Bug size={15} />
+            </button>
             <ThemeToggle />
           </div>
         </div>
       </aside>
+
+      <Modal
+        open={bugModalOpen}
+        onClose={() => setBugModalOpen(false)}
+        title="Nahlasit chybu"
+        footer={(
+          <>
+            <Btn onClick={() => setBugModalOpen(false)}>Zrusit</Btn>
+            <Btn variant="primary" onClick={submitBugReport} disabled={reportBugMut.isPending || bugForm.message.trim().length < 5}>
+              {reportBugMut.isPending ? 'Odesilam...' : 'Odeslat hlaseni'}
+            </Btn>
+          </>
+        )}
+      >
+        <div className="space-y-4">
+          <div className="rounded-2xl bg-stone-50 border border-stone-200 px-4 py-3 text-xs text-stone-500">
+            Odesleme hlaseni spolu s aktualni URL stranky a verzi aplikace.
+          </div>
+          <div>
+            <label className="block text-xs text-stone-500 font-semibold mb-1.5">Strucny popis chyby *</label>
+            <input className="w-full border border-stone-200 rounded-xl px-4 py-3 text-sm focus:outline-none" placeholder="Napriklad: Pri ulozeni zakazky se nic nestane" value={bugForm.message} onChange={(e) => setBugForm((f) => ({ ...f, message: e.target.value }))} autoFocus />
+          </div>
+          <div>
+            <label className="block text-xs text-stone-500 font-semibold mb-1.5">Co se stalo / jak chybu vyvolat</label>
+            <textarea rows={5} className="w-full border border-stone-200 rounded-xl px-4 py-3 text-sm focus:outline-none resize-none" placeholder="Popis kroku, co jsi cekal(a) a co aplikace udelala misto toho." value={bugForm.description} onChange={(e) => setBugForm((f) => ({ ...f, description: e.target.value }))} />
+          </div>
+          <div className="text-xs text-stone-400">
+            Stranka: {location.pathname}{location.search}{location.hash}
+          </div>
+        </div>
+      </Modal>
 
       {/* ── Notification panel ── */}
       {notifOpen && (

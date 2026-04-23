@@ -2,9 +2,21 @@
 const { pool } = require('./db');
 const fs = require('fs');
 const path = require('path');
+const { DEFAULT_SETTINGS } = require('./settingsDefaults');
 
 async function initDb() {
   try {
+    const ensureDefaultSettings = async () => {
+      for (const [klic, hodnota, popis] of DEFAULT_SETTINGS) {
+        await pool.query(
+          `INSERT INTO nastaveni (klic, hodnota, popis)
+           VALUES ($1, $2, $3)
+           ON CONFLICT (klic) DO NOTHING`,
+          [klic, hodnota, popis]
+        );
+      }
+    };
+
     // Zkontroluj jestli tabulky už existují
     const { rows } = await pool.query(`
       SELECT COUNT(*) as cnt FROM information_schema.tables
@@ -266,6 +278,7 @@ async function initDb() {
       await pool.query(`ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'super_admin'`);
       await pool.query(`ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'uzivatel'`);
       await pool.query(`UPDATE uzivatele SET role = 'uzivatel' WHERE role IN ('obchodnik', 'provoz')`);
+      await ensureDefaultSettings();
 
       console.log('✅  Migrace OK (google_event_id, faktury, proposals, archivovano, sablony, planovaní, pravidelny, followup, password reset, error logs, dokumenty_slozky, email_links, email_sablony, user_roles).');
       return;
@@ -275,6 +288,7 @@ async function initDb() {
 
     const schema = fs.readFileSync(path.join(__dirname, '../db/schema.sql'), 'utf8');
     await pool.query(schema);
+    await ensureDefaultSettings();
     console.log('✅  Schema vytvořeno.');
 
     const seed = fs.readFileSync(path.join(__dirname, '../db/seed.sql'), 'utf8');

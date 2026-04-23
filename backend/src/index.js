@@ -13,7 +13,9 @@ const morgan  = require('morgan');
 const path    = require('path');
 const fs      = require('fs');
 const { initDb } = require('./initDb');
+const { startBackupScheduler } = require('./backupScheduler');
 const { logAppError } = require('./errorLog');
+const { requireAppModule } = require('./moduleAccess');
 
 const app = express();
 
@@ -32,26 +34,26 @@ app.use('/api/klienti',    require('./routes/klienti'));
 app.use('/api/zakazky',    require('./routes/zakazky'));
 app.use('/api/nabidky',    require('./routes/nabidky'));
 app.use('/api/kalkulace',  require('./routes/kalkulace'));
-app.use('/api/personal',   require('./routes/personal'));
-app.use('/api/dokumenty',  require('./routes/dokumenty'));
-app.use('/api/cenik',      require('./routes/cenik'));
+app.use('/api/personal',   requireAppModule('personal'), require('./routes/personal'));
+app.use('/api/dokumenty',  requireAppModule('dokumenty'), require('./routes/dokumenty'));
+app.use('/api/cenik',      requireAppModule('cenik'), require('./routes/cenik'));
 app.use('/api/uzivatele',  require('./routes/uzivatele'));
 app.use('/api/nastaveni',  require('./routes/nastaveni'));
-app.use('/api/kalendar',    require('./routes/kalendar'));
-app.use('/api/reporty',    require('./routes/reporty'));
+app.use('/api/kalendar',   requireAppModule('kalendar'), require('./routes/kalendar'));
+app.use('/api/reporty',    requireAppModule('reporty'), require('./routes/reporty'));
 app.use('/api/notifikace', require('./routes/notifikace'));
 app.use('/api/tally',           require('./routes/tally'));
-app.use('/api/google-calendar', require('./routes/google'));
-app.use('/api/faktury',         require('./routes/faktury'));
+app.use('/api/google-calendar', requireAppModule('kalendar'), require('./routes/google'));
+app.use('/api/faktury',         requireAppModule('faktury'), require('./routes/faktury'));
 app.use('/api/production',      require('./routes/production'));
 app.use('/api/proposals',       require('./routes/proposals'));
 app.use('/api/pub/proposals',   require('./routes/publicProposals'));
-app.use('/api/archiv',          require('./routes/archiv'));
-app.use('/api/sablony',         require('./routes/sablony'));
+app.use('/api/archiv',          requireAppModule('archiv'), require('./routes/archiv'));
+app.use('/api/sablony',         requireAppModule('sablony'), require('./routes/sablony'));
 app.use('/api/followup',        require('./routes/followup'));
-app.use('/api/kapacity',        require('./routes/kapacity'));
-app.use('/api/email',           require('./routes/email'));
-app.use('/api/error-log',       require('./routes/errorLog'));
+app.use('/api/kapacity',        requireAppModule('kalendar'), require('./routes/kapacity'));
+app.use('/api/email',           requireAppModule('email'), require('./routes/email'));
+app.use('/api/error-log',       requireAppModule('error_log'), require('./routes/errorLog'));
 app.use('/api/backup',          require('./routes/backup'));
 app.use('/api/login-log',       require('./routes/loginLog'));
 
@@ -95,6 +97,7 @@ app.use((err, _req, res, _next) => {
 const PORT = process.env.PORT || 4000;
 
 initDb().then(() => {
+  startBackupScheduler();
   app.listen(PORT, () => {
     console.log(`✅  Catering LD API běží na portu ${PORT}`);
     console.log(`   Prostředí: ${process.env.NODE_ENV || 'development'}`);

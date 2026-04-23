@@ -8,8 +8,10 @@
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
     "migrate": "node src/db/migrate.js",
+    "doctor": "node scripts/doctor.js",
     "system-test": "node scripts/system-test.js",
     "security-test": "node scripts/security-test.js",
+    "smoke": "node scripts/system-test.js && node scripts/security-test.js",
     "lint": "eslint src --ext .js"
   },
   "dependencies": {
@@ -23,6 +25,7 @@
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.0",
     "multer": "^2.1.1",
+    "node-cron": "^3.0.3",
     "googleapis": "^144.0.0",
     "imapflow": "^1.0.169",
     "mailparser": "^3.7.1",

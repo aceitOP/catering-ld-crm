@@ -157,8 +157,9 @@ export const uzivateleApi = {
 
 // ── Nastavení ────────────────────────────────────────────────
 export const nastaveniApi = {
-  get:    () => api.get('/nastaveni'),
-  update: (d) => api.patch('/nastaveni', d),
+  get:            () => api.get('/nastaveni'),
+  update:         (d) => api.patch('/nastaveni', d),
+  publicBranding: () => api.get('/nastaveni/public-branding'),
 };
 
 // ── Kalendář ─────────────────────────────────────────────────
@@ -206,16 +207,24 @@ export const loginLogApi = {
 // ── Backup ───────────────────────────────────────────────────
 export const backupApi = {
   info:     () => api.get('/backup/info'),
+  run:      () => api.post('/backup/run'),
+  listFiles:() => api.get('/backup/files'),
   download: async () => {
     const res = await api.get('/backup', { responseType: 'blob' });
     const date = new Date().toISOString().slice(0, 10);
     downloadBlob(res.data, `crm-backup-${date}.json`, 'application/json');
     return res;
   },
+  downloadFile: async (name) => {
+    const res = await api.get(`/backup/files/${encodeURIComponent(name)}`, { responseType: 'blob' });
+    downloadBlob(res.data, name, 'application/json');
+    return res;
+  },
 };
 
 // ── Error log ────────────────────────────────────────────────
 export const errorLogApi = {
+  report:         (data) => api.post('/error-log/report', data),
   list:           (params) => api.get('/error-log', { params }),
   setResolved:    (id, resolved) => api.patch(`/error-log/${id}/resolve`, { resolved }),
   deleteResolved: () => api.delete('/error-log/resolved'),

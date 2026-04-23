@@ -81,4 +81,29 @@ async function logAppError(err, req) {
   }
 }
 
-module.exports = { logAppError };
+async function logUserReport(payload = {}) {
+  try {
+    await query(
+      `INSERT INTO error_logs (
+        source, method, path, status_code, error_message, stack_trace,
+        user_id, ip_address, user_agent, meta
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+      [
+        'user_report',
+        'REPORT',
+        payload.path || null,
+        0,
+        truncate(payload.message || 'Uzivatel nahlasil chybu', 1000),
+        null,
+        payload.userId || null,
+        payload.ipAddress || null,
+        truncate(payload.userAgent, 1000),
+        payload.meta ? JSON.stringify(sanitizeValue(payload.meta)) : null,
+      ]
+    );
+  } catch (logErr) {
+    console.error('[error-log] Nepodarilo se ulozit hlaseni uzivatele:', logErr.message);
+  }
+}
+
+module.exports = { logAppError, logUserReport };

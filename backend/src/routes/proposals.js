@@ -4,6 +4,7 @@ const router  = express.Router();
 const crypto  = require('crypto');
 const { auth } = require('../middleware/auth');
 const { query } = require('../db');
+const { requireAppModule } = require('../moduleAccess');
 
 function generateToken() {
   return crypto.randomBytes(32).toString('hex');
@@ -128,7 +129,7 @@ router.patch('/:id', auth, async (req, res, next) => {
 });
 
 // POST /api/proposals/:id/send  (change status → sent, optionally email link)
-router.post('/:id/send', auth, async (req, res, next) => {
+router.post('/:id/send', auth, requireAppModule('email'), async (req, res, next) => {
   try {
     const { email } = req.body;
     const { rows: [p] } = await query("UPDATE proposals SET status = 'sent', updated_at = NOW() WHERE id = $1 RETURNING *", [req.params.id]);

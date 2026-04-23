@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { zakazkyApi, klientiApi, uzivateleApi, sablonyApi, nabidkyApi } from '../api';
+import { useAuth } from '../context/AuthContext';
 import { PageHeader, Btn } from '../components/ui';
 import toast from 'react-hot-toast';
 import { ArrowLeft, Check } from 'lucide-react';
@@ -20,6 +21,7 @@ const TYP_EMOJI = { svatba:'💒', soukroma_akce:'🥂', firemni_akce:'🏢', za
 
 export default function NovaZakazka() {
   const navigate = useNavigate();
+  const { hasModule } = useAuth();
   const [step, setStep]         = useState(0);
   const [sablonaPolozky, setSablonaPolozky] = useState([]);
   const [form, setForm]   = useState({
@@ -43,8 +45,9 @@ export default function NovaZakazka() {
   const { data: sablonyData } = useQuery({
     queryKey: ['sablony'],
     queryFn: () => sablonyApi.list().then(r => r.data.data),
+    enabled: sablonyEnabled,
   });
-  const sablony = sablonyData || [];
+  const sablony = sablonyEnabled ? (sablonyData || []) : [];
 
   const nabidkaMut = useMutation({
     mutationFn: (data) => nabidkyApi.create(data),
@@ -323,3 +326,4 @@ export default function NovaZakazka() {
     </div>
   );
 }
+  const sablonyEnabled = hasModule('sablony');

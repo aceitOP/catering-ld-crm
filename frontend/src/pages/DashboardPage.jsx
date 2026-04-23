@@ -140,10 +140,14 @@ function Widget({ id, label, span, dragging, dragOver, onDragStart, onDragEnter,
 // ────────────────────────────────────────────────────────────
 export default function DashboardPage() {
   const navigate = useNavigate();
+  const { user, hasModule } = useAuth();
   const now      = new Date();
   const today    = now.toISOString().slice(0, 10);
   const in30days    = new Date(now.getTime() + 30 * 86400000).toISOString().slice(0, 10);
   const nowPct      = ((now.getHours() * 60 + now.getMinutes() - MIN_START) / MIN_RANGE) * 100;
+  const hasKalendarModule = hasModule('kalendar');
+  const hasFakturyModule = hasModule('faktury');
+  const hasReportyModule = hasModule('reporty');
 
   // ── Data ──
   const { data: zakazkyData, isLoading } = useQuery({
@@ -153,6 +157,7 @@ export default function DashboardPage() {
   const { data: kalData } = useQuery({
     queryKey: ['kalendar-dashboard'],
     queryFn:  () => kalendarApi.list({ od: today, doo: in30days }),
+    enabled: hasKalendarModule,
   });
   const { data: notifData } = useQuery({
     queryKey:       ['notifikace'],
@@ -162,6 +167,7 @@ export default function DashboardPage() {
   const { data: fakturyData } = useQuery({
     queryKey: ['faktury-dashboard'],
     queryFn:  () => fakturyApi.list({}),
+    enabled: hasFakturyModule,
   });
   const { data: pravidelniData } = useQuery({
     queryKey: ['pravidelni-klienti'],
@@ -182,6 +188,7 @@ export default function DashboardPage() {
     queryKey: ['dashboard-summary'],
     queryFn:  () => reportyApi.dashboardSummary(),
     refetchInterval: 60_000,
+    enabled: hasReportyModule,
   });
   const qcDash = useQueryClient();
   const followupDoneMut = useMutation({
@@ -198,10 +205,10 @@ export default function DashboardPage() {
   const followupUkoly     = followupData?.data?.data || [];
 
   // ── Stats ──
-  const novePoptavky   = Number(dashboardSummaryData?.data?.nove_poptavky ?? 0);
-  const cekaNaAkci     = Number(dashboardSummaryData?.data?.ceka_na_akci ?? 0);
-  const potvrzenoLetos = Number(dashboardSummaryData?.data?.potvrzeno_letos ?? 0);
-  const obratMesic     = Number(dashboardSummaryData?.data?.obrat_mesic ?? 0);
+  const novePoptavky   = hasReportyModule ? Number(dashboardSummaryData?.data?.nove_poptavky ?? 0) : Number(poptavkyData?.data?.meta?.total ?? 0);
+  const cekaNaAkci     = hasReportyModule ? Number(dashboardSummaryData?.data?.ceka_na_akci ?? 0) : '—';
+  const potvrzenoLetos = hasReportyModule ? Number(dashboardSummaryData?.data?.potvrzeno_letos ?? 0) : '—';
+  const obratMesic     = hasReportyModule ? Number(dashboardSummaryData?.data?.obrat_mesic ?? 0) : null;
 
   // ── Faktury stats ──
   const dnes = new Date();
@@ -232,9 +239,6 @@ export default function DashboardPage() {
 
   // ── Poptávky widget ──
   const novePoptavkyList = poptavkyData?.data?.data || [];
-
-  // ── Auth ──
-  const { user } = useAuth();
 
   // ── DnD state ────────────────────────────────────────────────
   const [widgetOrder,     setWidgetOrder]     = useState(loadOrder);
@@ -270,7 +274,7 @@ export default function DashboardPage() {
   const renderWidget = (id) => {
     switch (id) {
 
-      case 'timeline': return (nearestDate && nearestEvts.length > 0) ? (
+      case 'timeline': return hasKalendarModule && (nearestDate && nearestEvts.length > 0) ? (
         <Widget key={id} {...wrapperProps(id)}>
           <div className="bg-white rounded-2xl shadow-card overflow-hidden overflow-x-auto">
             <div style={{ minWidth: '600px' }}>
@@ -472,7 +476,7 @@ export default function DashboardPage() {
         </Widget>
       );
 
-      case 'faktury': return (
+      case 'faktury': return hasFakturyModule ? (
         <Widget key={id} {...wrapperProps(id)}>
           <div className="bg-white rounded-2xl shadow-card px-6 py-5">
             <div className="flex items-center justify-between mb-4">
@@ -517,7 +521,7 @@ export default function DashboardPage() {
             </div>
           </div>
         </Widget>
-      );
+      ) : null;
 
       case 'poptavky': return (
         <Widget key={id} {...wrapperProps(id)}>
@@ -633,9 +637,9 @@ export default function DashboardPage() {
               {[
                 { icon: Plus,          label: 'Nová zakázka',    path: '/zakazky/nova',  color: 'bg-brand-50 text-brand-600' },
                 { icon: FileText,      label: 'Nová nabídka',    path: '/nabidky/nova',  color: 'bg-blue-50 text-blue-600' },
-                { icon: Receipt,       label: 'Nová faktura',    path: '/faktury/nova',  color: 'bg-violet-50 text-violet-600' },
+                ...(hasFakturyModule ? [{ icon: Receipt, label: 'Nová faktura', path: '/faktury/nova', color: 'bg-violet-50 text-violet-600' }] : []),
                 { icon: Users,         label: 'Nový klient',     path: '/klienti',       color: 'bg-orange-50 text-orange-600', state: { openNew: true } },
-                { icon: Calendar,      label: 'Kalendář',        path: '/kalendar',      color: 'bg-emerald-50 text-emerald-600' },
+                ...(hasKalendarModule ? [{ icon: Calendar, label: 'Kalendář', path: '/kalendar', color: 'bg-emerald-50 text-emerald-600' }] : []),
                 { icon: ClipboardList, label: 'Všechny zakázky', path: '/zakazky',       color: 'bg-stone-50 text-stone-600' },
               ].map(a => (
                 <button key={a.path} onClick={() => navigate(a.path, a.state ? { state: a.state } : undefined)}
@@ -769,7 +773,7 @@ export default function DashboardPage() {
             <StatCard icon={Inbox}         label="Nové poptávky"     value={novePoptavky}            color={novePoptavky > 0 ? 'amber' : 'purple'} />
             <StatCard icon={ClipboardList} label="Čeká na akci"      value={cekaNaAkci}              color={cekaNaAkci > 0 ? 'amber' : 'blue'} />
             <StatCard icon={Users}         label="Potvrzeno letos"   value={potvrzenoLetos}          color="green" />
-            <StatCard icon={DollarSign}    label="Obrat tento měsíc" value={formatCena(obratMesic)}  color="blue" />
+            <StatCard icon={DollarSign}    label="Obrat tento měsíc" value={obratMesic == null ? '—' : formatCena(obratMesic)}  color="blue" />
           </div>
         )}
 

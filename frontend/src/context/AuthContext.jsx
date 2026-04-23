@@ -1,26 +1,54 @@
-import { createContext, useContext, useState, useEffect } from 'react';
-import { authApi } from '../api';
+import { createContext, useContext, useEffect, useState } from 'react';
+import { authApi, nastaveniApi } from '../api';
+import { isModuleEnabled } from '../data/moduleConfig';
 
 const AuthContext = createContext(null);
+const DEFAULT_BRANDING = {
+  app_title: 'Catering CRM',
+  app_logo_data_url: '',
+};
 
 export function AuthProvider({ children }) {
-  const [user, setUser]       = useState(null);
+  const [user, setUser] = useState(null);
+  const [branding, setBranding] = useState(DEFAULT_BRANDING);
   const [loading, setLoading] = useState(true);
+
+  const refreshBranding = async () => {
+    const response = await nastaveniApi.publicBranding();
+    const nextBranding = {
+      app_title: response.data?.app_title || 'Catering CRM',
+      app_logo_data_url: response.data?.app_logo_data_url || '',
+    };
+    setBranding(nextBranding);
+    return nextBranding;
+  };
+
+  const refreshUser = async () => {
+    const response = await authApi.me();
+    setUser(response.data);
+    return response.data;
+  };
+
+  useEffect(() => {
+    document.title = branding.app_title || 'Catering CRM';
+  }, [branding.app_title]);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
-    if (!token) { setLoading(false); return; }
-    authApi.me()
-      .then(r => setUser(r.data))
-      .catch(() => localStorage.removeItem('token'))
-      .finally(() => setLoading(false));
+    Promise.all([
+      refreshBranding().catch(() => setBranding(DEFAULT_BRANDING)),
+      token ? refreshUser().catch(() => {
+        localStorage.removeItem('token');
+        setUser(null);
+      }) : Promise.resolve(null),
+    ]).finally(() => setLoading(false));
   }, []);
 
   const login = async (email, heslo) => {
-    const r = await authApi.login({ email, heslo });
-    localStorage.setItem('token', r.data.token);
-    setUser(r.data.uzivatel);
-    return r.data.uzivatel;
+    const response = await authApi.login({ email, heslo });
+    localStorage.setItem('token', response.data.token);
+    setUser(response.data.uzivatel);
+    return response.data.uzivatel;
   };
 
   const logout = () => {
@@ -28,8 +56,21 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
+  const hasModule = (moduleKey) => isModuleEnabled(user?.modules, moduleKey);
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        branding,
+        loading,
+        login,
+        logout,
+        refreshBranding,
+        refreshUser,
+        hasModule,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

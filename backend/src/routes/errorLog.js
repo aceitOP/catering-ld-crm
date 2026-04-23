@@ -1,8 +1,37 @@
 const router = require('express').Router();
 const { query } = require('../db');
 const { auth, requireMinRole } = require('../middleware/auth');
+const { logUserReport } = require('../errorLog');
 
-router.use(auth, requireMinRole('admin'));
+router.post('/report', auth, async (req, res, next) => {
+  try {
+    const message = String(req.body?.message || '').trim();
+    const description = String(req.body?.description || '').trim();
+
+    if (message.length < 5) {
+      return res.status(400).json({ error: 'Popis chyby musi mit alespon 5 znaku' });
+    }
+
+    await logUserReport({
+      message,
+      path: req.body?.path || req.body?.current_path || null,
+      userId: req.user?.id || null,
+      ipAddress: req.ip || null,
+      userAgent: req.get('user-agent'),
+      meta: {
+        description: description || null,
+        page_title: req.body?.page_title || null,
+        app_version: req.body?.app_version || null,
+        viewport: req.body?.viewport || null,
+        created_at_client: req.body?.created_at_client || null,
+      },
+    });
+
+    res.status(201).json({ message: 'Hlaseni chyby bylo odeslano' });
+  } catch (err) { next(err); }
+});
+
+router.use(auth, requireMinRole('super_admin'));
 
 router.get('/', async (req, res, next) => {
   try {

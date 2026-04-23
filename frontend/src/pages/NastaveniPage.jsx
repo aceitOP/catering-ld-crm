@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { nastaveniApi, uzivateleApi, authApi, googleCalendarApi, emailApi, backupApi, loginLogApi } from '../api';
 import { useAuth as useAuthNS } from '../context/AuthContext';
 import { PageHeader, Btn, Modal, Spinner } from '../components/ui';
+import { MODULE_DEFINITIONS, MODULE_SETTING_KEYS } from '../data/moduleConfig';
 import toast from 'react-hot-toast';
 import { Plus, Settings, Trash2 as Trash2NS, Pencil, Download, Database, ShieldCheck, ShieldAlert } from 'lucide-react';
 
@@ -130,7 +131,7 @@ function SmtpTestButton() {
 
 export function NastaveniPage() {
   const qc = useQueryClient();
-  const { user: currentUser } = useAuthNS();
+  const { user: currentUser, refreshBranding, refreshUser } = useAuthNS();
   const [tab, setTab] = useState('firma');
   const [form, setForm] = useState({});
   const [userModal, setUserModal] = useState(false);
@@ -142,7 +143,16 @@ export function NastaveniPage() {
 
   useEffect(() => { if (nastavData?.data) setForm(nastavData.data); }, [nastavData]);
 
-  const saveMut   = useMutation({ mutationFn: nastaveniApi.update, onSuccess: () => { qc.invalidateQueries({ queryKey: ['nastaveni'] }); toast.success('Nastavení uloženo'); } });
+  const saveMut   = useMutation({
+    mutationFn: nastaveniApi.update,
+    onSuccess: async () => {
+      qc.invalidateQueries({ queryKey: ['nastaveni'] });
+      qc.invalidateQueries({ queryKey: ['backup-info'] });
+      await refreshBranding();
+      await refreshUser();
+      toast.success('Nastavení uloženo');
+    },
+  });
   const userMut   = useMutation({ mutationFn: uzivateleApi.create, onSuccess: () => { qc.invalidateQueries({ queryKey: ['uzivatele'] }); toast.success('Uživatel přidán'); setUserModal(false); } });
   const toggleMut = useMutation({ mutationFn: ({id,aktivni}) => uzivateleApi.update(id,{aktivni}), onSuccess: () => qc.invalidateQueries({ queryKey: ['uzivatele'] }) });
   const deleteMut = useMutation({
@@ -156,7 +166,8 @@ export function NastaveniPage() {
     onError: (e) => toast.error(e?.response?.data?.error || 'Chyba při změně hesla'),
   });
 
-  const TABS = [['firma','Profil firmy'],['uziv','Uživatelé'],['heslo','Změna hesla'],['podpis','E-mail podpis'],['notif','Notifikace'],['integrace','Integrace'],['google','Google Kalendář'],['kapacity','Kapacity'],['email','E-mail (IMAP)'],['zaloha','Zálohy'],['login-log','Přihlášení']];
+  const isSuperAdmin = currentUser?.role === 'super_admin';
+  const TABS = [['firma','Profil firmy'],...(isSuperAdmin ? [['moduly','Moduly']] : []),['uziv','Uživatelé'],['heslo','Změna hesla'],['podpis','E-mail podpis'],['notif','Notifikace'],['integrace','Integrace'],['google','Google Kalendář'],['kapacity','Kapacity'],['email','E-mail (IMAP)'],['zaloha','Zálohy'],['login-log','Přihlášení']];
   const [podpisPreview, setPodpisPreview] = useState(false);
 
   const { data: gcStatus, refetch: refetchGcStatus } = useQuery({
@@ -171,7 +182,7 @@ export function NastaveniPage() {
   const { data: loginLogData, isLoading: loginLogLoading, refetch: refetchLog } = useQuery({
     queryKey: ['login-log', loginFilter],
     queryFn: () => loginLogApi.list(loginFilter),
-    enabled: tab === 'login-log',
+    enabled: tab === 'login-log' && isSuperAdmin,
     select: (r) => r.data,
   });
   const deleteOldMut = useMutation({
@@ -188,6 +199,7 @@ export function NastaveniPage() {
     select: (r) => r.data,
   });
   const [backupLoading, setBackupLoading] = useState(false);
+  const [backupRunLoading, setBackupRunLoading] = useState(false);
   const handleDownloadBackup = async () => {
     setBackupLoading(true);
     try {
@@ -199,9 +211,47 @@ export function NastaveniPage() {
       setBackupLoading(false);
     }
   };
+  const handleRunBackup = async () => {
+    setBackupRunLoading(true);
+    try {
+      const res = await backupApi.run();
+      qc.invalidateQueries({ queryKey: ['backup-info'] });
+      toast.success(res.data?.message || 'Zaloha byla vytvorena');
+    } catch (err) {
+      toast.error(err?.response?.data?.error || 'Serverovou zalohu se nepodarilo vytvorit');
+    } finally {
+      setBackupRunLoading(false);
+    }
+  };
+  const handleStoredBackupDownload = async (name) => {
+    try {
+      await backupApi.downloadFile(name);
+      toast.success('Zaloha stazena');
+    } catch (err) {
+      toast.error(err?.response?.data?.error || 'Zalohu se nepodarilo stahnout');
+    }
+  };
+  const handleLogoChange = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    if (!['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'].includes(file.type)) {
+      toast.error('Logo musi byt PNG, JPG, SVG nebo WEBP');
+      return;
+    }
+    if (file.size > 512 * 1024) {
+      toast.error('Logo muze mit maximalne 512 KB');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setForm((f) => ({ ...f, app_logo_data_url: String(reader.result || '') }));
+    };
+    reader.onerror = () => toast.error('Logo se nepodarilo nacist');
+    reader.readAsDataURL(file);
+  };
   const uzivatele = uzivData?.data?.data || [];
   const setU = (k,v) => setUserForm(f=>({...f,[k]:v}));
-  const isSuperAdmin = currentUser?.role === 'super_admin';
   const ROLES = {
     ...(isSuperAdmin ? { super_admin: 'Super admin' } : {}),
     admin:    'Administrátor',
@@ -212,7 +262,7 @@ export function NastaveniPage() {
     <div>
       <PageHeader title="Nastavení"/>
       <div className="bg-white border-b border-stone-100 px-6 flex">
-        {TABS.map(([k,l]) => (
+        {TABS.filter(([k]) => isSuperAdmin || k !== 'login-log').map(([k,l]) => (
           <button key={k} onClick={() => setTab(k)} className={`px-4 py-3 text-sm border-b-2 transition-colors ${tab===k?'border-stone-900 text-stone-900 font-medium':'border-transparent text-stone-500 hover:text-stone-700'}`}>{l}</button>
         ))}
       </div>
@@ -233,9 +283,78 @@ export function NastaveniPage() {
                     defaultValue={nastavData?.data?.[k]||''} onChange={e => setForm(f=>({...f,[k]:e.target.value}))}/>
                 </div>
               ))}
+              <div><label className="text-xs text-stone-500 block mb-1">Nazev aplikace / &lt;title&gt;</label>
+                <input className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                  value={form.app_title ?? nastavData?.data?.app_title ?? 'Catering CRM'}
+                  onChange={e => setForm(f => ({ ...f, app_title: e.target.value }))}
+                  placeholder="Catering CRM"/>
+              </div>
+              <div className="rounded-xl border border-stone-200 p-4 space-y-3">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <div className="text-sm font-medium text-stone-800">Logo aplikace</div>
+                    <div className="text-xs text-stone-500 mt-1">Pouzije se v loginu i v hlavicce aplikace. Kdyz logo nevlozite, zobrazi se text Catering CRM.</div>
+                  </div>
+                  <div className="w-20 h-20 rounded-2xl border border-dashed border-stone-300 bg-stone-50 flex items-center justify-center overflow-hidden flex-shrink-0">
+                    {(form.app_logo_data_url ?? nastavData?.data?.app_logo_data_url) ? (
+                      <img src={form.app_logo_data_url ?? nastavData?.data?.app_logo_data_url} alt="Logo" className="w-full h-full object-contain"/>
+                    ) : (
+                      <span className="text-[10px] font-semibold text-stone-400 text-center px-2">Catering CRM</span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <label className="inline-flex items-center justify-center px-3 py-2 text-xs font-medium border border-stone-200 rounded-lg hover:bg-stone-50 cursor-pointer">
+                    Nahrat logo
+                    <input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" className="hidden" onChange={handleLogoChange}/>
+                  </label>
+                  {(form.app_logo_data_url ?? nastavData?.data?.app_logo_data_url) && (
+                    <button type="button" className="px-3 py-2 text-xs font-medium border border-stone-200 rounded-lg hover:bg-stone-50"
+                      onClick={() => setForm(f => ({ ...f, app_logo_data_url: '' }))}>
+                      Odebrat logo
+                    </button>
+                  )}
+                </div>
+              </div>
               <div className="flex justify-end">
                 <Btn variant="primary" onClick={() => saveMut.mutate(form)} disabled={saveMut.isPending}>
                   {saveMut.isPending ? 'Ukládám…' : 'Uložit změny'}
+                </Btn>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {tab === 'moduly' && isSuperAdmin && (
+          <div className="space-y-4">
+            <div className="bg-white rounded-xl border border-stone-200 p-5 space-y-4">
+              <div>
+                <div className="text-sm font-semibold text-stone-800">Aktivní moduly instalace</div>
+                <div className="text-xs text-stone-500 mt-1">Vypnutý modul zmizí z menu a backend zablokuje jeho endpointy. Základní části CRM jako dashboard, zakázky, nabídky, klienti a nastavení zůstávají vždy aktivní.</div>
+              </div>
+              <div className="space-y-2">
+                {MODULE_DEFINITIONS.map((module) => {
+                  const settingKey = MODULE_SETTING_KEYS[module.key];
+                  const checked = String(form?.[settingKey] ?? nastavData?.data?.[settingKey] ?? 'true') !== 'false';
+                  return (
+                    <label key={module.key} className="flex items-start gap-3 rounded-xl border border-stone-200 px-4 py-3 cursor-pointer hover:border-stone-300 transition-colors">
+                      <input
+                        type="checkbox"
+                        className="mt-1 rounded"
+                        checked={checked}
+                        onChange={(e) => setForm((f) => ({ ...f, [settingKey]: String(e.target.checked) }))}
+                      />
+                      <div className="flex-1">
+                        <div className="text-sm font-medium text-stone-800">{module.label}</div>
+                        <div className="text-xs text-stone-500 mt-0.5">{module.description}</div>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+              <div className="flex justify-end">
+                <Btn variant="primary" onClick={() => saveMut.mutate(form)} disabled={saveMut.isPending}>
+                  {saveMut.isPending ? 'Ukládám…' : 'Uložit moduly'}
                 </Btn>
               </div>
             </div>
@@ -441,7 +560,8 @@ export function NastaveniPage() {
                   <div className="text-xs text-stone-400 mt-1">Součet hostů ze všech akcí daného dne</div>
                 </div>
               </div>
-              <div className="flex items-center gap-3 pt-2 border-t border-stone-100">
+
+              <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-stone-100">
                 <Btn variant="primary" onClick={() => saveMut.mutate(form)} disabled={saveMut.isPending}>
                   {saveMut.isPending ? 'Ukládám…' : 'Uložit limity'}
                 </Btn>
@@ -457,6 +577,8 @@ export function NastaveniPage() {
 
         {tab === 'email' && nastavData && (
           <div className="space-y-4">
+            {isSuperAdmin ? (
+              <>
             <div className="bg-white rounded-xl border border-stone-200 p-5 space-y-4">
               <div>
                 <div className="text-sm font-semibold text-stone-800 mb-0.5">IMAP – příchozí pošta</div>
@@ -513,7 +635,7 @@ export function NastaveniPage() {
                   />
                 </div>
               </div>
-              <div className="flex items-center gap-3 pt-2 border-t border-stone-100">
+              <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-stone-100">
                 <Btn variant="primary" onClick={() => saveMut.mutate(form)} disabled={saveMut.isPending}>
                   {saveMut.isPending ? 'Ukládám…' : 'Uložit nastavení'}
                 </Btn>
@@ -585,12 +707,19 @@ export function NastaveniPage() {
                 </div>
               </div>
               <SmtpTestButton />
-              <div className="flex items-center gap-3 pt-2 border-t border-stone-100">
+
+              <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-stone-100">
                 <Btn variant="primary" onClick={() => saveMut.mutate(form)} disabled={saveMut.isPending}>
                   {saveMut.isPending ? 'Ukládám…' : 'Uložit nastavení'}
                 </Btn>
               </div>
             </div>
+              </>
+            ) : (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-xs text-amber-800">
+                Nastaveni IMAP / SMTP pripojeni muze upravovat pouze super admin.
+              </div>
+            )}
 
             {/* Šablony odpovědí */}
             <EmailSablonyManager />
@@ -657,7 +786,7 @@ export function NastaveniPage() {
           </div>
         )}
 
-        {tab === 'login-log' && (
+        {tab === 'login-log' && isSuperAdmin && (
           <div className="space-y-4">
             {/* Statistiky */}
             {loginLogData?.stats && (
@@ -789,13 +918,69 @@ export function NastaveniPage() {
                 </div>
               ) : null}
 
-              <div className="flex items-center gap-3 pt-2 border-t border-stone-100">
+              <div className="grid grid-cols-2 gap-4 pt-2 border-t border-stone-100">
+                <div>
+                  <label className="text-xs text-stone-500 block mb-1">Automaticke zalohy</label>
+                  <select className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none bg-white"
+                    value={String(form.backup_auto_enabled ?? backupInfo?.settings?.autoEnabled ?? true)}
+                    onChange={e => setForm(f => ({ ...f, backup_auto_enabled: e.target.value }))}>
+                    <option value="true">Zapnuto</option>
+                    <option value="false">Vypnuto</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-stone-500 block mb-1">Cas auto-backupu</label>
+                  <input type="time" className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                    value={form.backup_auto_time ?? backupInfo?.settings?.autoTime ?? '02:30'}
+                    onChange={e => setForm(f => ({ ...f, backup_auto_time: e.target.value }))}/>
+                </div>
+                <div>
+                  <label className="text-xs text-stone-500 block mb-1">Retence (pocet souboru)</label>
+                  <input type="number" min="1" max="90" className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                    value={form.backup_retention_count ?? backupInfo?.settings?.retentionCount ?? 14}
+                    onChange={e => setForm(f => ({ ...f, backup_retention_count: e.target.value }))}/>
+                </div>
+                <div className="rounded-lg bg-stone-50 border border-stone-200 px-3 py-2 text-xs text-stone-500 space-y-1">
+                  <div>Posledni beh: <span className="font-medium text-stone-700">{backupInfo?.settings?.lastRunAt ? new Date(backupInfo.settings.lastRunAt).toLocaleString('cs-CZ') : '—'}</span></div>
+                  <div>Stav: <span className="font-medium text-stone-700">{backupInfo?.settings?.lastStatus || '—'}</span></div>
+                  {backupInfo?.settings?.lastError && <div className="text-red-600">{backupInfo.settings.lastError}</div>}
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-stone-100">
+                <Btn onClick={() => saveMut.mutate(form)} disabled={saveMut.isPending}>
+                  {saveMut.isPending ? 'Ukladam...' : 'Ulozit nastaveni zaloh'}
+                </Btn>
+                <Btn variant="primary" onClick={handleRunBackup} disabled={backupRunLoading}>
+                  <Database size={12}/>
+                  {backupRunLoading ? 'Vytvarim serverovou zalohu...' : 'Vytvorit serverovou zalohu'}
+                </Btn>
                 <Btn variant="primary" onClick={handleDownloadBackup} disabled={backupLoading}>
                   <Download size={12}/>
                   {backupLoading ? 'Připravuji zálohu…' : 'Stáhnout zálohu (JSON)'}
                 </Btn>
               </div>
             </div>
+
+            {!!backupInfo?.files?.length && (
+              <div className="bg-white rounded-xl border border-stone-200 p-5 space-y-2">
+                <div className="text-sm font-semibold text-stone-800">Ulozene serverove zalohy</div>
+                {backupInfo.files.map((file) => (
+                  <div key={file.name} className="flex items-center justify-between gap-3 rounded-lg border border-stone-200 px-3 py-2">
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium text-stone-800 truncate">{file.name}</div>
+                      <div className="text-xs text-stone-400">
+                        {new Date(file.created_at).toLocaleString('cs-CZ')} Â· {(file.size / 1024).toFixed(1)} KB
+                      </div>
+                    </div>
+                    <button type="button" className="text-xs font-medium text-stone-600 hover:text-stone-900"
+                      onClick={() => handleStoredBackupDownload(file.name)}>
+                      Stahnout
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
 
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-xs text-amber-800 space-y-1">
               <div className="font-medium">Jak zálohu obnovit?</div>

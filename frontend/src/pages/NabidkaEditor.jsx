@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import { nabidkyApi, cenikApi } from '../api';
+import { useAuth } from '../context/AuthContext';
 import { PageHeader, Btn, Spinner } from '../components/ui';
 import toast from 'react-hot-toast';
 import { Mail, Printer, ArrowLeft, Trash2, PlusCircle } from 'lucide-react';
@@ -14,6 +15,8 @@ const STAV_LABELS_N = { koncept:'Koncept', odeslano:'Odesláno', prijato:'Přija
 export function NabidkaEditor() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { hasModule } = useAuth();
+  const emailEnabled = hasModule('email');
   const qc = useQueryClient();
   const [emailModal, setEmailModal] = useState(false);
   const [emailForm, setEmailForm] = useState({ to: '', poznamka: '' });
@@ -29,12 +32,14 @@ export function NabidkaEditor() {
   });
   const n = nabData?.data;
 
+  const cenikEnabled = hasModule('cenik');
+
   const { data: cenikEditData } = useQuery({
     queryKey: ['cenik-edit'],
     queryFn: () => cenikApi.list({ aktivni: 'true' }),
-    enabled: editMode,
+    enabled: editMode && cenikEnabled,
   });
-  const cenikItems = cenikEditData?.data?.data || [];
+  const cenikItems = cenikEnabled ? (cenikEditData?.data?.data || []) : [];
   const filteredCenikEdit = editCenikFilter
     ? cenikItems.filter(c => c.nazev.toLowerCase().includes(editCenikFilter.toLowerCase()))
     : cenikItems;
@@ -144,6 +149,7 @@ export function NabidkaEditor() {
                 <PlusCircle size={13}/> Vlastní položka
               </button>
             </div>
+            {cenikEnabled && (
             <div className="px-5 py-3 bg-stone-50 border-b border-stone-100">
               <input className="w-full border border-stone-200 rounded-md px-3 py-1.5 text-xs focus:outline-none bg-white"
                 placeholder="Hledat v ceníku a přidat…"
@@ -160,6 +166,7 @@ export function NabidkaEditor() {
                 </div>
               )}
             </div>
+            )}
             {editPolozky.length === 0 ? (
               <div className="px-5 py-8 text-center text-sm text-stone-400">Vyhledejte položku v ceníku nebo klikněte na „Vlastní položka".</div>
             ) : (
@@ -239,9 +246,11 @@ export function NabidkaEditor() {
               </div>
               <div className="flex gap-2 flex-wrap">
                 <Btn onClick={startEdit}>Upravit nabídku</Btn>
-                <Btn variant="primary" onClick={() => { setEmailForm({ to: '', poznamka: '' }); setEmailModal(true); }}>
-                  <Mail size={13}/> Odeslat emailem
-                </Btn>
+                {emailEnabled && (
+                  <Btn variant="primary" onClick={() => { setEmailForm({ to: '', poznamka: '' }); setEmailModal(true); }}>
+                    <Mail size={13}/> Odeslat emailem
+                  </Btn>
+                )}
                 <Btn onClick={() => printNabidkuPdf(n)}>
                   <Printer size={13}/> Export PDF
                 </Btn>
@@ -256,6 +265,7 @@ export function NabidkaEditor() {
         </div>
       )}
 
+      {emailEnabled && (
       <Modal open={emailModal} onClose={() => setEmailModal(false)} title="Odeslat nabídku emailem"
         footer={<>
           <Btn onClick={() => setEmailModal(false)}>Zrušit</Btn>
@@ -279,6 +289,7 @@ export function NabidkaEditor() {
           <p className="text-xs text-stone-400">Po odeslání se stav nabídky automaticky změní na „Odesláno".</p>
         </div>
       </Modal>
+      )}
     </div>
   );
 }

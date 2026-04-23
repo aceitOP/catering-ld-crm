@@ -6,6 +6,7 @@ const rateLimit = require('express-rate-limit');
 const { query } = require('../db');
 const { auth }  = require('../middleware/auth');
 const { sendPasswordReset } = require('../emailService');
+const { getModuleState } = require('../moduleAccess');
 
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minut
@@ -94,6 +95,7 @@ router.post('/login', loginLimiter, async (req, res, next) => {
     // Úspěšné přihlášení
     await query('UPDATE uzivatele SET posledni_prihlaseni = NOW() WHERE id = $1', [uzivatel.id]);
     await logLogin({ user_id: uzivatel.id, email: emailNorm, uspech: true, ip_adresa: ip, user_agent: ua, duvod: null });
+    const modules = await getModuleState();
 
     const token = jwt.sign(
       { id: uzivatel.id, email: uzivatel.email, role: uzivatel.role,
@@ -111,6 +113,7 @@ router.post('/login', loginLimiter, async (req, res, next) => {
         email: uzivatel.email,
         role: uzivatel.role,
         telefon: uzivatel.telefon,
+        modules,
       }
     });
   } catch (err) { next(err); }
@@ -172,12 +175,13 @@ router.post('/forgot-password', resetLimiter, async (req, res, next) => {
 // GET /api/auth/me
 router.get('/me', auth, async (req, res, next) => {
   try {
+    const modules = await getModuleState();
     const { rows } = await query(
       'SELECT id, jmeno, prijmeni, email, role, telefon, posledni_prihlaseni FROM uzivatele WHERE id = $1',
       [req.user.id]
     );
     if (!rows[0]) return res.status(404).json({ error: 'Uživatel nenalezen' });
-    res.json(rows[0]);
+    res.json({ ...rows[0], modules });
   } catch (err) { next(err); }
 });
 

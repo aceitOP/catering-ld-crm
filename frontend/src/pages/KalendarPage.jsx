@@ -20,6 +20,7 @@ export function KalendarPage() {
 
   const [tlStartISO, setTlStartISO] = useState(() => now.toISOString().slice(0, 10));
   const [tlView, setTlView]         = useState('tyden'); // 'den' | 'tyden'
+  const monthInputValue = `${year}-${String(month + 1).padStart(2, '0')}`;
 
   const getTlAlignedStart = (iso, tv) => {
     if (tv === 'den') return iso;
@@ -117,6 +118,23 @@ export function KalendarPage() {
 
   const prevMonth = () => { if (month === 0) { setMonth(11); setYear(y => y - 1); } else setMonth(m => m - 1); };
   const nextMonth = () => { if (month === 11) { setMonth(0); setYear(y => y + 1); } else setMonth(m => m + 1); };
+  const setMonthFromInput = (value) => {
+    if (!value) return;
+    const [nextYear, nextMonth] = value.split('-').map((part) => parseInt(part, 10));
+    if (!Number.isNaN(nextYear) && !Number.isNaN(nextMonth)) {
+      setYear(nextYear);
+      setMonth(nextMonth - 1);
+    }
+  };
+  const setTimelineDate = (value) => {
+    if (!value) return;
+    setTlStartISO(value);
+    const d = new Date(`${value}T00:00:00`);
+    if (!Number.isNaN(d.getTime())) {
+      setYear(d.getFullYear());
+      setMonth(d.getMonth());
+    }
+  };
 
   // Kapacity helpers
   const kapDataForDay = (ds) => kapDays.find(d => (d.datum || '').slice(0, 10) === ds) || null;
@@ -267,32 +285,40 @@ export function KalendarPage() {
 
           {/* Month picker (month + kapacity views) */}
           {(view === 'mesic' || view === 'kapacity') && (
-            <div className="relative">
-              <button
-                onClick={() => { setPickerYear(year); setPickerOpen(p => !p); }}
-                className="flex items-center gap-1.5 text-xl font-semibold text-stone-800 hover:text-stone-600 transition-colors"
-              >
-                {MONTHS[month]} {year}
-                <ChevronDown size={18} className={`transition-transform duration-200 ${pickerOpen ? 'rotate-180' : ''}`} />
-              </button>
-              {pickerOpen && (
-                <div className="absolute top-full left-0 mt-2 bg-white border border-stone-200 rounded-xl shadow-xl z-20 p-4 w-72">
-                  <div className="flex items-center justify-between mb-3">
-                    <button onClick={() => setPickerYear(y => y - 1)} className="p-1.5 hover:bg-stone-100 rounded-lg text-stone-600 text-sm">←</button>
-                    <span className="font-semibold text-stone-700">{pickerYear}</span>
-                    <button onClick={() => setPickerYear(y => y + 1)} className="p-1.5 hover:bg-stone-100 rounded-lg text-stone-600 text-sm">→</button>
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <button
+                  onClick={() => { setPickerYear(year); setPickerOpen(p => !p); }}
+                  className="flex items-center gap-1.5 text-xl font-semibold text-stone-800 hover:text-stone-600 transition-colors"
+                >
+                  {MONTHS[month]} {year}
+                  <ChevronDown size={18} className={`transition-transform duration-200 ${pickerOpen ? 'rotate-180' : ''}`} />
+                </button>
+                {pickerOpen && (
+                  <div className="absolute top-full left-0 mt-2 bg-white border border-stone-200 rounded-xl shadow-xl z-20 p-4 w-72">
+                    <div className="flex items-center justify-between mb-3">
+                      <button onClick={() => setPickerYear(y => y - 1)} className="p-1.5 hover:bg-stone-100 rounded-lg text-stone-600 text-sm">←</button>
+                      <span className="font-semibold text-stone-700">{pickerYear}</span>
+                      <button onClick={() => setPickerYear(y => y + 1)} className="p-1.5 hover:bg-stone-100 rounded-lg text-stone-600 text-sm">→</button>
+                    </div>
+                    <div className="grid grid-cols-4 gap-1">
+                      {MONTHS.map((m, i) => (
+                        <button key={i}
+                          onClick={() => { setYear(pickerYear); setMonth(i); setPickerOpen(false); }}
+                          className={`py-2 text-xs rounded-lg transition-colors ${i === month && pickerYear === year ? 'bg-stone-900 text-white font-semibold' : 'hover:bg-stone-100 text-stone-600'}`}>
+                          {m.slice(0, 3)}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                  <div className="grid grid-cols-4 gap-1">
-                    {MONTHS.map((m, i) => (
-                      <button key={i}
-                        onClick={() => { setYear(pickerYear); setMonth(i); setPickerOpen(false); }}
-                        className={`py-2 text-xs rounded-lg transition-colors ${i === month && pickerYear === year ? 'bg-stone-900 text-white font-semibold' : 'hover:bg-stone-100 text-stone-600'}`}>
-                        {m.slice(0, 3)}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
+                )}
+              </div>
+              <input
+                type="month"
+                value={monthInputValue}
+                onChange={(e) => setMonthFromInput(e.target.value)}
+                className="border border-stone-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none bg-white"
+              />
             </div>
           )}
 
@@ -308,6 +334,12 @@ export function KalendarPage() {
                 ))}
               </div>
               <span className="text-sm font-semibold text-stone-700">{getTlLabel()}</span>
+              <input
+                type="date"
+                value={tlStartISO}
+                onChange={(e) => setTimelineDate(e.target.value)}
+                className="border border-stone-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none bg-white"
+              />
             </div>
           )}
         </div>
@@ -317,13 +349,13 @@ export function KalendarPage() {
           {(view === 'mesic' || view === 'kapacity') ? (
             <>
               <button onClick={prevMonth} className="p-2 hover:bg-stone-100 rounded-lg text-stone-600 text-sm transition-colors">←</button>
-              <button onClick={() => { setMonth(now.getMonth()); setYear(now.getFullYear()); }} className="px-3 py-1.5 text-xs border border-stone-200 rounded-lg hover:bg-stone-50 transition-colors">Dnes</button>
+              <button onClick={() => { setMonth(now.getMonth()); setYear(now.getFullYear()); setTlStartISO(now.toISOString().slice(0, 10)); }} className="px-3 py-1.5 text-xs border border-stone-200 rounded-lg hover:bg-stone-50 transition-colors">Dnes</button>
               <button onClick={nextMonth} className="p-2 hover:bg-stone-100 rounded-lg text-stone-600 text-sm transition-colors">→</button>
             </>
           ) : (
             <>
               <button onClick={() => navigateTl(-1)} className="p-2 hover:bg-stone-100 rounded-lg text-stone-600 text-sm transition-colors">←</button>
-              <button onClick={() => setTlStartISO(now.toISOString().slice(0, 10))} className="px-3 py-1.5 text-xs border border-stone-200 rounded-lg hover:bg-stone-50 transition-colors">Dnes</button>
+              <button onClick={() => setTimelineDate(now.toISOString().slice(0, 10))} className="px-3 py-1.5 text-xs border border-stone-200 rounded-lg hover:bg-stone-50 transition-colors">Dnes</button>
               <button onClick={() => navigateTl(1)} className="p-2 hover:bg-stone-100 rounded-lg text-stone-600 text-sm transition-colors">→</button>
             </>
           )}

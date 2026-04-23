@@ -2,12 +2,15 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { fakturyApi, klientiApi, cenikApi, nastaveniApi, zakazkyApi } from '../api';
+import { useAuth } from '../context/AuthContext';
 import { Btn, Spinner } from '../components/ui';
 import toast from 'react-hot-toast';
 import { ArrowLeft, Trash2, Plus, X as XIcon, Receipt } from 'lucide-react';
 
 export function NovaFakturaPage() {
   const navigate = useNavigate();
+  const { hasModule } = useAuth();
+  const cenikEnabled = hasModule('cenik');
   const qc = useQueryClient();
   const [searchParamsF] = useSearchParams();
   const zakazkaIdParam = searchParamsF.get('zakazka_id');
@@ -77,8 +80,9 @@ export function NovaFakturaPage() {
   const { data: cenikDataN } = useQuery({
     queryKey: ['cenik'],
     queryFn: () => cenikApi.list({ limit: 200 }),
+    enabled: cenikEnabled,
   });
-  const cenikItemsN = cenikDataN?.data?.data || [];
+  const cenikItemsN = cenikEnabled ? (cenikDataN?.data?.data || []) : [];
   const filteredCenikN = cenikFilterN
     ? cenikItemsN.filter(c => c.nazev.toLowerCase().includes(cenikFilterN.toLowerCase()))
     : [];
@@ -205,6 +209,7 @@ export function NovaFakturaPage() {
           </button>
         </div>
 
+        {cenikEnabled && (
         <div className="px-5 py-3 bg-stone-50 border-b border-stone-100">
           <input className="w-full border border-stone-200 rounded-md px-3 py-1.5 text-xs focus:outline-none bg-white"
             placeholder="Hledat v ceníku a přidat…"
@@ -221,6 +226,7 @@ export function NovaFakturaPage() {
             </div>
           )}
         </div>
+        )}
 
         {polozky.length === 0 ? (
           <div className="px-5 py-8 text-center text-sm text-stone-400">Přidejte položky z ceníku nebo klikněte na „Vlastní položka".</div>

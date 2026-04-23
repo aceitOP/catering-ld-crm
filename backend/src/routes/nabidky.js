@@ -2,6 +2,7 @@
 const express = require('express');
 const { query, withTransaction } = require('../db');
 const { auth } = require('../middleware/auth');
+const { requireAppModule } = require('../moduleAccess');
 const { sendNabidka } = require('../emailService');
 const { createNotif } = require('../notifHelper');
 
@@ -101,7 +102,7 @@ router.patch('/:id', auth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.post('/:id/odeslat', auth, async (req, res, next) => {
+router.post('/:id/odeslat', auth, requireAppModule('email'), async (req, res, next) => {
   try {
     const { to, poznamka } = req.body;
     if (!to) return res.status(400).json({ error: 'Chybí emailová adresa příjemce' });

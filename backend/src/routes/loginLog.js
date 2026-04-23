@@ -6,7 +6,7 @@ const { auth, requireMinRole } = require('../middleware/auth');
 const router = express.Router();
 
 // GET /api/login-log – seznam záznamů (admin+)
-router.get('/', auth, requireMinRole('admin'), async (req, res, next) => {
+router.get('/', auth, requireMinRole('super_admin'), async (req, res, next) => {
   try {
     const limit  = Math.min(parseInt(req.query.limit  || '200', 10), 500);
     const offset = parseInt(req.query.offset || '0', 10);

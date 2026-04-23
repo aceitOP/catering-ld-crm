@@ -1,7 +1,8 @@
-import { useState, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { zakazkyApi, personalApi, dokumentyApi, proposalsApi, nabidkyApi, uzivateleApi, followupApi, emailApi } from '../api';
+import { useAuth } from '../context/AuthContext';
 import { StavBadge, TypBadge, formatCena, formatDatum, Spinner, Btn, Modal } from '../components/ui';
 import toast from 'react-hot-toast';
 import { ArrowLeft, ChevronRight, Send, Heart, Printer, Pencil, Upload, UserPlus, Trash2, Search, Receipt, ChefHat, Link, Plus, ExternalLink, Copy, CheckSquare, Square, X as XIcon, ListChecks, Check, LockOpen, FileText } from 'lucide-react';
@@ -92,6 +93,7 @@ function EmailyTab({ zakazkaId }) {
 export default function ZakazkaDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { hasModule } = useAuth();
   const qc = useQueryClient();
   const fileInputRef = useRef(null);
 
@@ -102,6 +104,16 @@ export default function ZakazkaDetail() {
   const [komandoModal, setKomandoModal] = useState(false);
   const [komandoPozn, setKomandoPozn] = useState('');
   const [dekujemeModal, setDekujemeModal] = useState(false);
+  const personalEnabled = hasModule('personal');
+  const dokumentyEnabled = hasModule('dokumenty');
+  const emailEnabled = hasModule('email');
+
+  useEffect(() => {
+    if (tab === 'personal' && !personalEnabled) setTab('detaily');
+    if (tab === 'dokumenty' && !dokumentyEnabled) setTab('detaily');
+    if (tab === 'emaily' && !emailEnabled) setTab('detaily');
+  }, [tab, personalEnabled, dokumentyEnabled, emailEnabled]);
+
   const handleDocumentDownload = async (doc) => {
     try {
       await dokumentyApi.download(doc.id, doc.nazev || doc.filename);
@@ -148,7 +160,7 @@ export default function ZakazkaDetail() {
   const { data: personalListData } = useQuery({
     queryKey: ['personal-list', personalSearch],
     queryFn: () => personalApi.list({ q: personalSearch, limit: 50 }),
-    enabled: personalModal,
+    enabled: personalEnabled && personalModal,
   });
 
   const { data: nabidkyData } = useQuery({
@@ -410,7 +422,15 @@ export default function ZakazkaDetail() {
 
       {/* Tabs */}
       <div className="bg-white border-b border-stone-100 px-6 flex gap-0">
-        {[['detaily','Detaily'],['planovaní','Plánování'],['historie','Historie'],['personal','Personál'],['dokumenty','Dokumenty'],['vybermenu','Výběr menu'],['emaily','E-maily']].map(([k,l]) => (
+        {[
+          ['detaily','Detaily'],
+          ['planovaní','Plánování'],
+          ['historie','Historie'],
+          ...(personalEnabled ? [['personal','Personál']] : []),
+          ...(dokumentyEnabled ? [['dokumenty','Dokumenty']] : []),
+          ['vybermenu','Výběr menu'],
+          ...(emailEnabled ? [['emaily','E-maily']] : []),
+        ].map(([k,l]) => (
           <button key={k} onClick={() => { setTab(k); if (k === 'planovaní') initPlan(); }}
             className={`px-4 py-3 text-sm border-b-2 transition-colors ${
               tab === k ? 'border-stone-900 text-stone-900 font-medium' : 'border-transparent text-stone-500 hover:text-stone-700'
@@ -526,12 +546,16 @@ export default function ZakazkaDetail() {
               <div className="bg-white rounded-xl border border-stone-200 p-4">
                 <h3 className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-3">Akce</h3>
                 <div className="flex flex-col gap-2">
-                  <Btn size="sm" onClick={() => { setDekujemeForm({ to: z.klient_email || '', text: '' }); setDekujemeModal(true); }}>
-                    <Heart size={12}/> Děkovací email
-                  </Btn>
-                  <Btn size="sm" onClick={() => { setKomandoPozn(''); setKomandoModal(true); }}>
-                    <Send size={12}/> Komando e-mail
-                  </Btn>
+                  {emailEnabled && (
+                    <Btn size="sm" onClick={() => { setDekujemeForm({ to: z.klient_email || '', text: '' }); setDekujemeModal(true); }}>
+                      <Heart size={12}/> Děkovací email
+                    </Btn>
+                  )}
+                  {emailEnabled && (
+                    <Btn size="sm" onClick={() => { setKomandoPozn(''); setKomandoModal(true); }}>
+                      <Send size={12}/> Komando e-mail
+                    </Btn>
+                  )}
                   <Btn size="sm" onClick={() => printKomandoPdf(z)}>
                     <Printer size={12}/> Komando PDF
                   </Btn>
@@ -877,7 +901,7 @@ export default function ZakazkaDetail() {
                         className="p-1.5 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded-lg transition-colors" title="Otevřít jako klient">
                         <ExternalLink size={13}/>
                       </a>
-                      {pr.status !== 'signed' && (
+                      {emailEnabled && pr.status !== 'signed' && (
                         <button
                           onClick={() => { setSendLinkModal(pr); setSendEmail(z.klient_email || ''); }}
                           className="p-1.5 text-stone-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Odeslat odkaz emailem">

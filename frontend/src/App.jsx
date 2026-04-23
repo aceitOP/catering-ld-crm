@@ -46,6 +46,18 @@ function PrivateRoute({ children }) {
   return user ? children : <Navigate to="/login" replace />;
 }
 
+function ModuleRoute({ moduleKey, children }) {
+  const { loading, hasModule } = useAuth();
+  if (loading) return null;
+  return hasModule(moduleKey) ? children : <Navigate to="/dashboard" replace />;
+}
+
+function SuperAdminRoute({ children }) {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  return user?.role === 'super_admin' ? children : <Navigate to="/dashboard" replace />;
+}
+
 function App() {
   return (
     <ThemeProvider>
@@ -70,19 +82,19 @@ function App() {
               <Route path="nabidky"           element={<NabidkyPage />} />
               <Route path="nabidky/nova"      element={<NovaNabidka />} />
               <Route path="nabidky/:id/edit"  element={<NabidkaEditor />} />
-              <Route path="kalendar"          element={<KalendarPage />} />
-              <Route path="personal"          element={<PersonalPage />} />
-              <Route path="dokumenty"         element={<DokumentyPage />} />
-              <Route path="cenik"             element={<CenikPage />} />
-              <Route path="reporty"           element={<ReportPage />} />
-              <Route path="faktury"           element={<FakturyPage />} />
-              <Route path="faktury/nova"      element={<NovaFakturaPage />} />
-              <Route path="faktury/:id"       element={<FakturaDetail />} />
+              <Route path="kalendar"          element={<ModuleRoute moduleKey="kalendar"><KalendarPage /></ModuleRoute>} />
+              <Route path="personal"          element={<ModuleRoute moduleKey="personal"><PersonalPage /></ModuleRoute>} />
+              <Route path="dokumenty"         element={<ModuleRoute moduleKey="dokumenty"><DokumentyPage /></ModuleRoute>} />
+              <Route path="cenik"             element={<ModuleRoute moduleKey="cenik"><CenikPage /></ModuleRoute>} />
+              <Route path="reporty"           element={<ModuleRoute moduleKey="reporty"><ReportPage /></ModuleRoute>} />
+              <Route path="faktury"           element={<ModuleRoute moduleKey="faktury"><FakturyPage /></ModuleRoute>} />
+              <Route path="faktury/nova"      element={<ModuleRoute moduleKey="faktury"><NovaFakturaPage /></ModuleRoute>} />
+              <Route path="faktury/:id"       element={<ModuleRoute moduleKey="faktury"><FakturaDetail /></ModuleRoute>} />
               <Route path="nastaveni"         element={<NastaveniPage />} />
-              <Route path="archiv"            element={<ArchivPage />} />
-              <Route path="sablony"           element={<SablonyPage />} />
-              <Route path="email"             element={<EmailPage />} />
-              <Route path="error-log"         element={<ErrorLogPage />} />
+              <Route path="archiv"            element={<ModuleRoute moduleKey="archiv"><ArchivPage /></ModuleRoute>} />
+              <Route path="sablony"           element={<ModuleRoute moduleKey="sablony"><SablonyPage /></ModuleRoute>} />
+              <Route path="email"             element={<ModuleRoute moduleKey="email"><EmailPage /></ModuleRoute>} />
+              <Route path="error-log"         element={<SuperAdminRoute><ModuleRoute moduleKey="error_log"><ErrorLogPage /></ModuleRoute></SuperAdminRoute>} />
             </Route>
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
