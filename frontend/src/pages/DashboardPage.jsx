@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { zakazkyApi, kalendarApi, notifikaceApi, fakturyApi, klientiApi, followupApi, reportyApi } from '../api';
 import { useAuth } from '../context/AuthContext';
+import { safeGetJson, safeSetItem } from '../utils/storage';
 
 // Český 5. pád (vokatív) pro pozdrav
 function vocative(jmeno) {
@@ -78,15 +79,12 @@ const WIDGET_DEFS = {
 const DEFAULT_ORDER = ['timeline', 'upcoming', 'pipeline', 'notifications', 'faktury', 'poptavky', 'pravidelni', 'followup', 'quick-actions'];
 
 function loadOrder() {
-  try {
-    const s = localStorage.getItem('dashboard-widget-order');
-    if (s) {
-      const arr = JSON.parse(s);
-      // Ensure any new widgets added later still appear
-      const missing = DEFAULT_ORDER.filter(id => !arr.includes(id));
-      return [...arr, ...missing];
-    }
-  } catch {}
+  const arr = safeGetJson('dashboard-widget-order');
+  if (Array.isArray(arr)) {
+    const validIds = arr.filter((id) => DEFAULT_ORDER.includes(id));
+    const missing = DEFAULT_ORDER.filter((id) => !validIds.includes(id));
+    return [...validIds, ...missing];
+  }
   return DEFAULT_ORDER;
 }
 
@@ -735,12 +733,12 @@ export default function DashboardPage() {
               Storno
             </button>
           )}
-          <button
-            onClick={() => {
-              if (!editMode) setSavedOrderSnap([...widgetOrder]);
-              else localStorage.setItem('dashboard-widget-order', JSON.stringify(widgetOrder));
-              setEditMode(e => !e);
-            }}
+            <button
+              onClick={() => {
+                if (!editMode) setSavedOrderSnap([...widgetOrder]);
+                else safeSetItem('dashboard-widget-order', JSON.stringify(widgetOrder));
+                setEditMode(e => !e);
+              }}
             className={`text-xs font-semibold px-3 py-2 rounded-xl border transition-all ${
               editMode
                 ? 'bg-brand-600 text-white border-brand-600 shadow-md shadow-brand-600/20'

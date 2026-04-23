@@ -86,7 +86,7 @@ export default function LoginPage() {
             {branding?.app_logo_data_url ? (
               <img src={branding.app_logo_data_url} alt="Logo aplikace" className="w-full h-full object-contain" />
             ) : (
-              <span className="text-white text-sm font-bold tracking-tight">CRM</span>
+              <span className="text-white text-[11px] font-bold tracking-tight">Catering CRM</span>
             )}
           </div>
           <div className="text-2xl font-bold text-stone-900 mb-1">{branding?.app_title || 'Catering CRM'}</div>
