@@ -188,11 +188,15 @@ export default function Layout() {
     mutationFn: (payload) => errorLogApi.report(payload),
     onSuccess: () => {
       toast.success('Hlaseni chyby bylo odeslano');
-      setBugModalOpen(false);
-      setBugForm({ message: '', description: '' });
+      closeBugModal();
     },
     onError: (err) => toast.error(err.response?.data?.error || 'Hlaseni chyby se nepodarilo odeslat'),
   });
+
+  const closeBugModal = () => {
+    setBugModalOpen(false);
+    setBugForm({ message: '', description: '' });
+  };
 
   const handleNotifClick = (n) => {
     if (!n.procitana) readMut.mutate(n.id);
@@ -200,9 +204,13 @@ export default function Layout() {
   };
 
   const submitBugReport = () => {
+    const message = bugForm.message.trim();
+    const description = bugForm.description.trim();
+    if (message.length < 5) return;
+
     reportBugMut.mutate({
-      message: bugForm.message,
-      description: bugForm.description,
+      message,
+      description,
       current_path: `${location.pathname}${location.search}${location.hash}`,
       page_title: document.title,
       app_version: APP_VERSION,
@@ -212,6 +220,7 @@ export default function Layout() {
       created_at_client: new Date().toISOString(),
     });
   };
+  const canSubmitBugReport = bugForm.message.trim().length >= 5;
 
   return (
     <div className="flex h-screen bg-surface overflow-hidden">
@@ -364,12 +373,12 @@ export default function Layout() {
 
       <Modal
         open={bugModalOpen}
-        onClose={() => setBugModalOpen(false)}
+        onClose={closeBugModal}
         title="Nahlasit chybu"
         footer={(
           <>
-            <Btn onClick={() => setBugModalOpen(false)}>Zrusit</Btn>
-            <Btn variant="primary" onClick={submitBugReport} disabled={reportBugMut.isPending || bugForm.message.trim().length < 5}>
+            <Btn onClick={closeBugModal}>Zrusit</Btn>
+            <Btn variant="primary" onClick={submitBugReport} disabled={reportBugMut.isPending || !canSubmitBugReport}>
               {reportBugMut.isPending ? 'Odesilam...' : 'Odeslat hlaseni'}
             </Btn>
           </>
@@ -381,11 +390,17 @@ export default function Layout() {
           </div>
           <div>
             <label className="block text-xs text-stone-500 font-semibold mb-1.5">Strucny popis chyby *</label>
-            <input className="w-full border border-stone-200 rounded-xl px-4 py-3 text-sm focus:outline-none" placeholder="Napriklad: Pri ulozeni zakazky se nic nestane" value={bugForm.message} onChange={(e) => setBugForm((f) => ({ ...f, message: e.target.value }))} autoFocus />
+            <input className="w-full border border-stone-200 rounded-xl px-4 py-3 text-sm focus:outline-none" placeholder="Napriklad: Pri ulozeni zakazky se nic nestane" value={bugForm.message} maxLength={500} onChange={(e) => setBugForm((f) => ({ ...f, message: e.target.value }))} autoFocus />
+            <div className="mt-1 text-[11px] text-stone-400 text-right">
+              {bugForm.message.trim().length}/500
+            </div>
           </div>
           <div>
             <label className="block text-xs text-stone-500 font-semibold mb-1.5">Co se stalo / jak chybu vyvolat</label>
-            <textarea rows={5} className="w-full border border-stone-200 rounded-xl px-4 py-3 text-sm focus:outline-none resize-none" placeholder="Popis kroku, co jsi cekal(a) a co aplikace udelala misto toho." value={bugForm.description} onChange={(e) => setBugForm((f) => ({ ...f, description: e.target.value }))} />
+            <textarea rows={5} className="w-full border border-stone-200 rounded-xl px-4 py-3 text-sm focus:outline-none resize-none" placeholder="Popis kroku, co jsi cekal(a) a co aplikace udelala misto toho." value={bugForm.description} maxLength={5000} onChange={(e) => setBugForm((f) => ({ ...f, description: e.target.value }))} />
+            <div className="mt-1 text-[11px] text-stone-400 text-right">
+              {bugForm.description.length}/5000
+            </div>
           </div>
           <div className="text-xs text-stone-400">
             Stranka: {location.pathname}{location.search}{location.hash}

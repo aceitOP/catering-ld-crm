@@ -22,6 +22,7 @@ const TYP_EMOJI = { svatba:'💒', soukroma_akce:'🥂', firemni_akce:'🏢', za
 export default function NovaZakazka() {
   const navigate = useNavigate();
   const { hasModule } = useAuth();
+  const sablonyEnabled = hasModule('sablony');
   const [step, setStep]         = useState(0);
   const [sablonaPolozky, setSablonaPolozky] = useState([]);
   const [form, setForm]   = useState({
@@ -326,4 +327,3 @@ export default function NovaZakazka() {
     </div>
   );
 }
-  const sablonyEnabled = hasModule('sablony');

@@ -209,6 +209,12 @@ export default function ErrorLogPage() {
                           <div><span className="font-semibold">VyĹ™eĹˇil:</span> {log.resolved_by_email || 'â€”'}</div>
                           <div><span className="font-semibold">VyĹ™eĹˇeno:</span> {formatDateTime(log.resolved_at)}</div>
                         </div>
+                        {log.source === 'user_report' && log.meta?.description && (
+                          <div className="mt-4 rounded-xl bg-white border border-stone-200 p-3">
+                            <div className="text-xs font-semibold uppercase tracking-wide text-stone-500 mb-1">Popis od uzivatele</div>
+                            <div className="text-sm text-stone-700 whitespace-pre-wrap">{log.meta.description}</div>
+                          </div>
+                        )}
                       </div>
 
                       <div className="rounded-2xl bg-stone-900 p-4 text-stone-100 border border-stone-800 overflow-hidden">

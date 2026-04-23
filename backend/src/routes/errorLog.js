@@ -11,6 +11,12 @@ router.post('/report', auth, async (req, res, next) => {
     if (message.length < 5) {
       return res.status(400).json({ error: 'Popis chyby musi mit alespon 5 znaku' });
     }
+    if (message.length > 500) {
+      return res.status(400).json({ error: 'Strucny popis chyby muze mit maximalne 500 znaku' });
+    }
+    if (description.length > 5000) {
+      return res.status(400).json({ error: 'Detailni popis chyby muze mit maximalne 5000 znaku' });
+    }
 
     await logUserReport({
       message,
