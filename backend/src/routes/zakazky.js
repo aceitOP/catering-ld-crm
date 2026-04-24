@@ -13,6 +13,11 @@ const {
   getWorkflowBlockers,
   getChecklistSummary,
 } = require('../zakazkaWorkflow');
+const {
+  buildVenueBriefForZakazka,
+  createVenueSnapshot,
+  submitVenueDebrief,
+} = require('../venueTwin');
 
 // Generátor čísla zakázky – musí být voláno uvnitř transakce (FOR UPDATE zabrání race condition)
 async function genCislo(client) {
@@ -61,10 +66,12 @@ router.get('/', auth, async (req, res, next) => {
       SELECT z.*,
              k.jmeno AS klient_jmeno, k.prijmeni AS klient_prijmeni, k.firma AS klient_firma,
              u.jmeno AS obchodnik_jmeno, u.prijmeni AS obchodnik_prijmeni,
+             v.name AS venue_name, v.address_line_1 AS venue_address_line_1, v.city AS venue_city,
              COUNT(*) OVER() AS total_count
       FROM zakazky z
       LEFT JOIN klienti k ON k.id = z.klient_id
       LEFT JOIN uzivatele u ON u.id = z.obchodnik_id
+      LEFT JOIN venues v ON v.id = z.venue_id
       ${whereClause}
       ORDER BY z.datum_akce DESC NULLS LAST, z.created_at DESC
       LIMIT $${p++} OFFSET $${p++}`;
@@ -88,10 +95,14 @@ router.get('/:id', auth, async (req, res, next) => {
       SELECT z.*,
              k.jmeno AS klient_jmeno, k.prijmeni AS klient_prijmeni, k.firma AS klient_firma,
              k.email AS klient_email, k.telefon AS klient_telefon,
-             u.jmeno AS obchodnik_jmeno, u.prijmeni AS obchodnik_prijmeni
+             u.jmeno AS obchodnik_jmeno, u.prijmeni AS obchodnik_prijmeni,
+             v.name AS venue_name, v.slug AS venue_slug,
+             v.address_line_1 AS venue_address_line_1, v.address_line_2 AS venue_address_line_2,
+             v.city AS venue_city, v.postal_code AS venue_postal_code, v.country AS venue_country
       FROM zakazky z
       LEFT JOIN klienti k ON k.id = z.klient_id
       LEFT JOIN uzivatele u ON u.id = z.obchodnik_id
+      LEFT JOIN venues v ON v.id = z.venue_id
       WHERE z.id = $1`, [req.params.id]);
 
     if (!rows[0]) return res.status(404).json({ error: 'Zakázka nenalezena' });
@@ -147,17 +158,20 @@ router.get('/:id', auth, async (req, res, next) => {
 router.post('/', auth, async (req, res, next) => {
   try {
     const { nazev, typ, klient_id, obchodnik_id, datum_akce, cas_zacatek, cas_konec,
-            misto, pocet_hostu, rozpocet_klienta, poznamka_klient, poznamka_interni } = req.body;
+            misto, venue_id, venue_loading_zone_id, venue_service_area_id, venue_route_id,
+            pocet_hostu, rozpocet_klienta, poznamka_klient, poznamka_interni } = req.body;
 
     const newZakazka = await withTransaction(async (client) => {
       const cislo = await genCislo(client);
       const checklist = createChecklistTemplate(typ);
       const { rows } = await client.query(`
         INSERT INTO zakazky (cislo, nazev, typ, stav, klient_id, obchodnik_id, datum_akce,
-          cas_zacatek, cas_konec, misto, pocet_hostu, rozpocet_klienta, poznamka_klient, poznamka_interni, checklist)
-        VALUES ($1,$2,$3,'rozpracovano',$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *`,
+          cas_zacatek, cas_konec, misto, venue_id, venue_loading_zone_id, venue_service_area_id, venue_route_id,
+          pocet_hostu, rozpocet_klienta, poznamka_klient, poznamka_interni, checklist)
+        VALUES ($1,$2,$3,'rozpracovano',$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18) RETURNING *`,
         [cislo, nazev, typ, klient_id, obchodnik_id || req.user.id, datum_akce,
-         cas_zacatek, cas_konec, misto, pocet_hostu, rozpocet_klienta, poznamka_klient, poznamka_interni, JSON.stringify(checklist)]);
+         cas_zacatek, cas_konec, misto, venue_id || null, venue_loading_zone_id || null, venue_service_area_id || null, venue_route_id || null,
+         pocet_hostu, rozpocet_klienta, poznamka_klient, poznamka_interni, JSON.stringify(checklist)]);
       await client.query(`INSERT INTO zakazky_history (zakazka_id, stav_po, uzivatel_id, poznamka)
                    VALUES ($1, 'rozpracovano', $2, 'Zakázka vytvořena')`,
         [rows[0].id, req.user.id]);
@@ -167,7 +181,7 @@ router.post('/', auth, async (req, res, next) => {
     createNotif({
       typ: 'nova_zakazka',
       titulek: `Nová zakázka — ${newZakazka.nazev}`,
-      zprava: `Číslo: ${newZakazka.cislo}${misto ? ` · Místo: ${misto}` : ''}`,
+      zprava: `�slo: ${newZakazka.cislo}${misto ? ` � M�sto: ${misto}` : ''}`,
       odkaz: `/zakazky/${newZakazka.id}`,
     });
 
@@ -182,6 +196,7 @@ router.patch('/:id', auth, async (req, res, next) => {
                      'cas_konec','misto','pocet_hostu','rozpocet_klienta','cena_celkem',
                      'cena_naklady','zaloha','doplatek','poznamka_klient','poznamka_interni',
                      'google_event_id',
+                     'venue_id','venue_loading_zone_id','venue_service_area_id','venue_route_id',
                      'harmonogram','kontaktni_osoby_misto','rozsah_sluzeb','personalni_pozadavky',
                      'logistika','technicke_pozadavky','alergeny','specialni_prani','checklist'];
 
@@ -256,6 +271,8 @@ router.patch('/:id/stav', auth, async (req, res, next) => {
 
     // Google Calendar sync (fire-and-forget, errors non-fatal)
     if (stav === 'potvrzeno') {
+      createVenueSnapshot(null, req.params.id, req.user.id)
+        .catch(err => console.warn('[VenueTwin] snapshot chyba:', err.message));
       upsertEvent({ ...zakazkaRow, id: req.params.id })
         .catch(err => console.warn('[GoogleCalendar] stav sync chyba:', err.message));
     } else if (stav === 'stornovano' && zakazkaRow?.google_event_id) {
@@ -267,19 +284,17 @@ router.patch('/:id/stav', auth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// POST /api/zakazky/:id/komando – odešle komando email přiřazenému personálu
+// POST /api/zakazky/:id/komando
 router.post('/:id/komando', auth, requireAppModule('email'), async (req, res, next) => {
   try {
-    const { poznamka } = req.body;
+    const { poznamka, extraEmails, extra_emails, includeAssignedStaff, include_assigned_staff } = req.body || {};
 
-    // Načti zakázku
     const { rows: zRows } = await query(`
       SELECT z.*, k.jmeno AS klient_jmeno, k.prijmeni AS klient_prijmeni, k.firma AS klient_firma
       FROM zakazky z LEFT JOIN klienti k ON k.id = z.klient_id
       WHERE z.id = $1`, [req.params.id]);
     if (!zRows[0]) return res.status(404).json({ error: 'Zakázka nenalezena' });
 
-    // Načti personál
     const { rows: personal } = await query(`
       SELECT zp.role_na_akci, zp.cas_prichod, zp.cas_odchod,
              p.jmeno, p.prijmeni, p.email, p.role
@@ -287,13 +302,24 @@ router.post('/:id/komando', auth, requireAppModule('email'), async (req, res, ne
       JOIN personal p ON p.id = zp.personal_id
       WHERE zp.zakazka_id = $1`, [req.params.id]);
 
-    // Načti nastavení firmy
     const { rows: nastaveni } = await query('SELECT klic, hodnota FROM nastaveni');
     const firma = {};
     nastaveni.forEach(r => { firma[r.klic] = r.hodnota; });
 
-    const count = await sendKomando({ personal, zakazka: zRows[0], firma, poznamka });
-    res.json({ message: `Komando odesláno ${count} osobám` });
+    const result = await sendKomando({
+      personal,
+      zakazka: zRows[0],
+      firma,
+      poznamka,
+      extraEmails: extraEmails ?? extra_emails ?? [],
+      includeAssignedStaff: includeAssignedStaff ?? include_assigned_staff ?? true,
+    });
+
+    res.json({
+      message: `Komando odesláno na ${result.count} adres`,
+      count: result.count,
+      recipients: result.recipients,
+    });
   } catch (err) {
     if (err.message.includes('SMTP')) return res.status(503).json({ error: err.message });
     next(err);
@@ -319,7 +345,7 @@ router.post('/:id/dekujeme', auth, requireAppModule('email'), async (req, res, n
     nastaveni.forEach(r => { firma[r.klic] = r.hodnota; });
 
     await sendDekujeme({ to: recipient, zakazka: rows[0], firma, text });
-    res.json({ message: `Děkovací email odeslán na ${recipient}` });
+    res.json({ message: `Děkovací e-mail odeslán na ${recipient}` });
   } catch (err) {
     if (err.message.includes('SMTP')) return res.status(503).json({ error: err.message });
     next(err);
@@ -400,9 +426,9 @@ router.get('/:id/podklady', auth, async (req, res, next) => {
     nastaveni.forEach(r => { firma[r.klic] = r.hodnota; });
 
     // Pomocné formátovací funkce (server-side)
-    const fDate = (d) => d ? new Date(d).toLocaleDateString('cs-CZ', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';
-    const fTime = (t) => t ? t.slice(0, 5) : '—';
-    const fMoney = (n) => n != null ? Number(n).toLocaleString('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 }) : '—';
+    const fDate = (d) => d ? new Date(d).toLocaleDateString('cs-CZ', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
+    const fTime = (t) => t ? t.slice(0, 5) : '';
+    const fMoney = (n) => n != null ? Number(n).toLocaleString('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 }) : '';
     const typMap = { svatba: 'Svatba', soukroma_akce: 'Soukromá akce', firemni_akce: 'Firemní akce', zavoz: 'Závoz', bistro: 'Bistro' };
     const stavMap = { nova_poptavka: 'Nová poptávka', rozpracovano: 'Rozpracováno', nabidka_pripravena: 'Nabídka připravena', nabidka_odeslana: 'Nabídka odeslána', ceka_na_vyjadreni: 'Čeká na vyjádření', potvrzeno: 'Potvrzeno', ve_priprave: 'Ve přípravě', realizovano: 'Realizováno', uzavreno: 'Uzavřeno', stornovano: 'Stornováno' };
     const rolMap = { koordinator: 'Koordinátor', cisnik: 'Číšník', kuchar: 'Kuchař', ridic: 'Řidič', barman: 'Barman', pomocna_sila: 'Pomocná síla' };
@@ -435,7 +461,7 @@ router.get('/:id/podklady', auth, async (req, res, next) => {
     const personalRows = personal.map(p => `
       <tr>
         <td style="padding:5px 8px;font-size:12px">${p.jmeno} ${p.prijmeni}</td>
-        <td style="padding:5px 8px;font-size:12px">${rolMap[p.role] || p.role}${p.role_na_akci ? ` – ${p.role_na_akci}` : ''}</td>
+        <td style="padding:5px 8px;font-size:12px">${rolMap[p.role] || p.role}${p.role_na_akci ? `  ${p.role_na_akci}` : ''}</td>
         <td style="padding:5px 8px;font-size:12px;text-align:center">${fTime(p.cas_prichod)} – ${fTime(p.cas_odchod)}</td>
         <td style="padding:5px 8px;font-size:12px">${p.telefon || '—'}</td>
         <td style="padding:5px 8px;font-size:12px;color:#666">${p.poznamka || ''}</td>
@@ -443,7 +469,7 @@ router.get('/:id/podklady', auth, async (req, res, next) => {
 
     const totalProdej = kalcPolozky.reduce((s, p) => s + p.mnozstvi * p.cena_prodej, 0);
     const totalNakup  = kalcPolozky.reduce((s, p) => s + p.mnozstvi * p.cena_nakup, 0);
-    const marze = totalProdej > 0 ? ((totalProdej - totalNakup) / totalProdej * 100).toFixed(1) : '—';
+    const marze = totalProdej > 0 ? ((totalProdej - totalNakup) / totalProdej * 100).toFixed(1) : '';
 
     const html = `<!DOCTYPE html>
 <html lang="cs">
@@ -491,7 +517,7 @@ router.get('/:id/podklady', auth, async (req, res, next) => {
     <div>
       <div class="firma-name">${firma.firma_nazev || 'Catering LD'}</div>
       <div class="firma-sub">${firma.firma_adresa || ''}</div>
-      <div class="firma-sub">IČO: ${firma.firma_ico || '—'}${firma.firma_dic ? ' | DIČ: ' + firma.firma_dic : ''}</div>
+      <div class="firma-sub">IO: ${firma.firma_ico || ''}${firma.firma_dic ? ' | DI: ' + firma.firma_dic : ''}</div>
     </div>
     <div class="doc-title">
       <h1>Podklady k fakturaci</h1>
@@ -551,7 +577,7 @@ router.get('/:id/podklady', auth, async (req, res, next) => {
   ${kalcPolozky.length > 0 ? `
   <!-- Kalkulace -->
   <div class="section">
-    <div class="section-title">Kalkulace${kalkulace ? ` – ${kalkulace.nazev || 'Verze ' + kalkulace.verze}` : ''}</div>
+    <div class="section-title">Kalkulace${kalkulace ? `  ${kalkulace.nazev || 'Verze ' + kalkulace.verze}` : ''}</div>
     <table>
       <thead>
         <tr>
@@ -571,7 +597,8 @@ router.get('/:id/podklady', auth, async (req, res, next) => {
         </tr>
       </tbody>
     </table>
-    ${z.rozpocet_klienta ? `<div style="text-align:right;font-size:11px;color:#888;margin-top:6px">Rozpočet klienta: ${fMoney(z.rozpocet_klienta)}</div>` : ''}
+    ${z.rozpocet_klienta ? `<div style="text-align:right;font-size:11px;color:#888;margin-top:6px">Rozpo
+et klienta: ${fMoney(z.rozpocet_klienta)}</div>` : ''}
   </div>` : '<div class="section"><div class="section-title">Kalkulace</div><p style="color:#aaa;font-size:12px">Ke zakázce není přiřazena žádná kalkulace.</p></div>'}
 
   ${personal.length > 0 ? `
@@ -596,8 +623,8 @@ router.get('/:id/podklady', auth, async (req, res, next) => {
   <!-- Poznámky -->
   <div class="section">
     <div class="grid2">
-      ${z.poznamka_klient ? `<div><div class="section-title">Poznámka klienta</div><div class="poznamka-box">${z.poznamka_klient}</div></div>` : '<div></div>'}
-      ${z.poznamka_interni ? `<div><div class="section-title">Interní poznámka</div><div class="poznamka-box" style="background:#f0f4ff;border-color:#c0d0f0">${z.poznamka_interni}</div></div>` : ''}
+      ${z.poznamka_klient ? `<div><div class="section-title">Pozn�mka klienta</div><div class="poznamka-box">${z.poznamka_klient}</div></div>` : '<div></div>'}
+      ${z.poznamka_interni ? `<div><div class="section-title">Intern� pozn�mka</div><div class="poznamka-box" style="background:#f0f4ff;border-color:#c0d0f0">${z.poznamka_interni}</div></div>` : ''}
     </div>
   </div>` : ''}
 
@@ -634,6 +661,246 @@ router.get('/:id/podklady', auth, async (req, res, next) => {
 
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.send(html);
+  } catch (err) { next(err); }
+});
+
+// GET /api/zakazky/:id/dodaci-list
+router.get('/:id/dodaci-list', auth, async (req, res, next) => {
+  try {
+    const { rows } = await query(`
+      SELECT z.*,
+        k.jmeno AS klient_jmeno, k.prijmeni AS klient_prijmeni, k.firma AS klient_firma,
+        k.email AS klient_email, k.telefon AS klient_telefon, k.adresa AS klient_adresa,
+        u.jmeno AS obch_jmeno, u.prijmeni AS obch_prijmeni,
+        v.name AS venue_name, v.address_line_1 AS venue_address_line_1, v.address_line_2 AS venue_address_line_2,
+        v.city AS venue_city, v.postal_code AS venue_postal_code, v.country AS venue_country
+      FROM zakazky z
+      LEFT JOIN klienti k ON k.id = z.klient_id
+      LEFT JOIN uzivatele u ON u.id = z.obchodnik_id
+      LEFT JOIN venues v ON v.id = z.venue_id
+      WHERE z.id = $1
+    `, [req.params.id]);
+
+    if (!rows[0]) return res.status(404).json({ error: 'Zakázka nenalezena' });
+    const z = rows[0];
+
+    const esc = (value) => String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+
+    const fDate = (value) => value
+      ? new Date(value).toLocaleDateString('cs-CZ', { day: '2-digit', month: '2-digit', year: 'numeric' })
+      : '—';
+    const fTime = (value) => value ? String(value).slice(0, 5) : '—';
+
+    const klientNazev = z.klient_firma || [z.klient_jmeno, z.klient_prijmeni].filter(Boolean).join(' ') || '—';
+    const venueNazev = z.venue_name || z.misto || '—';
+    const venueAdresa = [
+      z.venue_address_line_1,
+      z.venue_address_line_2,
+      [z.venue_postal_code, z.venue_city].filter(Boolean).join(' '),
+      z.venue_country,
+    ].filter(Boolean).join(', ');
+
+    const { rows: nabidkaRows } = await query(`
+      SELECT n.id, n.nazev,
+        COALESCE(
+          json_agg(json_build_object(
+            'nazev', p.nazev,
+            'mnozstvi', p.mnozstvi,
+            'jednotka', p.jednotka,
+            'cena_celkem', p.cena_celkem
+          ) ORDER BY p.poradi, p.id) FILTER (WHERE p.id IS NOT NULL),
+          '[]'
+        ) AS polozky
+      FROM nabidky n
+      LEFT JOIN nabidky_polozky p ON p.nabidka_id = n.id
+      WHERE n.zakazka_id = $1 AND n.aktivni = true
+      GROUP BY n.id
+      LIMIT 1
+    `, [req.params.id]);
+
+    const nabidka = nabidkaRows[0] || null;
+    const brief = await buildVenueBriefForZakazka(null, req.params.id).catch(() => null);
+
+    const { rows: nastaveni } = await query('SELECT klic, hodnota FROM nastaveni');
+    const firma = {};
+    nastaveni.forEach((row) => { firma[row.klic] = row.hodnota; });
+
+    const items = Array.isArray(nabidka?.polozky) ? nabidka.polozky : [];
+    const itemsRows = items.length
+      ? items.map((item) => `
+          <tr>
+            <td>${esc(item.nazev)}</td>
+            <td class="right">${esc(item.mnozstvi)}</td>
+            <td>${esc(item.jednotka || 'ks')}</td>
+            <td class="right">${item.cena_celkem != null ? new Intl.NumberFormat('cs-CZ').format(item.cena_celkem) + ' Kč' : '—'}</td>
+          </tr>
+        `).join('')
+      : `<tr><td colspan="4" class="muted">Položky nejsou zatím vyplněné. Dodací list slouží jako provozní podklad a potvrzení předání.</td></tr>`;
+
+    const logisticsRows = [
+      ['Místo akce', venueNazev],
+      ['Adresa venue', venueAdresa || z.misto || '—'],
+      ['Příjezdové okno', brief?.access_rule?.delivery_window || '—'],
+      ['Check-in point', brief?.access_rule?.check_in_point || '—'],
+      ['Security buffer', brief?.risk_summary?.expected_security_delay_minutes != null ? `${brief.risk_summary.expected_security_delay_minutes} min` : '—'],
+      ['Loading instrukce', brief?.loading_zone?.arrival_instructions || '—'],
+      ['Trasa do servisní zóny', brief?.route?.name || '—'],
+      ['Odhad unload -> room', brief?.risk_summary?.expected_unload_to_room_minutes != null ? `${brief.risk_summary.expected_unload_to_room_minutes} min` : '—'],
+      ['Parkování', brief?.parking_summary || '—'],
+    ].map(([label, value]) => `
+      <tr>
+        <td class="label-cell">${esc(label)}</td>
+        <td>${esc(value || '—')}</td>
+      </tr>
+    `).join('');
+
+    const html = `<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dodací list ${esc(z.cislo)}</title>
+  <style>
+    body { font-family: Arial, Helvetica, sans-serif; color:#1f2937; margin:0; background:#f5f5f4; }
+    .page { max-width: 980px; margin: 24px auto; background:#fff; padding:32px; box-shadow:0 8px 24px rgba(0,0,0,.06); }
+    .header { display:flex; justify-content:space-between; gap:24px; align-items:flex-start; margin-bottom:24px; }
+    .title { font-size:28px; font-weight:700; margin:0 0 6px; }
+    .subtitle { color:#6b7280; font-size:13px; }
+    .grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:18px; }
+    .card { border:1px solid #e7e5e4; border-radius:14px; padding:16px; }
+    .section-title { font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:#78716c; font-weight:700; margin-bottom:10px; }
+    table { width:100%; border-collapse:collapse; }
+    th, td { padding:10px 12px; border-bottom:1px solid #e7e5e4; font-size:14px; vertical-align:top; }
+    th { text-align:left; font-size:12px; color:#78716c; text-transform:uppercase; letter-spacing:.05em; background:#fafaf9; }
+    .right { text-align:right; }
+    .muted { color:#78716c; }
+    .label-cell { width:220px; color:#57534e; font-weight:600; background:#fafaf9; }
+    .signature-grid { display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-top:24px; }
+    .signature { border:1px solid #e7e5e4; border-radius:14px; padding:18px; min-height:130px; }
+    .signature-line { border-bottom:1px solid #a8a29e; margin-top:48px; }
+    .notes { white-space:pre-wrap; font-size:14px; line-height:1.6; }
+    @media print {
+      body { background:#fff; }
+      .page { box-shadow:none; margin:0; max-width:none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="header">
+      <div>
+        <h1 class="title">Dodací list</h1>
+        <div class="subtitle">Zakázka ${esc(z.cislo)} | ${esc(z.nazev)}</div>
+      </div>
+      <div class="subtitle" style="text-align:right">
+        <div><strong>${esc(firma.firma_nazev || 'Catering LD')}</strong></div>
+        ${firma.firma_adresa ? `<div>${esc(firma.firma_adresa)}</div>` : ''}
+        ${firma.firma_email ? `<div>${esc(firma.firma_email)}</div>` : ''}
+        ${firma.firma_telefon ? `<div>${esc(firma.firma_telefon)}</div>` : ''}
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <div class="section-title">Odběratel / klient</div>
+        <div><strong>${esc(klientNazev)}</strong></div>
+        ${z.klient_email ? `<div class="muted">${esc(z.klient_email)}</div>` : ''}
+        ${z.klient_telefon ? `<div class="muted">${esc(z.klient_telefon)}</div>` : ''}
+        ${z.klient_adresa ? `<div class="muted">${esc(z.klient_adresa)}</div>` : ''}
+      </div>
+      <div class="card">
+        <div class="section-title">Souhrn akce</div>
+        <div><strong>Datum:</strong> ${esc(fDate(z.datum_akce))}</div>
+        <div><strong>Čas:</strong> ${esc(fTime(z.cas_zacatek))} - ${esc(fTime(z.cas_konec))}</div>
+        <div><strong>Typ akce:</strong> ${esc(z.typ || '—')}</div>
+        <div><strong>Počet hostů:</strong> ${esc(z.pocet_hostu || '—')}</div>
+        <div><strong>Koordinátor:</strong> ${esc([z.obch_jmeno, z.obch_prijmeni].filter(Boolean).join(' ') || '—')}</div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:18px;">
+      <div class="section-title">Logistika doručení</div>
+      <table>
+        <tbody>${logisticsRows}</tbody>
+      </table>
+    </div>
+
+    <div class="card" style="margin-bottom:18px;">
+      <div class="section-title">Dodávané položky / služby</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Položka</th>
+            <th class="right">Množství</th>
+            <th>Jednotka</th>
+            <th class="right">Cena</th>
+          </tr>
+        </thead>
+        <tbody>${itemsRows}</tbody>
+      </table>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <div class="section-title">Rozsah služeb</div>
+        <div class="notes">${esc(z.rozsah_sluzeb || 'Není vyplněno.')}</div>
+      </div>
+      <div class="card">
+        <div class="section-title">Poznámky pro předání</div>
+        <div class="notes">${esc(z.poznamka_klient || z.poznamka_interni || 'Bez doplňujících poznámek.')}</div>
+      </div>
+    </div>
+
+    <div class="signature-grid">
+      <div class="signature">
+        <div class="section-title">Předal</div>
+        <div class="muted">Jméno a podpis</div>
+        <div class="signature-line"></div>
+        <div class="muted" style="margin-top:10px;">Datum a čas: ____________________</div>
+      </div>
+      <div class="signature">
+        <div class="section-title">Převzal</div>
+        <div class="muted">Jméno a podpis</div>
+        <div class="signature-line"></div>
+        <div class="muted" style="margin-top:10px;">Datum a čas: ____________________</div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
+
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(html);
+  } catch (err) { next(err); }
+});
+
+// GET /api/zakazky/:id/venue-brief
+router.get('/:id/venue-brief', auth, async (req, res, next) => {
+  try {
+    const brief = await buildVenueBriefForZakazka(null, req.params.id);
+    res.json(brief);
+  } catch (err) { next(err); }
+});
+
+// POST /api/zakazky/:id/venue-snapshot
+router.post('/:id/venue-snapshot', auth, async (req, res, next) => {
+  try {
+    const snapshot = await createVenueSnapshot(null, req.params.id, req.user.id);
+    if (!snapshot) return res.status(400).json({ error: 'Zakazka nema prirazene venue' });
+    res.status(201).json(snapshot);
+  } catch (err) { next(err); }
+});
+
+// POST /api/zakazky/:id/venue-debrief
+router.post('/:id/venue-debrief', auth, async (req, res, next) => {
+  try {
+    const result = await withTransaction(async (client) => submitVenueDebrief(client, req.params.id, req.body || {}, req.user.id));
+    res.status(201).json(result);
   } catch (err) { next(err); }
 });
 

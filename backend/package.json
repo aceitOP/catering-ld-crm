@@ -11,6 +11,7 @@
     "doctor": "node scripts/doctor.js",
     "system-test": "node scripts/system-test.js",
     "security-test": "node scripts/security-test.js",
+    "venue-test": "node scripts/venue-twin-test.js",
     "smoke": "node scripts/system-test.js && node scripts/security-test.js",
     "lint": "eslint src --ext .js"
   },

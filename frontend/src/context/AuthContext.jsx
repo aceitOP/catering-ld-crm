@@ -7,6 +7,7 @@ const AuthContext = createContext(null);
 const DEFAULT_BRANDING = {
   app_title: 'Catering CRM',
   app_logo_data_url: '',
+  app_color_theme: 'ocean',
 };
 
 export function AuthProvider({ children }) {
@@ -19,6 +20,7 @@ export function AuthProvider({ children }) {
     const nextBranding = {
       app_title: response.data?.app_title || 'Catering CRM',
       app_logo_data_url: response.data?.app_logo_data_url || '',
+      app_color_theme: response.data?.app_color_theme || 'ocean',
     };
     setBranding(nextBranding);
     return nextBranding;
@@ -33,6 +35,10 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     document.title = branding.app_title || 'Catering CRM';
   }, [branding.app_title]);
+
+  useEffect(() => {
+    document.documentElement.dataset.brandTheme = branding.app_color_theme || 'ocean';
+  }, [branding.app_color_theme]);
 
   useEffect(() => {
     const token = safeGetItem('token');

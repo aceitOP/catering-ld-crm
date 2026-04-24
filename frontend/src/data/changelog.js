@@ -1,342 +1,51 @@
-// Changelog – Catering LD CRM
+// Changelog - Catering LD CRM
 // Typy změn: 'new' | 'improvement' | 'fix' | 'security'
 
-export const APP_VERSION = '3.6.0';
+export const APP_VERSION = '3.7.1';
 
 export const CHANGELOG = [
+  {
+    version: '3.7.1',
+    date: '2026-04-24',
+    changes: [
+      { type: 'new', text: 'Branding: přepínání mezi 4 barevnými šablonami aplikace (Ocean, Forest, Terracotta, Graphite).' },
+      { type: 'improvement', text: 'Branding se propisuje přes CSS proměnné do tlačítek, badge, gradientů i focus stavů napříč aplikací.' },
+    ],
+  },
+  {
+    version: '3.7.0',
+    date: '2026-04-24',
+    changes: [
+      { type: 'new', text: 'Venue Logistics Twin: samostatná venue entita, logistické sekce, observations, snapshoty a venue brief na zakázce.' },
+      { type: 'new', text: 'Dodací list: nový tiskový dokument přímo z detailu zakázky s klientem, místem, logistikou, položkami a podpisy.' },
+      { type: 'improvement', text: 'Komando e-mail: lze odeslat přiřazenému personálu i na libovolné e-mailové adresy v jednom kroku.' },
+      { type: 'improvement', text: 'Dokumenty a přílohy: maximální velikost souboru sjednocena na 15 MB.' },
+      { type: 'fix', text: 'Opravy diakritiky v Nastavení, changelogu, akcích zakázky a e-mailových textech.' },
+    ],
+  },
   {
     version: '3.6.0',
     date: '2026-03-20',
     changes: [
-      { type: 'new',         text: 'Dokumenty: složkový systém – vytvářejte, přejmenujte a mažte složky' },
-      { type: 'new',         text: 'Dokumenty: přesouvání souborů mezi složkami' },
-      { type: 'fix',         text: 'Dashboard: oprava widgetu Nové poptávky (zobrazovalo 0)' },
-      { type: 'improvement', text: 'E-mail: SMTP nastavení přesunuto do UI (Nastavení → E-mail)' },
-      { type: 'fix',         text: 'E-mail: oprava chyby při odesílání – konkrétní chybová zpráva místo generické' },
+      { type: 'new', text: 'Dokumenty: složkový systém a přesouvání souborů mezi složkami.' },
+      { type: 'improvement', text: 'E-mail: SMTP nastavení přesunuto do UI v Nastavení.' },
+      { type: 'fix', text: 'Dashboard: oprava widgetu Nové poptávky.' },
     ],
   },
   {
     version: '3.5.0',
     date: '2026-03-19',
     changes: [
-      { type: 'new',         text: 'Dark mode – přepínač Světlý / Auto / Tmavý v levém panelu (vedle verze)' },
-      { type: 'new',         text: 'Automatická detekce podle denní doby – tmavý režim se zapne automaticky od 19:00 do 7:00' },
-      { type: 'new',         text: 'Preference uložena v prohlížeči (localStorage) – nastavení se zachová po přihlášení' },
+      { type: 'new', text: 'Tmavý režim s volbou Světlý / Auto / Tmavý v levém panelu.' },
+      { type: 'improvement', text: 'Automatická aktivace tmavého režimu podle denní doby.' },
     ],
   },
   {
     version: '3.4.0',
     date: '2026-03-19',
     changes: [
-      { type: 'new',         text: 'E-mail modul – čtení příchozí pošty přes IMAP přímo v CRM (3-panelový layout: složky, seznam zpráv, detail)' },
-      { type: 'new',         text: 'E-mail – zobrazení, odpověď (Reply), přeposlání (Forward), smazání, označení hvězdičkou, přesun do složky' },
-      { type: 'new',         text: 'E-mail – vytvořit zakázku z e-mailu jedním kliknutím (automaticky vytvoří klienta a zakázku v stavu Nová poptávka)' },
-      { type: 'new',         text: 'Nastavení → E-mail (IMAP) – konfigurace IMAP připojení (host, port, uživatel, heslo, TLS) přímo v CRM' },
-      { type: 'new',         text: 'E-mail – odesílání přes stávající SMTP nastavení, sandboxed HTML rendering příchozích zpráv' },
-    ],
-  },
-  {
-    version: '3.3.0',
-    date: '2026-03-17',
-    changes: [
-      { type: 'new',         text: 'Kalendář kapacit – nový pohled „Kapacity" zobrazuje vytíženost firmy po dnech (počet akcí, hostů) s barevným označením (zelená = volno, oranžová = vytíženo, červená = plná kapacita)' },
-      { type: 'new',         text: 'Kapacity – kliknutím na den se zobrazí detail se seznamem všech akcí, potvrzených i rozpracovaných' },
-      { type: 'new',         text: 'Kapacity – miniaturní progress bary v každé buňce ukazují % vytížení akcemi i hosty' },
-      { type: 'new',         text: 'Nastavení → Kapacity – konfigurace denních limitů (max akcí/den, max hostů/den), limity lze nastavit i přímo v pohledu Kapacity' },
-    ],
-  },
-  {
-    version: '3.2.0',
-    date: '2026-03-17',
-    changes: [
-      { type: 'new',         text: 'Follow-up úkoly – zakázka automaticky vytváří follow-up úkoly při změnách stavu (poptávka → zavolat, nabídka → připomenout, potvrzeno → potvrdit, realizováno → poděkovat, uzavřeno → referenci + spolupráci)' },
-      { type: 'new',         text: 'Dashboard – nový widget „Follow-up úkoly" se seznamem nevyřízených úkolů s možností přímého odškrtnutí' },
-      { type: 'new',         text: 'Zakázka – karta „Follow-up úkoly" v pravém sloupci detailu zakázky (ruční přidání, odškrtnutí, smazání)' },
-      { type: 'new',         text: 'Tally poptávky – automatický potvrzovací e-mail zákazníkovi při přijetí poptávky z formuláře' },
-    ],
-  },
-  {
-    version: '3.1.0',
-    date: '2026-03-17',
-    changes: [
-      { type: 'new',         text: 'Pravidelní klienti – automatická detekce klientů s opakujícími se akcemi (2+ realizované zakázky)' },
-      { type: 'new',         text: 'Dashboard – nový widget „Pravidelní klienti" zobrazuje koho oslovit a za kolik dní (červená = po výročí, oranžová = oslovit brzy, zelená = blíží se)' },
-      { type: 'new',         text: 'Klienti – hvězdičkou lze ručně označit klienta jako pravidelného (zobrazuje se v seznamu i ve widgetu)' },
-      { type: 'improvement', text: 'Klienti – hvězdičkové tlačítko v detailu klienta pro rychlé přepínání příznaku pravidelný' },
-    ],
-  },
-  {
-    version: '3.0.0',
-    date: '2026-03-17',
-    changes: [
-      { type: 'new',         text: 'Zakázka – nová záložka „Plánování" s harmonogramem, kontaktními osobami na místě, rozsahem služeb, personálními a technickými požadavky, logitikou, alergeny, speciálními přáními a checklistem realizace' },
-      { type: 'improvement', text: 'Plánování – interaktivní checklist s přidáváním, zaškrtáváním a odebíráním položek přímo v záložce' },
-      { type: 'improvement', text: 'Ceník – nové tlačítko pro úplnou editaci položky ceníku (název, kategorie, jednotka, nákupní/prodejní cena, DPH)' },
-      { type: 'fix',         text: 'Klienti – opraveno zobrazení tlačítka ARES u IČO v modálech (min-w-0 + whitespace-nowrap)' },
-    ],
-  },
-  {
-    version: '2.9.0',
-    date: '2026-03-17',
-    changes: [
-      { type: 'new',         text: 'Šablony – přidání položek nabídky přímo do šablony (kategorie, název, jednotka, množství, cena)' },
-      { type: 'new',         text: 'Šablony – při zakládání zakázky ze šablony s položkami se automaticky vytvoří nabídka' },
-      { type: 'improvement', text: 'Šablony – karta šablony zobrazuje počet uložených položek nabídky' },
-      { type: 'improvement', text: 'Výběr šablony – zobrazuje počet položek u každé šablony' },
-    ],
-  },
-  {
-    version: '2.8.0',
-    date: '2026-03-17',
-    changes: [
-      { type: 'security',    text: 'Klientský výběr – opravena bezpečnostní chyba: poznámka ke změně šla zapsat k libovolné položce jiného výběru (ownership check)' },
-      { type: 'security',    text: 'Backend – server se nespustí bez bezpečného JWT_SECRET (min. 32 znaků), stack trace se neposílá klientům' },
-      { type: 'security',    text: 'Personál – mazání záznamu nyní vyžaduje roli admin (dříve mohl mazat každý přihlášený)' },
-      { type: 'security',    text: 'Šablony – vytváření, úprava a mazání šablon nyní vyžaduje roli admin' },
-      { type: 'fix',         text: 'Zakázky – generování čísla zakázky přesunuto do transakce (zabraňuje duplicitám při souběžných požadavcích)' },
-      { type: 'fix',         text: 'Nabídky – ukládání položek nabídky probíhá v transakci (zabraňuje nekonzistentnímu stavu při chybě)' },
-      { type: 'fix',         text: 'Faktury – ukládání položek faktury probíhá v transakci (zabraňuje nekonzistentnímu stavu při chybě)' },
-      { type: 'fix',         text: 'Šablony – opravena chyba kde falsy hodnoty (0, prázdný řetězec) se ukládaly jako NULL místo správné hodnoty' },
-      { type: 'fix',         text: 'Proposals – smazání neexistujícího záznamu nyní vrací 404 místo falešného úspěchu' },
-      { type: 'fix',         text: 'Backend – chyba při inicializaci databáze nyní správně zastaví start serveru' },
-      { type: 'improvement', text: 'Archiv – opraveny ikony prázdného stavu (Archive, UserX, HardHat namísto emoji)' },
-    ],
-  },
-  {
-    version: '2.7.0',
-    date: '2026-03-17',
-    changes: [
-      { type: 'new',         text: 'Šablony zakázek – nový modul pro správu opakujících se typů akcí (Catering → Šablony)' },
-      { type: 'new',         text: 'Nová zakázka ze šablony – výběr šablony jako první krok průvodce, automatické předvyplnění polí' },
-      { type: 'new',         text: 'E-mail podpis – HTML podpis v Nastavení → E-mail podpis, připojuje se ke všem odchozím emailům' },
-    ],
-  },
-  {
-    version: '2.6.0',
-    date: '2026-03-17',
-    changes: [
-      { type: 'new',         text: 'Archiv – nový modul pro archivování zakázek, klientů a personálu (přístup přes boční menu → Správa)' },
-      { type: 'new',         text: 'Archiv – obnovení libovolné archivované položky jedním kliknutím' },
-      { type: 'improvement', text: 'Zakázky – tlačítko „Archivovat zakázku" v detailu zakázky (box Akce)' },
-      { type: 'improvement', text: 'Klienti – tlačítko pro archivaci klienta v detailovém panelu' },
-      { type: 'improvement', text: 'Personál – tlačítko pro archivaci pracovníka na kartě (hover akce)' },
-      { type: 'improvement', text: 'Kalendář přesunut pod Fakturace v navigačním menu' },
-      { type: 'improvement', text: 'Nová zakázka – pole „Zodpovědná osoba" dostupné již při zakládání' },
-      { type: 'improvement', text: 'Klienti – tlačítko ARES je nyní výrazně viditelné (modré, s popiskem)' },
-    ],
-  },
-  {
-    version: '2.5.0',
-    date: '2026-03-17',
-    changes: [
-      { type: 'fix',         text: 'Poptávky – opravena chyba kdy ručně vytvořená zakázka automaticky přidávala do poptávek (stav „Nová poptávka")' },
-      { type: 'fix',         text: 'Klientský výběr menu – opravena kritická chyba (stránka /nabidka/:token nefungovala kvůli špatnému importu)' },
-      { type: 'improvement', text: 'Detail zakázky – aktivní nabídka je nyní viditelná přímo v záložce Detaily (název, položky, cena)' },
-      { type: 'improvement', text: 'Nová faktura ze zakázky – automaticky předvyplní položky z přiřazené nabídky' },
-      { type: 'improvement', text: 'Faktura – kompletní editace včetně změny odběratele (klienta)' },
-    ],
-  },
-  {
-    version: '2.4.0',
-    date: '2026-03-17',
-    changes: [
-      { type: 'new',         text: 'Klientský výběr menu – generování unikátních odkazů pro výběr menu přímo klientem' },
-      { type: 'new',         text: 'Klientský výběr – sekce s typy „vyberte 1" (single) nebo „vyberte N" (multi), povinné sekce' },
-      { type: 'new',         text: 'Klientský výběr – živý výpočet ceny za osobu a celkové ceny při výběru' },
-      { type: 'new',         text: 'Klientský výběr – speciální požadavky klienta u každé položky (alergie, úpravy)' },
-      { type: 'new',         text: 'Klientský výběr – digitální potvrzení s jménem a souhlasem, zamknutí 14 dní před akcí' },
-      { type: 'new',         text: 'Klientský výběr – potvrzovací email s přehledem výběru odeslaný firmě i klientovi' },
-      { type: 'new',         text: 'Záložka „Výběr menu" v detailu zakázky – inline editor sekcí a položek, kopírování odkazu, odeslání emailem' },
-      { type: 'new',         text: 'Zakázky – nové typy akce: Pohřeb a Ostatní' },
-      { type: 'improvement', text: 'Detail zakázky – sekundární akce (Komando, Děkovací email, Faktura, Výrobní list) přesunuty do boxu „Akce" v pravém sloupci' },
-      { type: 'fix',         text: 'Nabídka – opravena chyba při ukládání (prázdné číselné pole způsobovalo chybu databáze)' },
-      { type: 'fix',         text: 'Tlačítko „Nabídka" – nyní otevírá existující nabídku zakázky nebo přejde na vytvoření nové' },
-    ],
-  },
-  {
-    version: '2.3.1',
-    date: '2026-03-17',
-    changes: [
-      { type: 'fix',         text: 'Personál – opraven crash modulu (filterRole/filterTyp použity před deklarací)' },
-      { type: 'fix',         text: 'Faktura – opraveno načtení klienta při „Vystavit fakturu" ze zakázky (broken queryFn)' },
-      { type: 'fix',         text: 'Faktura – opraveno hledání klientů (odběratel autocomplete nyní funguje)' },
-      { type: 'new',         text: 'Klienti – tlačítko „Doplnit z ARES" vedle IČO v obou formulářích (vyplní firmu, DIČ, adresu)' },
-      { type: 'improvement', text: 'Nová zakázka – přidán slider pro nastavení počtu hostů (+ ruční zadání zůstává)' },
-    ],
-  },
-  {
-    version: '2.3.0',
-    date: '2026-03-17',
-    changes: [
-      { type: 'new',         text: 'Výrobní list – nová stránka dostupná z detailu zakázky (tlačítko „Výrobní list")' },
-      { type: 'new',         text: 'Consumption Engine – automatický výpočet množství surovin dle typu akce (svatba, firemní, závoz…)' },
-      { type: 'new',         text: 'Výrobní list – sekce A: Mise en place (objednávky & příprava) s upraveným množstvím' },
-      { type: 'new',         text: 'Výrobní list – sekce B: Kompletace pokrmů (seznam jídel s počtem porcí + políčko „hotovo v")' },
-      { type: 'new',         text: 'Výrobní list – sekce C: Automatická detekce alergenů z názvů položek (14 skupin alergenů)' },
-      { type: 'new',         text: 'Výrobní list – sekce D & E: Personál a logistika/vybavení z kalkulace' },
-      { type: 'new',         text: 'Výrobní list – detail spotřeby s koeficienty (základní vs. upravené množství)' },
-      { type: 'improvement', text: 'Výrobní list – tiskové CSS (print:hidden / print:block), přímo tisknutelný z prohlížeče' },
-    ],
-  },
-  {
-    version: '2.2.0',
-    date: '2026-03-17',
-    changes: [
-      { type: 'new',         text: 'Dashboard – přetažitelné widgety (drag & drop), pořadí se ukládá do prohlížeče' },
-      { type: 'new',         text: 'Dashboard – nový widget Fakturace (nezaplacené, po splatnosti)' },
-      { type: 'new',         text: 'Dashboard – nový widget Nové poptávky se seznamem posledních záznamu' },
-      { type: 'improvement', text: 'Dashboard – tlačítko „Upravit rozvržení" pro aktivaci přetahování' },
-      { type: 'improvement', text: 'Boční menu – sekce „Obchod" přejmenována na „Catering"' },
-      { type: 'fix',         text: 'Kalendář – opraveno zobrazení akcí v měsíčním pohledu (datum_akce porovnání)' },
-    ],
-  },
-  {
-    version: '2.1.0',
-    date: '2026-03-17',
-    changes: [
-      { type: 'new', text: 'Víceúrovňové boční menu – Obchod, Správa, Data s rozbalovacími sekcemi' },
-      { type: 'new', text: 'Dashboard – tlačítka „Nová nabídka" a „Nový klient" vedle „Nová zakázka"' },
-      { type: 'improvement', text: 'Kalendář měsíc – dny s akcemi výrazně zvýrazněny (barevný pruh, tmavé číslo, počet akcí)' },
-      { type: 'improvement', text: 'Timeline den – překrývající se akce se zobrazují vedle sebe ve sloupcích (podpora 6+ akcí)' },
-      { type: 'improvement', text: 'Timeline týden – překrývající se Gantt bary se řadí do řádků, dynamická výška dne' },
-      { type: 'fix', text: 'Fakturace – opravena chyba při vytváření nové faktury (crash stránky)' },
-      { type: 'fix', text: 'Fakturace – vyhledávání v ceníku nyní funguje při vystavení faktury' },
-    ],
-  },
-  {
-    version: '2.0.0',
-    date: '2026-03-16',
-    changes: [
-      { type: 'improvement', text: 'Kompletní redesign UI – moderní vzhled s fialovým barevným schématem' },
-      { type: 'improvement', text: 'Nový sidebar – světlý, prostornější, s gradientovými ikonami' },
-      { type: 'improvement', text: 'Dashboard – přepracované statistické karty s ikonami a stíny' },
-      { type: 'improvement', text: 'Zakulacené prvky (rounded-2xl/3xl), měkké stíny, moderní typografie Inter' },
-      { type: 'improvement', text: 'Přepracované tabulky, modaly, filtry, badges a tlačítka' },
-      { type: 'improvement', text: 'Nová přihlašovací stránka s gradientovým logem' },
-    ],
-  },
-  {
-    version: '1.9.1',
-    date: '2026-03-16',
-    changes: [
-      { type: 'fix', text: 'Dashboard – opraveno přetékání textu notifikací mimo box' },
-      { type: 'improvement', text: 'Personál – filtry podle typu (Interní/Externí) a role (Číšník, Kuchař, …)' },
-      { type: 'fix', text: 'Opravena chyba 404 při obnovení stránky (F5) – SPA routing' },
-    ],
-  },
-  {
-    version: '1.9.0',
-    date: '2026-03-16',
-    changes: [
-      { type: 'new', text: 'Fakturace – nový modul pro vydávání faktur (seznam, detail, vystavení, PDF tisk)' },
-      { type: 'new', text: 'Fakturace – workflow stavů: Vystavena → Odeslána → Zaplacena | Storno' },
-      { type: 'new', text: 'Fakturace – PDF export faktury s hlavičkou dodavatele/odběratele a položkami' },
-      { type: 'new', text: 'Fakturace – položky s DPH sazbou (0 %, 12 %, 21 %), vyhledávání z ceníku' },
-      { type: 'new', text: 'Zakázky – tlačítko „Vystavit fakturu" v detailu zakázky' },
-      { type: 'improvement', text: 'Přehledové statistiky: objem Vystaveno / Odesláno / Zaplaceno na hlavní stránce Fakturace' },
-    ],
-  },
-  {
-    version: '1.8.1',
-    date: '2026-03-16',
-    changes: [
-      { type: 'fix', text: 'Poptávky – opravena chyba „formatCena is not defined" při zobrazení rozpočtu klienta' },
-      { type: 'fix', text: 'Tally integrace – ověřena kompletní funkčnost: webhook → nova_poptavka → notifikace → badge v menu' },
-    ],
-  },
-  {
-    version: '1.8.0',
-    date: '2026-03-16',
-    changes: [
-      { type: 'improvement', text: 'Poptávky – tlačítko „Převést na zakázku" přesměruje přímo na detail zakázky' },
-      { type: 'new',         text: 'Google Kalendář – integrace přes Service Account, potvrzené zakázky se automaticky propisují do sdíleného firemního kalendáře' },
-      { type: 'new',         text: 'Google Kalendář – stornované zakázky se automaticky odstraní z Google Kalendáře' },
-      { type: 'new',         text: 'Kalendář – Google Calendar eventy zobrazeny v měsíčním i timeline pohledu (modrou barvou)' },
-      { type: 'new',         text: 'Nastavení – nová záložka „Google Kalendář" s návodem a nastavením Calendar ID' },
-    ],
-  },
-  {
-    version: '1.7.0',
-    date: '2026-03-16',
-    changes: [
-      { type: 'new',         text: 'Modul Poptávky – seznam nových poptávek s akcemi Přijmout / Stornovat / Detail' },
-      { type: 'new',         text: 'Sidebar – oranžový počítadlo badge na Poptávky při nových záznamech' },
-      { type: 'new',         text: 'Tally.so integrace – poptávky z webového formuláře se automaticky ukládají jako zakázka (stav: Nová poptávka)' },
-      { type: 'new',         text: 'Nastavení – záložka „Integrace" s návodem a webhookem URL pro Tally.so' },
-    ],
-  },
-  {
-    version: '1.6.0',
-    date: '2026-03-16',
-    changes: [
-      { type: 'new',         text: 'Dashboard – mini timeline nejbližšího dne s akcemi (Gantt s časovými bary)' },
-      { type: 'improvement', text: 'Kalendář Timeline – přepracován: Den = vertikální denní plánovač, Týden = Gantt se všemi 7 dny' },
-      { type: 'improvement', text: 'Kalendář Timeline – zobrazuje všechny dny týdne vč. prázdných, víkendy odlišeny pozadím' },
-      { type: 'fix',         text: 'Ctrl+F5 (hard reload) již nezpůsobuje chybu 404 na podstránkách' },
-      { type: 'security',    text: 'Heslo povinné při vytváření uživatele (min. 8 znaků), odstraněno výchozí heslo' },
-      { type: 'security',    text: 'Opravena validace stavu nabídky – zamítnuty neplatné hodnoty' },
-      { type: 'security',    text: 'Paginace v modulu Klienti – omezení maximálního limitu záznamu' },
-    ],
-  },
-  {
-    version: '1.5.0',
-    date: '2026-03-16',
-    changes: [
-      { type: 'new',         text: 'Notifikační centrum – bell ikona s slide-out panelem, polling každých 30 s' },
-      { type: 'new',         text: 'Webhook pro nové poptávky z webu (POST /api/notifikace/poptavka)' },
-      { type: 'new',         text: 'Nastavení – záložka „Změna hesla" pro přihlášeného uživatele' },
-      { type: 'new',         text: 'Patička – info o verzi + modal s historií změn' },
-      { type: 'improvement', text: 'Vymazat cache – opraveno (neznámá chyba 404 odstraněna)' },
-    ],
-  },
-  {
-    version: '1.4.0',
-    date: '2026-03-15',
-    changes: [
-      { type: 'new',         text: 'Multiselect s bulk akcemi v Klienti, Zakázky, Nabídky, Personál, Dokumenty' },
-      { type: 'new',         text: 'Export vybraných záznamů do CSV z každého modulu' },
-      { type: 'security',    text: 'Rate limiting na přihlášení (ochrana před brute force)' },
-      { type: 'security',    text: 'Validace MIME typů při nahrávání souborů' },
-      { type: 'security',    text: 'HTML escaping uživatelských dat v e-mailových šablonách' },
-      { type: 'security',    text: 'Bezpečná paginace s limitováním rozsahu parametrů' },
-    ],
-  },
-  {
-    version: '1.3.0',
-    date: '2026-03-14',
-    changes: [
-      { type: 'new',         text: 'Reporty – rychlé volby datového období (Tento týden, Minulý měsíc, 3 měs., 6 měs.)' },
-      { type: 'new',         text: 'CRM – tlačítka "Nová nabídka" a "Nový klient" vedle "Nová zakázka"' },
-      { type: 'improvement', text: 'Dashboard – Nadcházející akce přesunuta na wider panel vlevo' },
-      { type: 'improvement', text: 'Kalendář – zobrazení všech akcí v buňce (bez limitu 3 akcí)' },
-    ],
-  },
-  {
-    version: '1.2.0',
-    date: '2026-03-13',
-    changes: [
-      { type: 'new',         text: 'Detail zakázky – úprava zakázky (edit modal se všemi poli)' },
-      { type: 'new',         text: 'Detail zakázky – přidání a odebrání personálu s výběrem role a časů' },
-      { type: 'new',         text: 'Detail zakázky – nahrávání dokumentů' },
-      { type: 'new',         text: 'Klienti – úprava zákazníka (edit modal)' },
-    ],
-  },
-  {
-    version: '1.1.0',
-    date: '2026-03-12',
-    changes: [
-      { type: 'improvement', text: 'PDF Komando – výrazně větší text pro lepší čitelnost' },
-    ],
-  },
-  {
-    version: '1.0.0',
-    date: '2026-01-01',
-    changes: [
-      { type: 'new', text: 'Prvotní release aplikace Catering LD CRM' },
-      { type: 'new', text: 'Moduly: Dashboard, Zakázky, Klienti, Nabídky, Kalendář, Personál, Dokumenty, Ceníky, Reporty, Nastavení' },
-      { type: 'new', text: 'Tvorba a správa nabídek s PDF exportem' },
-      { type: 'new', text: 'Komando email pro personál' },
-      { type: 'new', text: 'Přihlašování s rolemi (admin / uživatel)' },
+      { type: 'new', text: 'E-mail modul s IMAP čtením pošty přímo v CRM.' },
+      { type: 'new', text: 'Odpověď, přeposlání, mazání, práce se složkami a vytvoření zakázky z e-mailu.' },
     ],
   },
 ];

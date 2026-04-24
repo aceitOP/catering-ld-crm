@@ -11,6 +11,7 @@ import ZakazkyPage     from './pages/ZakazkyPage';
 import ZakazkaDetail   from './pages/ZakazkaDetail';
 import NovaZakazka     from './pages/NovaZakazka';
 import KlientiPage     from './pages/KlientiPage';
+import VenuesPage      from './pages/VenuesPage';
 import NabidkyPage     from './pages/NabidkyPage';
 import NabidkaEditor   from './pages/NabidkaEditor';
 import NovaNabidka     from './pages/NovaNabidka';
@@ -30,6 +31,7 @@ import ArchivPage        from './pages/ArchivPage';
 import SablonyPage       from './pages/SablonyPage';
 import EmailPage         from './pages/EmailPage';
 import ErrorLogPage      from './pages/ErrorLogPage';
+import VenueDetailPage   from './pages/VenueDetailPage';
 import Layout           from './components/Layout';
 import AppErrorBoundary from './components/AppErrorBoundary';
 
@@ -81,6 +83,8 @@ function App() {
                   <Route path="zakazky/:id"            element={<ZakazkaDetail />} />
                   <Route path="zakazky/:id/vyrobni-list" element={<VyrobniListPage />} />
                   <Route path="klienti"           element={<KlientiPage />} />
+                  <Route path="venues"            element={<VenuesPage />} />
+                  <Route path="venues/:id"        element={<VenueDetailPage />} />
                   <Route path="nabidky"           element={<NabidkyPage />} />
                   <Route path="nabidky/nova"      element={<NovaNabidka />} />
                   <Route path="nabidky/:id/edit"  element={<NabidkaEditor />} />

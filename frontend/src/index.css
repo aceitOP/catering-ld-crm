@@ -4,6 +4,58 @@
 
 @layer base {
   * { box-sizing: border-box; }
+  :root {
+    --brand-50: 239 246 255;
+    --brand-100: 219 234 254;
+    --brand-200: 191 219 254;
+    --brand-300: 147 197 253;
+    --brand-400: 96 165 250;
+    --brand-500: 59 130 246;
+    --brand-600: 37 99 235;
+    --brand-700: 29 78 216;
+    --brand-800: 30 64 175;
+    --brand-900: 30 58 138;
+    --brand-950: 23 37 84;
+  }
+  :root[data-brand-theme='forest'] {
+    --brand-50: 236 253 245;
+    --brand-100: 209 250 229;
+    --brand-200: 167 243 208;
+    --brand-300: 110 231 183;
+    --brand-400: 52 211 153;
+    --brand-500: 16 185 129;
+    --brand-600: 5 150 105;
+    --brand-700: 4 120 87;
+    --brand-800: 6 95 70;
+    --brand-900: 6 78 59;
+    --brand-950: 2 44 34;
+  }
+  :root[data-brand-theme='terracotta'] {
+    --brand-50: 255 247 237;
+    --brand-100: 255 237 213;
+    --brand-200: 254 215 170;
+    --brand-300: 253 186 116;
+    --brand-400: 251 146 60;
+    --brand-500: 249 115 22;
+    --brand-600: 234 88 12;
+    --brand-700: 194 65 12;
+    --brand-800: 154 52 18;
+    --brand-900: 124 45 18;
+    --brand-950: 67 20 7;
+  }
+  :root[data-brand-theme='graphite'] {
+    --brand-50: 245 245 244;
+    --brand-100: 231 229 228;
+    --brand-200: 214 211 209;
+    --brand-300: 168 162 158;
+    --brand-400: 120 113 108;
+    --brand-500: 87 83 78;
+    --brand-600: 68 64 60;
+    --brand-700: 41 37 36;
+    --brand-800: 28 25 23;
+    --brand-900: 17 24 39;
+    --brand-950: 12 10 9;
+  }
   body {
     @apply text-stone-900 bg-surface antialiased;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -63,12 +115,12 @@
 .dark .hover\:bg-white:hover        { background-color: #252836; }
 
 /* ── Brand barvy (zesvětlené pro dark) ── */
-.dark .bg-brand-50      { background-color: #1e1b4b; }
-.dark .bg-brand-100     { background-color: #27249a; }
-.dark .text-brand-600   { color: #a78bfa; }
-.dark .text-brand-500   { color: #c4b5fd; }
-.dark .border-brand-500 { border-color: #7c3aed; }
-.dark .border-brand-100 { border-color: #312e81; }
+.dark .bg-brand-50      { background-color: rgb(var(--brand-950) / 0.55); }
+.dark .bg-brand-100     { background-color: rgb(var(--brand-900) / 0.7); }
+.dark .text-brand-600   { color: rgb(var(--brand-300)); }
+.dark .text-brand-500   { color: rgb(var(--brand-200)); }
+.dark .border-brand-500 { border-color: rgb(var(--brand-500)); }
+.dark .border-brand-100 { border-color: rgb(var(--brand-800)); }
 
 /* ── Accent (oranžovo-červená) ── */
 .dark .bg-accent\/10    { background-color: rgba(235, 89, 57, 0.15); }
@@ -88,7 +140,7 @@
 .dark input:focus,
 .dark textarea:focus,
 .dark select:focus {
-  border-color: #7c3aed;
+  border-color: rgb(var(--brand-500));
   outline: none;
 }
 

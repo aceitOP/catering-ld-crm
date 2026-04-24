@@ -10,9 +10,10 @@ const SECRET_KEYS = new Set([
   'email_smtp_pass',
 ]);
 const SUPER_ADMIN_ONLY_SETTING_PREFIXES = ['email_imap_', 'email_smtp_'];
-const PUBLIC_BRANDING_KEYS = ['app_title', 'app_logo_data_url'];
+const PUBLIC_BRANDING_KEYS = ['app_title', 'app_logo_data_url', 'app_color_theme'];
 const LOGO_DATA_URL_RE = /^data:image\/(?:png|jpeg|jpg|svg\+xml|webp);base64,[A-Za-z0-9+/=]+$/;
 const BACKUP_TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
+const BRAND_THEMES = new Set(['ocean', 'forest', 'terracotta', 'graphite']);
 
 function isSuperAdminOnlySettingKey(key) {
   return SUPER_ADMIN_ONLY_SETTING_PREFIXES.some((prefix) => key.startsWith(prefix));
@@ -40,6 +41,16 @@ function sanitizeSettingValue(key, value) {
       throw err;
     }
     return trimmed;
+  }
+
+  if (key === 'app_color_theme') {
+    const normalized = raw.trim().toLowerCase();
+    if (!BRAND_THEMES.has(normalized)) {
+      const err = new Error('Neplatna barevna sablona');
+      err.status = 400;
+      throw err;
+    }
+    return normalized;
   }
 
   if (key === 'backup_auto_time') {
@@ -76,6 +87,7 @@ router.get('/public-branding', async (_req, res, next) => {
     const branding = {
       app_title: 'Catering CRM',
       app_logo_data_url: '',
+      app_color_theme: 'ocean',
     };
     rows.forEach((row) => {
       branding[row.klic] = row.hodnota;

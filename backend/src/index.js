@@ -32,6 +32,7 @@ app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 app.use('/api/auth',       require('./routes/auth'));
 app.use('/api/klienti',    require('./routes/klienti'));
 app.use('/api/zakazky',    require('./routes/zakazky'));
+app.use('/api/venues',     require('./routes/venues'));
 app.use('/api/nabidky',    require('./routes/nabidky'));
 app.use('/api/kalkulace',  require('./routes/kalkulace'));
 app.use('/api/personal',   requireAppModule('personal'), require('./routes/personal'));

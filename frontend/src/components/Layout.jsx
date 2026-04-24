@@ -3,7 +3,7 @@ import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../context/AuthContext';
 import {
-  LayoutDashboard, ClipboardList, Users, FileText,
+  LayoutDashboard, ClipboardList, Users, FileText, Building2,
   Calendar, UserCheck, FolderOpen, Tag, Settings, LogOut, BarChart2,
   Bell, X, Globe, Info, Trash2, CheckCheck, Inbox, Receipt, Archive,
   ChevronDown, BookCopy, Mail, Sun, Moon, Clock, ShieldAlert, Bug,
@@ -61,6 +61,7 @@ const NAV = [
     label: 'Správa', icon: Users,
     children: [
       { to: '/klienti',  label: 'Klienti',   icon: Users },
+      { to: '/venues',   label: 'Venue',     icon: Building2 },
       { to: '/personal', label: 'Personál',  icon: UserCheck, moduleKey: 'personal' },
       { to: '/archiv',   label: 'Archiv',    icon: Archive, moduleKey: 'archiv' },
     ],
@@ -354,10 +355,10 @@ export default function Layout() {
             <button
               onClick={() => setChangelogOpen(true)}
               className="flex-1 px-2 py-2 flex items-center gap-1 rounded-xl hover:bg-surface transition-colors group"
-              title="Zobrazit historii změn"
+              title="Zobrazit historii zm?n"
             >
               <span className="text-stone-400 text-xs font-medium group-hover:text-brand-600 transition-colors">v{APP_VERSION}</span>
-              <span className="text-stone-300 text-xs group-hover:text-stone-500 transition-colors">· Co je nového?</span>
+              <span className="text-stone-300 text-xs group-hover:text-stone-500 transition-colors">? Co je nov?ho?</span>
             </button>
             <button
               onClick={() => setBugModalOpen(true)}

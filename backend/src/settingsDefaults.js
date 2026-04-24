@@ -1,6 +1,7 @@
 const DEFAULT_SETTINGS = [
   ['app_title', 'Catering CRM', 'Titulek aplikace v prohlizeci'],
   ['app_logo_data_url', '', 'Logo aplikace jako data URL'],
+  ['app_color_theme', 'ocean', 'Barevna sablona aplikace'],
   ['backup_auto_enabled', 'true', 'Automaticke denni zalohy zapnute'],
   ['backup_auto_time', '02:30', 'Cas automaticke zalohy (HH:MM)'],
   ['backup_retention_count', '14', 'Pocet uchovavanych JSON zaloh'],
