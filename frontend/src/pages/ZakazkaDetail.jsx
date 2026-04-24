@@ -26,6 +26,55 @@ const TYP_OPTIONS = [
 ];
 const MAX_FILE_SIZE_MB = 25;
 
+function normalizeChecklist(items = []) {
+  if (!Array.isArray(items)) return [];
+  return items
+    .map((item, index) => {
+      if (typeof item === 'string') {
+        return { key: `custom_${index}`, label: item, done: false, requiredBy: null };
+      }
+      if (!item?.label) return null;
+      return {
+        key: item.key || `custom_${index}`,
+        label: item.label,
+        done: Boolean(item.done),
+        requiredBy: item.requiredBy || null,
+      };
+    })
+    .filter(Boolean);
+}
+
+function mergeChecklistTemplate(current = [], template = []) {
+  const normalizedCurrent = normalizeChecklist(current);
+  const normalizedTemplate = normalizeChecklist(template);
+  if (!normalizedTemplate.length) return normalizedCurrent;
+  if (!normalizedCurrent.length) return normalizedTemplate;
+
+  const byKey = new Map(normalizedCurrent.map((item) => [item.key, item]));
+  const byLabel = new Map(normalizedCurrent.map((item) => [item.label.trim().toLowerCase(), item]));
+
+  const merged = normalizedTemplate.map((item) => {
+    const existing = byKey.get(item.key) || byLabel.get(item.label.trim().toLowerCase());
+    return existing ? { ...item, ...existing, done: Boolean(existing.done) } : item;
+  });
+
+  const mergedKeys = new Set(merged.map((item) => item.key));
+  const customItems = normalizedCurrent.filter((item) => !mergedKeys.has(item.key));
+  return [...merged, ...customItems];
+}
+
+function getChecklistProgress(items = []) {
+  const normalized = normalizeChecklist(items);
+  const total = normalized.length;
+  const done = normalized.filter((item) => item.done).length;
+  return { total, done, pending: Math.max(total - done, 0) };
+}
+
+function requiredByLabel(stav) {
+  const match = WORKFLOW.find((item) => item.stav === stav);
+  return match?.label || stav;
+}
+
 // ── EmailyTab – propojené e-maily zakázky ────────────────────────────────────
 function EmailyTab({ zakazkaId }) {
   const qc = useQueryClient();
@@ -239,7 +288,13 @@ export default function ZakazkaDetail() {
   const stavMut = useMutation({
     mutationFn: ({ stav, poznamka }) => zakazkyApi.setStav(id, { stav, poznamka }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['zakazka', id] }); toast.success('Stav zakázky aktualizován'); setStavModal(false); },
-    onError: () => toast.error('Nepodařilo se změnit stav'),
+    onError: (err) => {
+      if (err?.response?.status === 400) {
+        setTab('planovaní');
+        initPlan();
+      }
+      toast.error(err?.response?.data?.error || 'Nepodařilo se změnit stav', { duration: 8000 });
+    },
   });
 
   const archivMut = useMutation({
@@ -269,7 +324,7 @@ export default function ZakazkaDetail() {
   const planMut = useMutation({
     mutationFn: (d) => zakazkyApi.update(id, d),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['zakazka', id] }); toast.success('Plánování uloženo'); },
-    onError: () => toast.error('Chyba při ukládání'),
+    onError: (err) => toast.error(err?.response?.data?.error || 'Chyba při ukládání'),
   });
 
   const followupCreateMut = useMutation({
@@ -344,6 +399,9 @@ export default function ZakazkaDetail() {
   if (!z) return <div className="p-6 text-stone-500">Zakázka nenalezena</div>;
 
   const curIdx = WORKFLOW.findIndex(s => s.stav === z.stav);
+  const checklistTemplate = Array.isArray(z.checklist_template) ? z.checklist_template : [];
+  const suggestedChecklist = mergeChecklistTemplate(z.checklist, checklistTemplate);
+  const checklistStats = getChecklistProgress(planForm.checklist);
 
   // Sync planForm from z if not yet edited (use z as source of truth on first load)
   const initPlan = () => setPlanForm({
@@ -355,7 +413,7 @@ export default function ZakazkaDetail() {
     technicke_pozadavky: z.technicke_pozadavky || '',
     alergeny: z.alergeny || '',
     specialni_prani: z.specialni_prani || '',
-    checklist: Array.isArray(z.checklist) ? z.checklist : [],
+    checklist: suggestedChecklist,
   });
   const personalList = personalListData?.data?.data || personalListData?.data || [];
 
@@ -712,18 +770,43 @@ export default function ZakazkaDetail() {
 
             {/* Checklist realizace */}
             <div className="bg-white rounded-xl border border-stone-200 p-5 space-y-3">
-              <label className="text-xs font-semibold text-stone-700 uppercase tracking-wide">Checklist realizace</label>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-stone-700 uppercase tracking-wide">Checklist realizace</label>
+                  <p className="text-xs text-stone-400 mt-1">
+                    Hotovo {checklistStats.done}/{checklistStats.total || suggestedChecklist.length || 0}
+                    {checklistStats.pending > 0 ? `, chybi ${checklistStats.pending}` : ''}
+                  </p>
+                </div>
+                {checklistTemplate.length > 0 && (
+                  <Btn
+                    size="sm"
+                    onClick={() => setPF('checklist', mergeChecklistTemplate(planForm.checklist, checklistTemplate))}
+                  >
+                    <Copy size={12}/> Doplni sablonu
+                  </Btn>
+                )}
+              </div>
               <div className="space-y-2">
                 {(planForm.checklist || []).map((item, i) => (
-                  <div key={i} className="flex items-center gap-2 group">
+                  <div key={item.key || i} className="flex items-start gap-2 group">
                     <button onClick={() => {
                       const c = [...planForm.checklist];
                       c[i] = { ...c[i], done: !c[i].done };
                       setPF('checklist', c);
-                    }} className="text-stone-400 hover:text-stone-700 flex-shrink-0">
+                    }} className="text-stone-400 hover:text-stone-700 flex-shrink-0 mt-0.5">
                       {item.done ? <CheckSquare size={16} className="text-green-600"/> : <Square size={16}/>}
                     </button>
-                    <span className={`flex-1 text-sm ${item.done ? 'line-through text-stone-400' : 'text-stone-700'}`}>{item.label}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className={`text-sm ${item.done ? 'line-through text-stone-400' : 'text-stone-700'}`}>{item.label}</div>
+                      {item.requiredBy && (
+                        <div className="mt-1">
+                          <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 border border-amber-200">
+                            Povinne do: {requiredByLabel(item.requiredBy)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
                     <button onClick={() => {
                       const c = planForm.checklist.filter((_, j) => j !== i);
                       setPF('checklist', c);

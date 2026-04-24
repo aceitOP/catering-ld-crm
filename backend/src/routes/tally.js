@@ -11,6 +11,7 @@ const { query, withTransaction } = require('../db');
 const { createNotif } = require('../notifHelper');
 const { autoFollowup } = require('../followupHelper');
 const { sendPotvrzeniPoptavky } = require('../emailService');
+const { createChecklistTemplate } = require('../zakazkaWorkflow');
 
 const webhookLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minuta
@@ -149,14 +150,15 @@ router.post('/webhook', webhookLimiter, async (req, res, next) => {
       const cislo = await genCislo(client);
 
       // 4. Vytvořit zakázku
+      const checklist = createChecklistTemplate(typ);
       const zakRes = await client.query(
         `INSERT INTO zakazky
            (cislo, nazev, typ, stav, klient_id, datum_akce, misto,
-            pocet_hostu, rozpocet_klienta, poznamka_klient)
-         VALUES ($1,$2,$3,'nova_poptavka',$4,$5,$6,$7,$8,$9)
+            pocet_hostu, rozpocet_klienta, poznamka_klient, checklist)
+         VALUES ($1,$2,$3,'nova_poptavka',$4,$5,$6,$7,$8,$9,$10)
          RETURNING *`,
         [cislo, nazevAkce, typ, klientId, datumAkce, misto || null,
-         pocetHostu, rozpocet, zprava || null]
+         pocetHostu, rozpocet, zprava || null, JSON.stringify(checklist)]
       );
       const zakázka = zakRes.rows[0];
 

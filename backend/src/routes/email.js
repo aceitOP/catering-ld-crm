@@ -36,6 +36,7 @@ const { withImap, getImapConfig } = require('../emailImapService');
 const { withTransaction, query } = require('../db');
 const uploadDir    = process.env.UPLOAD_DIR || './uploads';
 const { createNotif } = require('../notifHelper');
+const { createChecklistTemplate } = require('../zakazkaWorkflow');
 
 router.use(auth);
 
@@ -560,13 +561,14 @@ router.post('/messages/:uid/zakazka', async (req, res, next) => {
       }
 
       cislo = await genCisloZakazky(dbClient);
+      const checklist = createChecklistTemplate(typ);
       const zakRes = await dbClient.query(
         `INSERT INTO zakazky
            (cislo, nazev, typ, stav, klient_id, datum_akce, cas_zacatek, misto,
-            pocet_hostu, rozpocet_klienta, poznamka_klient, obchodnik_id)
-         VALUES ($1,$2,$3,'nova_poptavka',$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id`,
+            pocet_hostu, rozpocet_klienta, poznamka_klient, obchodnik_id, checklist)
+         VALUES ($1,$2,$3,'nova_poptavka',$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id`,
         [cislo, nazev, typ, klientId, datum_akce || null, cas_zacatek || null,
-         misto || null, pocet_hostu, rozpocet, poznamka, req.user?.id || null]
+         misto || null, pocet_hostu, rozpocet, poznamka, req.user?.id || null, JSON.stringify(checklist)]
       );
       zakazkaId = zakRes.rows[0].id;
 

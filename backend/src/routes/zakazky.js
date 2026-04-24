@@ -6,6 +6,13 @@ const { sendKomando, sendDekujeme } = require('../emailService');
 const { createNotif } = require('../notifHelper');
 const { upsertEvent, deleteEvent } = require('../googleCalendar');
 const { autoFollowup } = require('../followupHelper');
+const {
+  normalizeChecklist,
+  createChecklistTemplate,
+  mergeChecklistWithTemplate,
+  getWorkflowBlockers,
+  getChecklistSummary,
+} = require('../zakazkaWorkflow');
 
 // Generátor čísla zakázky – musí být voláno uvnitř transakce (FOR UPDATE zabrání race condition)
 async function genCislo(client) {
@@ -121,7 +128,18 @@ router.get('/:id', auth, async (req, res, next) => {
       LIMIT 1`, [req.params.id]);
     const nabidka = nabidkaRes.rows[0] || null;
 
-    res.json({ ...rows[0], history: history.rows, personal: personal.rows, dokumenty: dokumenty.rows, nabidka });
+    const mergedChecklist = mergeChecklistWithTemplate(rows[0].checklist, rows[0].typ);
+
+    res.json({
+      ...rows[0],
+      checklist: mergedChecklist,
+      checklist_template: createChecklistTemplate(rows[0].typ),
+      checklist_summary: getChecklistSummary(mergedChecklist),
+      history: history.rows,
+      personal: personal.rows,
+      dokumenty: dokumenty.rows,
+      nabidka,
+    });
   } catch (err) { next(err); }
 });
 
@@ -133,12 +151,13 @@ router.post('/', auth, async (req, res, next) => {
 
     const newZakazka = await withTransaction(async (client) => {
       const cislo = await genCislo(client);
+      const checklist = createChecklistTemplate(typ);
       const { rows } = await client.query(`
         INSERT INTO zakazky (cislo, nazev, typ, stav, klient_id, obchodnik_id, datum_akce,
-          cas_zacatek, cas_konec, misto, pocet_hostu, rozpocet_klienta, poznamka_klient, poznamka_interni)
-        VALUES ($1,$2,$3,'rozpracovano',$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
+          cas_zacatek, cas_konec, misto, pocet_hostu, rozpocet_klienta, poznamka_klient, poznamka_interni, checklist)
+        VALUES ($1,$2,$3,'rozpracovano',$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *`,
         [cislo, nazev, typ, klient_id, obchodnik_id || req.user.id, datum_akce,
-         cas_zacatek, cas_konec, misto, pocet_hostu, rozpocet_klienta, poznamka_klient, poznamka_interni]);
+         cas_zacatek, cas_konec, misto, pocet_hostu, rozpocet_klienta, poznamka_klient, poznamka_interni, JSON.stringify(checklist)]);
       await client.query(`INSERT INTO zakazky_history (zakazka_id, stav_po, uzivatel_id, poznamka)
                    VALUES ($1, 'rozpracovano', $2, 'Zakázka vytvořena')`,
         [rows[0].id, req.user.id]);
@@ -171,7 +190,11 @@ router.patch('/:id', auth, async (req, res, next) => {
 
     const sets = fields.map((f, i) => `${f} = $${i + 2}`).join(', ');
     // Prázdný string → null (zabrání chybě "invalid input syntax for type integer" u FK polí)
-    const vals = fields.map(f => { const v = req.body[f]; return (v === '' || v === undefined) ? null : v; });
+    const vals = fields.map((f) => {
+      const v = req.body[f];
+      if (f === 'checklist') return JSON.stringify(normalizeChecklist(v));
+      return (v === '' || v === undefined) ? null : v;
+    });
 
     const { rows } = await query(
       `UPDATE zakazky SET ${sets} WHERE id = $1 RETURNING *`,
@@ -206,12 +229,20 @@ router.patch('/:id/stav', auth, async (req, res, next) => {
       const old = await client.query(`
         SELECT z.stav, z.google_event_id, z.datum_akce, z.cas_zacatek, z.cas_konec,
                z.misto, z.pocet_hostu, z.cena_celkem, z.nazev, z.cislo, z.typ, z.id,
-               z.poznamka_interni,
+               z.poznamka_interni, z.harmonogram, z.logistika, z.checklist,
                k.jmeno AS klient_jmeno, k.prijmeni AS klient_prijmeni, k.firma AS klient_firma
         FROM zakazky z LEFT JOIN klienti k ON k.id = z.klient_id
         WHERE z.id = $1`, [req.params.id]);
       if (!old.rows[0]) throw Object.assign(new Error('Zakázka nenalezena'), { status: 404 });
       zakazkaRow = old.rows[0];
+      zakazkaRow.checklist = mergeChecklistWithTemplate(zakazkaRow.checklist, zakazkaRow.typ);
+
+      const blockers = await getWorkflowBlockers(client, zakazkaRow, stav);
+      if (blockers.length) {
+        const error = new Error(`Zakazku nelze presunout do vybraneho stavu:\n- ${blockers.join('\n- ')}`);
+        error.status = 400;
+        throw error;
+      }
 
       await client.query('UPDATE zakazky SET stav = $1 WHERE id = $2', [stav, req.params.id]);
       await client.query(
