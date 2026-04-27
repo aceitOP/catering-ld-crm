@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -18,8 +18,20 @@ const EMPTY_FORM = {
   zakazka_id: '',
   expires_at: '',
   status: 'draft',
+  design_style: '',
+  accent_color: '',
+  footer_text: '',
+  image_data_url: '',
   note: '',
 };
+
+const VOUCHER_DESIGN_OPTIONS = [
+  { value: '', label: 'Výchozí' },
+  { value: 'classic', label: 'Klasický' },
+  { value: 'minimal', label: 'Minimal' },
+  { value: 'premium', label: 'Premium' },
+  { value: 'festive', label: 'Slavnostní' },
+];
 
 export default function VouchersPage() {
   const qc = useQueryClient();
@@ -27,6 +39,7 @@ export default function VouchersPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [previewHtml, setPreviewHtml] = useState('');
 
   const { data, isLoading } = useQuery({
     queryKey: ['vouchers', filters],
@@ -69,6 +82,12 @@ export default function VouchersPage() {
     onError: (err) => toast.error(err.response?.data?.error || 'Odeslání poukazu se nepodařilo.'),
   });
 
+  const previewMut = useMutation({
+    mutationFn: vouchersApi.preview,
+    onSuccess: (res) => setPreviewHtml(res.data),
+    onError: () => setPreviewHtml(''),
+  });
+
   const vouchers = data?.data?.data || [];
   const klienti = clientsQuery.data?.data?.data || [];
   const zakazky = zakazkyQuery.data?.data?.data || [];
@@ -102,6 +121,10 @@ export default function VouchersPage() {
       zakazka_id: voucher.zakazka_id || '',
       expires_at: voucher.expires_at ? String(voucher.expires_at).slice(0, 10) : '',
       status: voucher.status || 'draft',
+      design_style: voucher.design_style || '',
+      accent_color: voucher.accent_color || '',
+      footer_text: voucher.footer_text || '',
+      image_data_url: voucher.image_data_url || '',
       note: voucher.note || '',
     });
     setModalOpen(true);
@@ -129,10 +152,39 @@ export default function VouchersPage() {
       }
       win.document.write(res.data);
       win.document.close();
+      win.onload = () => win.print();
     } catch (err) {
       toast.error(err.response?.data?.error || 'Tisk poukazu se nepodařil.');
     }
   };
+
+  const handleVoucherImage = (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    if (!['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'].includes(file.type)) {
+      toast.error('Obrázek musí být PNG, JPG, WebP nebo SVG.');
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('Obrázek poukazu může mít maximálně 2 MB.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => setForm((f) => ({ ...f, image_data_url: String(reader.result || '') }));
+    reader.readAsDataURL(file);
+  };
+
+  useEffect(() => {
+    if (!modalOpen) {
+      setPreviewHtml('');
+      return undefined;
+    }
+    const timeout = window.setTimeout(() => {
+      previewMut.mutate(form);
+    }, 350);
+    return () => window.clearTimeout(timeout);
+  }, [modalOpen, form]);
 
   const sendVoucher = (voucher) => {
     const defaultEmail = voucher.recipient_email || voucher.buyer_email || '';
@@ -215,22 +267,39 @@ export default function VouchersPage() {
         open={modalOpen}
         onClose={() => { setModalOpen(false); setEditing(null); setForm(EMPTY_FORM); }}
         title={editing ? 'Upravit poukaz' : 'Nový poukaz'}
-        width="max-w-2xl"
+        width="max-w-6xl"
         footer={<><Btn onClick={() => { setModalOpen(false); setEditing(null); setForm(EMPTY_FORM); }}>Zrušit</Btn><Btn variant="primary" onClick={submit} disabled={!form.title || createMut.isPending || updateMut.isPending}>{editing ? 'Uložit změny' : 'Vytvořit'}</Btn></>}
       >
-        <div className="grid gap-3 md:grid-cols-2">
-          <div className="md:col-span-2"><label className="mb-1 block text-xs text-stone-500">Název *</label><input className="w-full rounded-xl border border-stone-200 px-3 py-2 text-sm" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} /></div>
-          <div><label className="mb-1 block text-xs text-stone-500">Hodnota</label><input type="number" className="w-full rounded-xl border border-stone-200 px-3 py-2 text-sm" value={form.nominal_value} onChange={(e) => setForm((f) => ({ ...f, nominal_value: e.target.value }))} /></div>
-          <div><label className="mb-1 block text-xs text-stone-500">Expirace</label><input type="date" className="w-full rounded-xl border border-stone-200 px-3 py-2 text-sm" value={form.expires_at} onChange={(e) => setForm((f) => ({ ...f, expires_at: e.target.value }))} /></div>
-          <div><label className="mb-1 block text-xs text-stone-500">Příjemce</label><input className="w-full rounded-xl border border-stone-200 px-3 py-2 text-sm" value={form.recipient_name} onChange={(e) => setForm((f) => ({ ...f, recipient_name: e.target.value }))} /></div>
-          <div><label className="mb-1 block text-xs text-stone-500">E-mail příjemce</label><input type="email" className="w-full rounded-xl border border-stone-200 px-3 py-2 text-sm" value={form.recipient_email} onChange={(e) => setForm((f) => ({ ...f, recipient_email: e.target.value }))} /></div>
-          <div><label className="mb-1 block text-xs text-stone-500">Kupující</label><input className="w-full rounded-xl border border-stone-200 px-3 py-2 text-sm" value={form.buyer_name} onChange={(e) => setForm((f) => ({ ...f, buyer_name: e.target.value }))} /></div>
-          <div><label className="mb-1 block text-xs text-stone-500">E-mail kupujícího</label><input type="email" className="w-full rounded-xl border border-stone-200 px-3 py-2 text-sm" value={form.buyer_email} onChange={(e) => setForm((f) => ({ ...f, buyer_email: e.target.value }))} /></div>
-          <div><label className="mb-1 block text-xs text-stone-500">Klient</label><select className="w-full rounded-xl border border-stone-200 px-3 py-2 text-sm" value={form.klient_id} onChange={(e) => setForm((f) => ({ ...f, klient_id: e.target.value }))}><option value="">Bez vazby</option>{klienti.map((klient) => <option key={klient.id} value={klient.id}>{klient.firma || [klient.jmeno, klient.prijmeni].filter(Boolean).join(' ')}</option>)}</select></div>
-          <div><label className="mb-1 block text-xs text-stone-500">Zakázka</label><select className="w-full rounded-xl border border-stone-200 px-3 py-2 text-sm" value={form.zakazka_id} onChange={(e) => setForm((f) => ({ ...f, zakazka_id: e.target.value }))}><option value="">Bez vazby</option>{zakazky.map((zakazka) => <option key={zakazka.id} value={zakazka.id}>{zakazka.cislo} • {zakazka.nazev}</option>)}</select></div>
-          <div><label className="mb-1 block text-xs text-stone-500">Stav</label><select className="w-full rounded-xl border border-stone-200 px-3 py-2 text-sm" value={form.status} onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}>{statusOptions.filter((item) => item.value).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>
-          <div className="md:col-span-2"><label className="mb-1 block text-xs text-stone-500">Rozsah plnění</label><textarea rows={3} className="w-full rounded-xl border border-stone-200 px-3 py-2 text-sm" value={form.fulfillment_note} onChange={(e) => setForm((f) => ({ ...f, fulfillment_note: e.target.value }))} /></div>
-          <div className="md:col-span-2"><label className="mb-1 block text-xs text-stone-500">Interní poznámka</label><textarea rows={3} className="w-full rounded-xl border border-stone-200 px-3 py-2 text-sm" value={form.note} onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))} /></div>
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(380px,.9fr)]">
+          <div className="grid gap-3 md:grid-cols-2">
+            <div className="md:col-span-2"><label className="mb-1 block text-xs text-stone-500">Název *</label><input className="w-full rounded-xl border border-stone-200 px-3 py-2 text-sm" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} /></div>
+            <div><label className="mb-1 block text-xs text-stone-500">Hodnota</label><input type="number" className="w-full rounded-xl border border-stone-200 px-3 py-2 text-sm" value={form.nominal_value} onChange={(e) => setForm((f) => ({ ...f, nominal_value: e.target.value }))} /></div>
+            <div><label className="mb-1 block text-xs text-stone-500">Expirace</label><input type="date" className="w-full rounded-xl border border-stone-200 px-3 py-2 text-sm" value={form.expires_at} onChange={(e) => setForm((f) => ({ ...f, expires_at: e.target.value }))} /></div>
+            <div><label className="mb-1 block text-xs text-stone-500">Příjemce</label><input className="w-full rounded-xl border border-stone-200 px-3 py-2 text-sm" value={form.recipient_name} onChange={(e) => setForm((f) => ({ ...f, recipient_name: e.target.value }))} /></div>
+            <div><label className="mb-1 block text-xs text-stone-500">E-mail příjemce</label><input type="email" className="w-full rounded-xl border border-stone-200 px-3 py-2 text-sm" value={form.recipient_email} onChange={(e) => setForm((f) => ({ ...f, recipient_email: e.target.value }))} /></div>
+            <div><label className="mb-1 block text-xs text-stone-500">Kupující</label><input className="w-full rounded-xl border border-stone-200 px-3 py-2 text-sm" value={form.buyer_name} onChange={(e) => setForm((f) => ({ ...f, buyer_name: e.target.value }))} /></div>
+            <div><label className="mb-1 block text-xs text-stone-500">E-mail kupujícího</label><input type="email" className="w-full rounded-xl border border-stone-200 px-3 py-2 text-sm" value={form.buyer_email} onChange={(e) => setForm((f) => ({ ...f, buyer_email: e.target.value }))} /></div>
+            <div><label className="mb-1 block text-xs text-stone-500">Klient</label><select className="w-full rounded-xl border border-stone-200 px-3 py-2 text-sm" value={form.klient_id} onChange={(e) => setForm((f) => ({ ...f, klient_id: e.target.value }))}><option value="">Bez vazby</option>{klienti.map((klient) => <option key={klient.id} value={klient.id}>{klient.firma || [klient.jmeno, klient.prijmeni].filter(Boolean).join(' ')}</option>)}</select></div>
+            <div><label className="mb-1 block text-xs text-stone-500">Zakázka</label><select className="w-full rounded-xl border border-stone-200 px-3 py-2 text-sm" value={form.zakazka_id} onChange={(e) => setForm((f) => ({ ...f, zakazka_id: e.target.value }))}><option value="">Bez vazby</option>{zakazky.map((zakazka) => <option key={zakazka.id} value={zakazka.id}>{zakazka.cislo} • {zakazka.nazev}</option>)}</select></div>
+            <div><label className="mb-1 block text-xs text-stone-500">Stav</label><select className="w-full rounded-xl border border-stone-200 px-3 py-2 text-sm" value={form.status} onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}>{statusOptions.filter((item) => item.value).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>
+            <div><label className="mb-1 block text-xs text-stone-500">Šablona vzhledu</label><select className="w-full rounded-xl border border-stone-200 px-3 py-2 text-sm" value={form.design_style} onChange={(e) => setForm((f) => ({ ...f, design_style: e.target.value }))}>{VOUCHER_DESIGN_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>
+            <div><label className="mb-1 block text-xs text-stone-500">Akcentní barva</label><input type="color" className="h-[38px] w-full rounded-xl border border-stone-200 px-2 py-1" value={form.accent_color || '#0f766e'} onChange={(e) => setForm((f) => ({ ...f, accent_color: e.target.value }))} /></div>
+            <div className="md:col-span-2"><label className="mb-1 block text-xs text-stone-500">Vlastní obrázek</label><div className="flex flex-wrap items-center gap-2"><label className="inline-flex cursor-pointer items-center rounded-xl border border-stone-200 px-3 py-2 text-xs font-medium hover:bg-stone-50">Nahrát obrázek<input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" className="hidden" onChange={handleVoucherImage} /></label>{form.image_data_url && <button type="button" className="rounded-xl border border-stone-200 px-3 py-2 text-xs font-medium hover:bg-stone-50" onClick={() => setForm((f) => ({ ...f, image_data_url: '' }))}>Odebrat obrázek</button>}</div></div>
+            <div className="md:col-span-2"><label className="mb-1 block text-xs text-stone-500">Text v patičce</label><input className="w-full rounded-xl border border-stone-200 px-3 py-2 text-sm" value={form.footer_text} onChange={(e) => setForm((f) => ({ ...f, footer_text: e.target.value }))} placeholder="Např. Platí po předchozí rezervaci termínu." /></div>
+            <div className="md:col-span-2"><label className="mb-1 block text-xs text-stone-500">Rozsah plnění</label><textarea rows={3} className="w-full rounded-xl border border-stone-200 px-3 py-2 text-sm" value={form.fulfillment_note} onChange={(e) => setForm((f) => ({ ...f, fulfillment_note: e.target.value }))} /></div>
+            <div className="md:col-span-2"><label className="mb-1 block text-xs text-stone-500">Interní poznámka</label><textarea rows={3} className="w-full rounded-xl border border-stone-200 px-3 py-2 text-sm" value={form.note} onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))} /></div>
+          </div>
+          <div className="min-h-[520px] rounded-2xl border border-stone-200 bg-stone-50 p-3">
+            <div className="mb-2 flex items-center justify-between">
+              <div className="text-xs font-semibold uppercase tracking-wide text-stone-500">Náhled poukazu</div>
+              {previewMut.isPending && <div className="text-xs text-stone-400">Obnovuji...</div>}
+            </div>
+            {previewHtml ? (
+              <iframe title="Náhled poukazu" srcDoc={previewHtml} className="h-[520px] w-full rounded-xl border border-stone-200 bg-white" />
+            ) : (
+              <div className="flex h-[520px] items-center justify-center text-sm text-stone-400">Náhled se připravuje...</div>
+            )}
+          </div>
         </div>
       </Modal>
     </div>

@@ -3,6 +3,7 @@
 const nodemailer = require('nodemailer');
 const { createSmtpTransporter } = require('./smtpConfig');
 const { renderPdfFromHtml } = require('./pdfService');
+const { buildVoucherHtml } = require('./voucherTemplate');
 
 function esc(value) {
   if (value == null) return '';
@@ -502,57 +503,6 @@ async function sendClientPortalMagicLink({ to, magicUrl, firma, expiresInMinutes
   });
 }
 
-function buildVoucherPdfHtml({ voucher, firma, amount }) {
-  const nazevFirmy = firma?.firma_nazev || firma?.app_title || 'Catering LD';
-  return `<!DOCTYPE html>
-<html lang="cs">
-<head>
-  <meta charset="UTF-8">
-  <style>
-    @page { size:A4; margin:18mm; }
-    body { margin:0; font-family:Arial,Helvetica,sans-serif; color:#1c1917; background:#fff7ed; }
-    .card { min-height:680px; border:2px solid #fed7aa; border-radius:30px; background:#fff; overflow:hidden; }
-    .hero { padding:34px; background:linear-gradient(135deg,#431407,#ea580c); color:white; }
-    .label { font-size:12px; text-transform:uppercase; letter-spacing:.12em; opacity:.8; font-weight:700; }
-    h1 { margin:16px 0 8px; font-size:38px; line-height:1.1; }
-    .content { padding:34px; display:grid; grid-template-columns:1fr 240px; gap:28px; }
-    .box { border:1px solid #e7e5e4; border-radius:18px; padding:16px; margin-top:14px; }
-    .value { font-size:22px; font-weight:800; color:#9a3412; margin-top:6px; }
-    .note { white-space:pre-wrap; line-height:1.7; font-size:15px; color:#44403c; margin-top:22px; }
-    .qr { border:1px dashed #cbd5e1; border-radius:22px; padding:18px; text-align:center; background:#f8fafc; }
-    .qr-code { font-family:Consolas,monospace; font-size:22px; font-weight:800; letter-spacing:.08em; word-break:break-word; }
-    .footer { padding:0 34px 28px; display:flex; justify-content:space-between; color:#78716c; font-size:12px; }
-  </style>
-</head>
-<body>
-  <main class="card">
-    <section class="hero">
-      <div class="label">${esc(nazevFirmy)}</div>
-      <h1>${esc(voucher.title)}</h1>
-      <div>Dárkový poukaz · ${esc(voucher.kod)}</div>
-    </section>
-    <section class="content">
-      <div>
-        <div class="box"><div class="label">Příjemce</div><div class="value">${esc(voucher.recipient_name || 'Doplní se při předání')}</div></div>
-        <div class="box"><div class="label">Hodnota / plnění</div><div class="value">${esc(amount)}</div></div>
-        <div class="box"><div class="label">Expirace</div><div class="value">${voucher.expires_at ? datum(voucher.expires_at) : 'Bez expirace'}</div></div>
-        <div class="note">${esc(voucher.fulfillment_note || voucher.note || 'Poukaz předložte při objednávce nebo při osobním uplatnění.')}</div>
-      </div>
-      <aside class="qr">
-        <div class="label">Kód poukazu</div>
-        <div class="qr-code">${esc(voucher.kod)}</div>
-        <div style="margin-top:18px;font-size:12px;color:#64748b;word-break:break-word;">${esc(voucher.verify_url || voucher.qr_payload || '')}</div>
-      </aside>
-    </section>
-    <section class="footer">
-      <span>${esc(nazevFirmy)}</span>
-      <span>Vygenerováno ${new Date().toLocaleDateString('cs-CZ')}</span>
-    </section>
-  </main>
-</body>
-</html>`;
-}
-
 async function sendVoucherEmail({ to, voucher, firma, attachPdf = false }) {
   const { transporter, from } = await getMailer();
   const nazevFirmy = firma?.firma_nazev || 'Catering LD';
@@ -590,7 +540,7 @@ async function sendVoucherEmail({ to, voucher, firma, attachPdf = false }) {
   if (attachPdf) {
     attachments.push({
       filename: `${safePdfName(`poukaz-${voucher.kod}`)}.pdf`,
-      content: await renderPdfFromHtml(buildVoucherPdfHtml({ voucher, firma, amount })),
+      content: await renderPdfFromHtml(await buildVoucherHtml({ voucher, firma }), { waitUntil: 'load' }),
       contentType: 'application/pdf',
     });
   }

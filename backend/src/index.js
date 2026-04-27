@@ -15,6 +15,7 @@ const fs      = require('fs');
 const { initDb } = require('./initDb');
 const { startBackupScheduler } = require('./backupScheduler');
 const { startNotificationRuleScheduler } = require('./notificationRules');
+const { startVoucherExpirationScheduler } = require('./voucherScheduler');
 const { logAppError } = require('./errorLog');
 const { requireAppModule } = require('./moduleAccess');
 const { getBuildInfo } = require('./buildInfo');
@@ -150,6 +151,7 @@ const PORT = process.env.PORT || 4000;
 initDb().then(() => {
   startBackupScheduler();
   startNotificationRuleScheduler();
+  startVoucherExpirationScheduler();
   app.listen(PORT, () => {
     const build = getBuildInfo();
     console.log(`✅  Catering LD API běží na portu ${PORT}`);

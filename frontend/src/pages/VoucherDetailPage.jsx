@@ -50,6 +50,7 @@ export default function VoucherDetailPage() {
       const win = window.open('', '_blank', 'width=960,height=800');
       win.document.write(res.data);
       win.document.close();
+      win.onload = () => win.print();
     } catch (err) {
       toast.error(err.response?.data?.error || 'Tisk poukazu se nepodařil.');
     }

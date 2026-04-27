@@ -164,6 +164,7 @@ export const vouchersApi = {
   get: (id) => api.get(`/vouchers/${id}`),
   create: (data) => api.post('/vouchers', data),
   update: (id, data) => api.patch(`/vouchers/${id}`, data),
+  preview: (data) => api.post('/vouchers/preview', data, { responseType: 'text' }),
   send: (id, data) => api.post(`/vouchers/${id}/send`, data),
   redeem: (id, data) => api.post(`/vouchers/${id}/redeem`, data || {}),
   expire: (id, data) => api.post(`/vouchers/${id}/expire`, data || {}),

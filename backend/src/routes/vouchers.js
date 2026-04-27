@@ -5,9 +5,9 @@ const crypto = require('crypto');
 const { query, withTransaction } = require('../db');
 const { auth, requireCapability } = require('../middleware/auth');
 const { loadFirmaSettings } = require('../firmaSettings');
-const { resolveDocumentBranding } = require('../documentBranding');
 const { sendVoucherEmail } = require('../emailService');
 const { isPdfRequested, sendPdfResponse } = require('../pdfService');
+const { buildVoucherHtml, sanitizeVoucherDesignPayload } = require('../voucherTemplate');
 
 const router = express.Router();
 
@@ -143,6 +143,27 @@ router.get('/', auth, requireCapability('vouchers.manage'), async (req, res, nex
   }
 });
 
+router.post('/preview', auth, requireCapability('vouchers.manage'), async (req, res, next) => {
+  try {
+    const firma = await loadFirmaSettings(['app_title', 'app_logo_data_url', 'app_color_theme', 'app_document_font_family', 'voucher_design_style', 'firma_nazev', 'firma_email']);
+    const design = sanitizeVoucherDesignPayload(req.body || {});
+    const previewVoucher = {
+      ...req.body,
+      ...design,
+      kod: req.body?.kod || 'NÁHLED',
+      status: req.body?.status || 'draft',
+      verify_url: req.body?.verify_url || `${process.env.FRONTEND_URL || 'http://localhost:5173'}/voucher/nahled`,
+      qr_payload: req.body?.qr_payload || `${process.env.FRONTEND_URL || 'http://localhost:5173'}/voucher/nahled`,
+      title: String(req.body?.title || '').trim() || 'Dárkový poukaz',
+    };
+    const html = await buildVoucherHtml({ voucher: previewVoucher, firma });
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(html);
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.get('/:id', auth, requireCapability('vouchers.manage'), async (req, res, next) => {
   try {
     const voucher = await loadVoucher(req.params.id);
@@ -182,6 +203,7 @@ router.post('/', auth, requireCapability('vouchers.manage'), async (req, res, ne
     }
 
     const result = await withTransaction(async (client) => {
+      const design = sanitizeVoucherDesignPayload(payload);
       const code = await generateVoucherCode(client);
       const publicToken = generateVoucherPublicToken();
       const verifyUrl = buildVoucherVerifyUrl(publicToken);
@@ -193,8 +215,9 @@ router.post('/', auth, requireCapability('vouchers.manage'), async (req, res, ne
             kod, public_token, title, nominal_value, fulfillment_note,
             recipient_name, recipient_email, buyer_name, buyer_email,
             klient_id, zakazka_id, expires_at, status, qr_payload, verify_url, note, created_by, updated_by
+            , design_style, accent_color, footer_text, image_data_url
           )
-          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
           RETURNING id
         `,
         [
@@ -216,6 +239,10 @@ router.post('/', auth, requireCapability('vouchers.manage'), async (req, res, ne
           payload.note || null,
           req.user.id,
           req.user.id,
+          design.design_style || null,
+          design.accent_color || null,
+          design.footer_text || null,
+          design.image_data_url || null,
         ]
       );
 
@@ -242,6 +269,7 @@ router.patch('/:id', auth, requireCapability('vouchers.manage'), async (req, res
 
     const payload = req.body || {};
     const nextStatus = payload.status || current.status;
+    const design = sanitizeVoucherDesignPayload(payload);
 
     const { rows } = await query(
       `
@@ -259,6 +287,10 @@ router.patch('/:id', auth, requireCapability('vouchers.manage'), async (req, res
             status = $12,
             note = $13,
             updated_by = $14,
+            design_style = $15,
+            accent_color = $16,
+            footer_text = $17,
+            image_data_url = $18,
             redeemed_at = CASE WHEN $12 = 'redeemed' AND redeemed_at IS NULL THEN NOW() ELSE redeemed_at END
         WHERE id = $1
         RETURNING id
@@ -278,6 +310,10 @@ router.patch('/:id', auth, requireCapability('vouchers.manage'), async (req, res
         nextStatus,
         Object.prototype.hasOwnProperty.call(payload, 'note') ? (payload.note || null) : current.note,
         req.user.id,
+        Object.prototype.hasOwnProperty.call(payload, 'design_style') ? (design.design_style || null) : current.design_style,
+        Object.prototype.hasOwnProperty.call(payload, 'accent_color') ? (design.accent_color || null) : current.accent_color,
+        Object.prototype.hasOwnProperty.call(payload, 'footer_text') ? (design.footer_text || null) : current.footer_text,
+        Object.prototype.hasOwnProperty.call(payload, 'image_data_url') ? (design.image_data_url || null) : current.image_data_url,
       ]
     );
 
@@ -384,143 +420,7 @@ router.get('/:id/print', auth, requireCapability('vouchers.manage'), async (req,
     const voucher = await loadVoucher(req.params.id);
     if (!voucher) return res.status(404).json({ error: 'Poukaz nebyl nalezen.' });
     const firma = await loadFirmaSettings(['app_title', 'app_logo_data_url', 'app_color_theme', 'app_document_font_family', 'voucher_design_style']);
-    const documentBranding = resolveDocumentBranding(firma);
-
-    const esc = (value) => String(value ?? '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;');
-
-    const voucherStyles = {
-      classic: {
-        bodyBg: documentBranding.soft,
-        cardRadius: '28px',
-        heroBg: `linear-gradient(135deg,${documentBranding.primaryDark},${documentBranding.primary})`,
-        heroColor: '#fff',
-        titleTransform: 'none',
-        border: 'none',
-        decoration: '',
-      },
-      minimal: {
-        bodyBg: '#f8fafc',
-        cardRadius: '18px',
-        heroBg: '#ffffff',
-        heroColor: documentBranding.primaryDark,
-        titleTransform: 'none',
-        border: `1px solid ${documentBranding.primary}`,
-        decoration: '',
-      },
-      premium: {
-        bodyBg: '#111827',
-        cardRadius: '30px',
-        heroBg: 'linear-gradient(135deg,#111827,#44403c)',
-        heroColor: '#fff7ed',
-        titleTransform: 'uppercase',
-        border: '1px solid rgba(255,255,255,.18)',
-        decoration: '<div class="ornament">GIFT CERTIFICATE</div>',
-      },
-      festive: {
-        bodyBg: '#fff7ed',
-        cardRadius: '34px',
-        heroBg: `radial-gradient(circle at top left,rgba(255,255,255,.35),transparent 34%),linear-gradient(135deg,${documentBranding.primary},${documentBranding.accent})`,
-        heroColor: '#fff',
-        titleTransform: 'none',
-        border: `2px solid ${documentBranding.accent}`,
-        decoration: '<div class="ornament">✦ ✦ ✦</div>',
-      },
-    };
-    const voucherStyle = voucherStyles[firma.voucher_design_style] || voucherStyles.classic;
-
-    const html = `<!DOCTYPE html>
-<html lang="cs">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Poukaz ${esc(voucher.kod)}</title>
-  <style>
-    @import url('${esc(documentBranding.fontImportUrl)}');
-    body { font-family: ${documentBranding.fontFamily}; background:${voucherStyle.bodyBg}; margin:0; padding:24px; color:#1c1917; }
-    .card { max-width: 880px; margin: 0 auto; background:#fff; border-radius:${voucherStyle.cardRadius}; overflow:hidden; box-shadow:0 18px 44px rgba(0,0,0,.08); border:${voucherStyle.border}; }
-    .hero { position:relative; padding:32px; background:${voucherStyle.heroBg}; color:${voucherStyle.heroColor}; }
-    .badge { display:inline-block; padding:6px 12px; border-radius:999px; background:rgba(255,255,255,.14); font-size:12px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; }
-    .title { font-size:34px; font-weight:700; margin:18px 0 8px; text-transform:${voucherStyle.titleTransform}; letter-spacing:${firma.voucher_design_style === 'premium' ? '.08em' : '0'}; }
-    .subtitle { color:currentColor; opacity:.76; font-size:14px; }
-    .ornament { position:absolute; right:28px; top:28px; opacity:.18; font-size:13px; letter-spacing:.18em; font-weight:800; }
-    .content { padding:32px; display:grid; grid-template-columns:1.1fr .9fr; gap:28px; }
-    .info-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:20px; }
-    .info-box { background:#fafaf9; border:1px solid #e7e5e4; border-radius:18px; padding:14px 16px; }
-    .label { font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:#78716c; margin-bottom:6px; font-weight:700; }
-    .value { font-size:18px; font-weight:700; color:${documentBranding.primaryDark}; }
-    .note { font-size:14px; line-height:1.7; color:#44403c; white-space:pre-wrap; }
-    .qr-card { border:1px dashed #cbd5e1; border-radius:24px; padding:20px; text-align:center; background:#f8fafc; }
-    .qr-box { width:220px; height:220px; margin:0 auto 16px; background:#fff; border-radius:18px; display:flex; align-items:center; justify-content:center; }
-    .code { font-family: Consolas, monospace; font-size:24px; font-weight:700; letter-spacing:.08em; color:#0f172a; }
-    .muted { color:#64748b; font-size:13px; line-height:1.6; }
-    .footer { padding:0 32px 24px; display:flex; justify-content:space-between; gap:16px; color:#78716c; font-size:12px; }
-    @media print { body { background:#fff; padding:0; } .card { box-shadow:none; max-width:none; border-radius:0; } }
-    @media (max-width: 760px) { .content { grid-template-columns:1fr; } }
-  </style>
-</head>
-<body>
-  <div class="card">
-    <div class="hero">
-      ${voucherStyle.decoration}
-      ${documentBranding.logoDataUrl ? `<div style="width:72px;height:72px;border-radius:24px;background:rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;overflow:hidden;margin-bottom:16px"><img src="${esc(documentBranding.logoDataUrl)}" alt="Logo" style="width:100%;height:100%;object-fit:contain"></div>` : ''}
-      <div class="badge">${esc(firma.app_title || firma.firma_nazev || 'Catering CRM')}</div>
-      <div class="title">${esc(voucher.title)}</div>
-      <div class="subtitle">Dárkový certifikát • ${esc(voucher.kod)}</div>
-    </div>
-    <div class="content">
-      <div>
-        <div class="label">Pro koho</div>
-        <div class="value">${esc(voucher.recipient_name || 'Příjemce bude doplněn při předání')}</div>
-        <div class="info-grid">
-          <div class="info-box">
-            <div class="label">Stav</div>
-            <div class="value">${esc(voucher.status)}</div>
-          </div>
-          <div class="info-box">
-            <div class="label">Expirace</div>
-            <div class="value">${voucher.expires_at ? new Date(voucher.expires_at).toLocaleDateString('cs-CZ') : 'Bez expirace'}</div>
-          </div>
-          <div class="info-box">
-            <div class="label">Hodnota</div>
-            <div class="value">${voucher.nominal_value != null ? Number(voucher.nominal_value).toLocaleString('cs-CZ') + ' Kč' : 'Plnění dle popisu'}</div>
-          </div>
-          <div class="info-box">
-            <div class="label">Navázaná zakázka</div>
-            <div class="value">${esc(voucher.zakazka_cislo || '—')}</div>
-          </div>
-        </div>
-        <div style="margin-top:22px">
-          <div class="label">Rozsah plnění</div>
-          <div class="note">${esc(voucher.fulfillment_note || voucher.note || 'Použijte tento certifikát při objednávce nebo předání poukazu na místě.')}</div>
-        </div>
-      </div>
-      <div class="qr-card">
-        <div class="qr-box"><canvas id="qr"></canvas></div>
-        <div class="code">${esc(voucher.kod)}</div>
-        <div class="muted" style="margin-top:10px">Kontrolní URL / QR payload:</div>
-        <div class="muted" style="word-break:break-word">${esc(voucher.verify_url || voucher.qr_payload || '')}</div>
-      </div>
-    </div>
-    <div class="footer">
-      <span>${esc(firma.firma_nazev || 'Catering LD')} • ${esc(firma.firma_email || '')}</span>
-      <span>Vytištěno ${new Date().toLocaleDateString('cs-CZ')}</span>
-    </div>
-  </div>
-  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
-  <script>
-    const payload = ${JSON.stringify(voucher.verify_url || voucher.qr_payload || voucher.kod)};
-    if (window.QRCode) {
-      QRCode.toCanvas(document.getElementById('qr'), payload, { width: 200, margin: 1 }, function () {});
-    }
-    window.onload = () => window.print();
-  </script>
-</body>
-</html>`;
+    const html = await buildVoucherHtml({ voucher, firma });
 
     if (isPdfRequested(req)) {
       return sendPdfResponse(res, html, `poukaz-${voucher.kod}.pdf`, { waitUntil: 'load' });
