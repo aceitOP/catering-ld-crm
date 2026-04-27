@@ -6,6 +6,7 @@ const DEFAULT_SETTINGS = [
   ['voucher_design_style', 'classic', 'Vzhled tiskového poukazu'],
   ['voucher_shop_enabled', 'false', 'Veřejný prodej poukazů zapnutý'],
   ['voucher_shop_values', '1000,2000,3000,5000,10000', 'Povolené hodnoty poukazů ve veřejném shopu'],
+  ['voucher_shop_min_amount', '500', 'Minimální hodnota poukazu ve veřejném shopu'],
   ['voucher_shop_validity_months', '12', 'Výchozí platnost koupených poukazů v měsících'],
   ['voucher_shop_terms_text', '', 'Podmínky veřejného prodeje poukazů'],
   ['app_setup_completed_at', '', 'Čas dokončení úvodního setup wizardu'],

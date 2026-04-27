@@ -81,13 +81,16 @@ async function getVoucherShopConfig({ includeQr = false } = {}) {
     'firma_iban',
     'voucher_shop_enabled',
     'voucher_shop_values',
+    'voucher_shop_min_amount',
     'voucher_shop_validity_months',
     'voucher_shop_terms_text',
   ]);
   const values = parseShopValues(firma.voucher_shop_values || '1000,2000,3000,5000,10000');
+  const minAmount = parsePositiveInt(firma.voucher_shop_min_amount, 500, 1, 1000000);
   return {
     enabled: String(firma.voucher_shop_enabled || 'false') === 'true',
     values: values.length ? values : [1000, 2000, 3000, 5000, 10000],
+    min_amount: minAmount,
     validity_months: parsePositiveInt(firma.voucher_shop_validity_months, 12),
     terms_text: firma.voucher_shop_terms_text || '',
     bank_ready: Boolean(normalizeIban(firma.firma_iban)),
@@ -181,8 +184,8 @@ async function listOrders(params = {}) {
 
 function normalizePublicOrderPayload(payload, config) {
   const amount = Math.round(Number(payload.amount));
-  if (!config.values.includes(amount)) {
-    const err = new Error('Vybraná hodnota poukazu není povolená.');
+  if (!Number.isFinite(amount) || amount < config.min_amount || amount > 1000000) {
+    const err = new Error(`Hodnota poukazu musí být alespoň ${config.min_amount.toLocaleString('cs-CZ')} Kč.`);
     err.status = 400;
     throw err;
   }
@@ -195,6 +198,13 @@ function normalizePublicOrderPayload(payload, config) {
   const buyerName = String(payload.buyer_name || '').trim().slice(0, 255);
   if (!buyerName) {
     const err = new Error('Zadejte jméno kupujícího.');
+    err.status = 400;
+    throw err;
+  }
+  const billingEmailRaw = String(payload.billing_email || '').trim();
+  const billingEmail = billingEmailRaw ? normalizeEmail(billingEmailRaw) : buyerEmail;
+  if (billingEmailRaw && !billingEmail) {
+    const err = new Error('Zadejte platný fakturační e-mail.');
     err.status = 400;
     throw err;
   }
@@ -217,6 +227,12 @@ function normalizePublicOrderPayload(payload, config) {
     amount,
     buyer_name: buyerName,
     buyer_email: buyerEmail,
+    billing_name: String(payload.billing_name || buyerName).trim().slice(0, 255),
+    billing_company: String(payload.billing_company || '').trim().slice(0, 255),
+    billing_ico: String(payload.billing_ico || '').trim().slice(0, 40),
+    billing_dic: String(payload.billing_dic || '').trim().slice(0, 40),
+    billing_address: String(payload.billing_address || '').trim().slice(0, 1000),
+    billing_email: billingEmail,
     recipient_choice: recipientChoice,
     recipient_name: recipientChoice === 'recipient' ? recipientName : buyerName,
     recipient_email: recipientEmail,
@@ -254,11 +270,12 @@ async function createPublicOrder(payload = {}) {
     const { rows } = await client.query(
       `INSERT INTO voucher_orders (
          order_number, public_token, amount, buyer_name, buyer_email,
+         billing_name, billing_company, billing_ico, billing_dic, billing_address, billing_email,
          recipient_choice, recipient_name, recipient_email, fulfillment_note,
          delivery_mode, delivery_scheduled_at, payment_iban, payment_variable_symbol,
          payment_message, payment_qr_payload
        )
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
        RETURNING *`,
       [
         identity.orderNumber,
@@ -266,6 +283,12 @@ async function createPublicOrder(payload = {}) {
         normalized.amount,
         normalized.buyer_name,
         normalized.buyer_email,
+        normalized.billing_name || null,
+        normalized.billing_company || null,
+        normalized.billing_ico || null,
+        normalized.billing_dic || null,
+        normalized.billing_address || null,
+        normalized.billing_email || null,
         normalized.recipient_choice,
         normalized.recipient_name,
         normalized.recipient_email,

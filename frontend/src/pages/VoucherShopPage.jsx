@@ -8,8 +8,15 @@ import { Btn, Spinner } from '../components/ui';
 
 const EMPTY_FORM = {
   amount: '',
+  custom_amount: '',
   buyer_name: '',
   buyer_email: '',
+  billing_name: '',
+  billing_company: '',
+  billing_ico: '',
+  billing_dic: '',
+  billing_address: '',
+  billing_email: '',
   recipient_choice: 'buyer',
   recipient_name: '',
   recipient_email: '',
@@ -49,16 +56,33 @@ export default function VoucherShopPage() {
 
   const config = configQuery.data;
   const values = config?.values || [];
-  const selectedAmount = Number(form.amount || 0);
+  const minAmount = Number(config?.min_amount || 500);
+  const selectedAmount = Number(form.amount || form.custom_amount || 0);
+  const recipientName = form.recipient_choice === 'recipient' ? form.recipient_name : form.buyer_name;
+  const deliveryLabel = form.delivery_mode === 'scheduled' && form.delivery_scheduled_at
+    ? new Date(form.delivery_scheduled_at).toLocaleString('cs-CZ', { day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+    : 'Ihned po zaplacení';
   const minDelivery = useMemo(() => minDateTimeLocal(), []);
 
   const setField = (key, value) => setForm((current) => ({ ...current, [key]: value }));
+  const selectPresetAmount = (value) => {
+    setForm((current) => ({ ...current, amount: String(value), custom_amount: '' }));
+  };
+  const setCustomAmount = (value) => {
+    setForm((current) => ({ ...current, amount: '', custom_amount: value }));
+  };
 
   const submit = (event) => {
     event.preventDefault();
+    if (!selectedAmount || selectedAmount < minAmount) {
+      toast.error(`Hodnota poukazu musí být alespoň ${formatMoney(minAmount)}.`);
+      return;
+    }
     createMut.mutate({
       ...form,
       amount: selectedAmount,
+      billing_name: form.billing_name || form.buyer_name,
+      billing_email: form.billing_email || form.buyer_email,
       delivery_scheduled_at: form.delivery_mode === 'scheduled' ? form.delivery_scheduled_at : null,
     });
   };
@@ -115,18 +139,43 @@ export default function VoucherShopPage() {
                 <button
                   key={value}
                   type="button"
-                  onClick={() => setField('amount', String(value))}
+                  onClick={() => selectPresetAmount(value)}
                   className={`h-12 rounded-xl border text-sm font-bold transition-colors ${selectedAmount === value ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-stone-200 bg-white text-stone-700 hover:bg-stone-50'}`}
                 >
                   {formatMoney(value)}
                 </button>
               ))}
             </div>
+            <div className="mt-3">
+              <label className="mb-1 block text-xs text-stone-500">Vlastní hodnota</label>
+              <input
+                type="number"
+                min={minAmount}
+                max="1000000"
+                step="1"
+                className="w-full rounded-xl border border-stone-200 px-3 py-2 text-sm"
+                value={form.custom_amount}
+                onChange={(e) => setCustomAmount(e.target.value)}
+                placeholder={`Minimálně ${formatMoney(minAmount)}`}
+              />
+            </div>
           </section>
 
           <section className="grid gap-3 md:grid-cols-2">
             <div><label className="mb-1 block text-xs text-stone-500">Jméno kupujícího</label><input required className="w-full rounded-xl border border-stone-200 px-3 py-2 text-sm" value={form.buyer_name} onChange={(e) => setField('buyer_name', e.target.value)} /></div>
             <div><label className="mb-1 block text-xs text-stone-500">E-mail kupujícího</label><input required type="email" className="w-full rounded-xl border border-stone-200 px-3 py-2 text-sm" value={form.buyer_email} onChange={(e) => setField('buyer_email', e.target.value)} /></div>
+          </section>
+
+          <section className="space-y-3">
+            <label className="block text-xs font-semibold uppercase tracking-wide text-stone-500">Fakturační údaje</label>
+            <div className="grid gap-3 md:grid-cols-2">
+              <div><label className="mb-1 block text-xs text-stone-500">Fakturační jméno</label><input className="w-full rounded-xl border border-stone-200 px-3 py-2 text-sm" value={form.billing_name} onChange={(e) => setField('billing_name', e.target.value)} placeholder={form.buyer_name || 'Jméno a příjmení'} /></div>
+              <div><label className="mb-1 block text-xs text-stone-500">Firma</label><input className="w-full rounded-xl border border-stone-200 px-3 py-2 text-sm" value={form.billing_company} onChange={(e) => setField('billing_company', e.target.value)} /></div>
+              <div><label className="mb-1 block text-xs text-stone-500">IČO</label><input className="w-full rounded-xl border border-stone-200 px-3 py-2 text-sm" value={form.billing_ico} onChange={(e) => setField('billing_ico', e.target.value)} /></div>
+              <div><label className="mb-1 block text-xs text-stone-500">DIČ</label><input className="w-full rounded-xl border border-stone-200 px-3 py-2 text-sm" value={form.billing_dic} onChange={(e) => setField('billing_dic', e.target.value)} /></div>
+              <div className="md:col-span-2"><label className="mb-1 block text-xs text-stone-500">Fakturační adresa</label><textarea rows={2} className="w-full rounded-xl border border-stone-200 px-3 py-2 text-sm" value={form.billing_address} onChange={(e) => setField('billing_address', e.target.value)} /></div>
+              <div className="md:col-span-2"><label className="mb-1 block text-xs text-stone-500">Fakturační e-mail</label><input type="email" className="w-full rounded-xl border border-stone-200 px-3 py-2 text-sm" value={form.billing_email} onChange={(e) => setField('billing_email', e.target.value)} placeholder={form.buyer_email || 'E-mail pro doklady'} /></div>
+            </div>
           </section>
 
           <section className="space-y-3">
@@ -163,19 +212,44 @@ export default function VoucherShopPage() {
 
           {config.terms_text && <div className="rounded-xl bg-stone-50 p-3 text-xs leading-5 text-stone-500 whitespace-pre-wrap">{config.terms_text}</div>}
 
-          <Btn type="submit" variant="primary" disabled={!selectedAmount || createMut.isPending}>
+          <Btn type="submit" variant="primary" disabled={!selectedAmount || selectedAmount < minAmount || createMut.isPending}>
             <Send size={14} />
             {createMut.isPending ? 'Vytvářím objednávku...' : 'Objednat poukaz'}
           </Btn>
         </form>
 
-        <aside className="h-fit rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
-          <div className="text-xs font-semibold uppercase tracking-wide text-stone-500">Souhrn</div>
-          <div className="mt-3 text-3xl font-bold text-stone-900">{selectedAmount ? formatMoney(selectedAmount) : '—'}</div>
-          <div className="mt-3 space-y-2 text-sm text-stone-500">
-            <div>Platnost: {config.validity_months} měsíců od potvrzení platby</div>
-            <div>Platba: bankovní převod / QR platba</div>
-            <div>Měna: CZK</div>
+        <aside className="h-fit space-y-4">
+          <div className="overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm">
+            <div className="bg-stone-900 px-5 py-4 text-white">
+              <div className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-300">Dárkový poukaz</div>
+              <div className="mt-3 text-3xl font-bold">{selectedAmount ? formatMoney(selectedAmount) : '—'}</div>
+            </div>
+            <div className="p-5">
+              <div className="text-xs font-semibold uppercase tracking-wide text-stone-400">Pro</div>
+              <div className="mt-1 min-h-7 text-lg font-semibold text-stone-900">{recipientName || 'Obdarovaný'}</div>
+              <div className="mt-4 rounded-xl bg-stone-50 p-3 text-sm leading-6 text-stone-600">
+                {form.fulfillment_note || 'Věnování nebo popis poukazu se zobrazí tady.'}
+              </div>
+              <div className="mt-5 grid grid-cols-2 gap-3 text-xs text-stone-500">
+                <div>
+                  <div className="font-semibold uppercase tracking-wide text-stone-400">Platnost</div>
+                  <div className="mt-1 text-stone-700">{config.validity_months} měsíců</div>
+                </div>
+                <div>
+                  <div className="font-semibold uppercase tracking-wide text-stone-400">Doručení</div>
+                  <div className="mt-1 text-stone-700">{deliveryLabel}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
+            <div className="text-xs font-semibold uppercase tracking-wide text-stone-500">Souhrn</div>
+            <div className="mt-3 text-3xl font-bold text-stone-900">{selectedAmount ? formatMoney(selectedAmount) : '—'}</div>
+            <div className="mt-3 space-y-2 text-sm text-stone-500">
+              <div>Minimální hodnota: {formatMoney(minAmount)}</div>
+              <div>Platba: bankovní převod / QR platba</div>
+              <div>Měna: CZK</div>
+            </div>
           </div>
         </aside>
       </main>

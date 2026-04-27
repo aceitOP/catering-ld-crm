@@ -715,6 +715,17 @@ export function NastaveniPage() {
                     <div className="text-[11px] text-stone-400 mt-1">Oddělte čárkou, středníkem nebo novým řádkem.</div>
                   </div>
                   <div>
+                    <label className="text-xs text-stone-500 block mb-1">Minimální hodnota poukazu</label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="1000000"
+                      className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                      value={form.voucher_shop_min_amount ?? nastavData?.data?.voucher_shop_min_amount ?? '500'}
+                      onChange={(e) => setForm((f) => ({ ...f, voucher_shop_min_amount: e.target.value }))}
+                    />
+                  </div>
+                  <div>
                     <label className="text-xs text-stone-500 block mb-1">Platnost poukazu v měsících</label>
                     <input
                       type="number"
@@ -1437,5 +1448,4 @@ export function NastaveniPage() {
 }
 
 export default NastaveniPage;
-
 

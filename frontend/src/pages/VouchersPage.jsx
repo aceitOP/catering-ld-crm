@@ -306,6 +306,9 @@ export default function VouchersPage() {
                       <td className="px-4 py-3 text-sm text-stone-600">
                         <div>{order.buyer_name}</div>
                         <div className="text-xs text-stone-400">{order.buyer_email}</div>
+                        {(order.billing_company || order.billing_ico) && (
+                          <div className="text-xs text-stone-400">{order.billing_company || 'Fakturace'}{order.billing_ico ? ` · IČO ${order.billing_ico}` : ''}</div>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-sm text-stone-700">
                         <div className="font-semibold">{Number(order.amount).toLocaleString('cs-CZ')} Kč</div>

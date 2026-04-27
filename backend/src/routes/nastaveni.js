@@ -95,6 +95,16 @@ function sanitizeSettingValue(key, value) {
     return Array.from(new Set(values)).join(',');
   }
 
+  if (key === 'voucher_shop_min_amount') {
+    const amount = parseInt(String(raw).replace(/\s+/g, ''), 10);
+    if (Number.isNaN(amount) || amount < 1 || amount > 1000000) {
+      const err = new Error('Minimální hodnota poukazu musí být 1 až 1 000 000 Kč');
+      err.status = 400;
+      throw err;
+    }
+    return String(amount);
+  }
+
   if (key === 'voucher_shop_validity_months') {
     const months = parseInt(raw, 10);
     if (Number.isNaN(months) || months < 1 || months > 120) {

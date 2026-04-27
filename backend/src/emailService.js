@@ -612,6 +612,7 @@ async function sendVoucherOrderAdminNotification({ to, order, firma }) {
     <div style="background:#f5f5f4;border-radius:10px;padding:18px 20px;margin-bottom:22px;">
       <div style="font-size:14px;color:#57534e;">Částka: <strong>${czk(order.amount)}</strong></div>
       <div style="font-size:14px;color:#57534e;margin-top:4px;">Kupující: <strong>${esc(order.buyer_name)}</strong> &lt;${esc(order.buyer_email)}&gt;</div>
+      ${order.billing_company || order.billing_name || order.billing_address ? `<div style="font-size:14px;color:#57534e;margin-top:4px;">Fakturace: <strong>${esc(order.billing_company || order.billing_name || order.buyer_name)}</strong>${order.billing_ico ? `, IČO ${esc(order.billing_ico)}` : ''}${order.billing_dic ? `, DIČ ${esc(order.billing_dic)}` : ''}${order.billing_address ? `<br>${esc(order.billing_address).replace(/\n/g, '<br>')}` : ''}</div>` : ''}
       <div style="font-size:14px;color:#57534e;margin-top:4px;">VS: <strong>${esc(order.payment_variable_symbol)}</strong></div>
       <div style="font-size:14px;color:#57534e;margin-top:4px;">Doručení: <strong>${order.delivery_mode === 'scheduled' ? esc(formatDateTime(order.delivery_scheduled_at)) : 'ihned po potvrzení platby'}</strong></div>
     </div>

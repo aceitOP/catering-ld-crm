@@ -67,6 +67,16 @@ export default function VoucherShopOrderPage() {
           <div className="rounded-xl border border-stone-200 p-4"><div className="text-xs text-stone-400">Odeslání</div><div className="font-semibold text-stone-900">{order.delivery_mode === 'scheduled' ? formatDateTime(order.delivery_scheduled_at) : 'Ihned po zaplacení'}</div><div className="text-stone-500">{order.recipient_choice === 'recipient' ? order.recipient_email : order.buyer_email}</div></div>
         </div>
 
+        {(order.billing_company || order.billing_name || order.billing_address) && (
+          <div className="mt-5 rounded-xl border border-stone-200 p-4 text-sm">
+            <div className="text-xs text-stone-400">Fakturační údaje</div>
+            <div className="mt-1 font-semibold text-stone-900">{order.billing_company || order.billing_name}</div>
+            {(order.billing_ico || order.billing_dic) && <div className="text-stone-500">{order.billing_ico ? `IČO: ${order.billing_ico}` : ''}{order.billing_ico && order.billing_dic ? ' · ' : ''}{order.billing_dic ? `DIČ: ${order.billing_dic}` : ''}</div>}
+            {order.billing_address && <div className="mt-2 whitespace-pre-wrap text-stone-500">{order.billing_address}</div>}
+            {order.billing_email && <div className="mt-2 text-stone-500">{order.billing_email}</div>}
+          </div>
+        )}
+
         {order.voucher_kod && (
           <div className="mt-5 flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
             <Gift size={20} />
