@@ -187,6 +187,8 @@ export const nastaveniApi = {
   get:            () => api.get('/nastaveni'),
   update:         (d) => api.patch('/nastaveni', d),
   publicBranding: () => api.get('/nastaveni/public-branding'),
+  setupStatus:    () => api.get('/nastaveni/setup-status'),
+  submitSetupWizard: (d) => api.post('/nastaveni/setup-wizard', d),
 };
 
 // ── Kalendář ─────────────────────────────────────────────────

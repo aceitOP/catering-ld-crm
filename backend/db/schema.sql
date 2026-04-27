@@ -545,14 +545,14 @@ CREATE TABLE nastaveni (
 
 -- Výchozí hodnoty
 INSERT INTO nastaveni (klic, hodnota, popis) VALUES
-  ('firma_nazev',       'Catering LD s.r.o.',           'Název firmy'),
-  ('firma_ico',         '08123456',                      'IČO'),
-  ('firma_dic',         'CZ08123456',                    'DIČ'),
-  ('firma_adresa',      'Liberecká 15, 460 01 Liberec', 'Adresa sídla'),
-  ('firma_email',       'info@catering-ld.cz',          'Kontaktní e-mail'),
-  ('firma_telefon',     '+420 485 000 111',              'Telefon'),
-  ('firma_web',         'www.catering-ld.cz',            'Web'),
-  ('firma_iban',        'CZ65 0800 0000 1920 0014 5399', 'Bankovní účet'),
+  ('firma_nazev',       '',                            'Nazev firmy'),
+  ('firma_ico',         '',                             'ICO'),
+  ('firma_dic',         '',                             'DIC'),
+  ('firma_adresa',      '',                             'Adresa sidla'),
+  ('firma_email',       '',                             'Kontaktni e-mail'),
+  ('firma_telefon',     '',                             'Telefon'),
+  ('firma_web',         '',                             'Web'),
+  ('firma_iban',        '',                             'Bankovni ucet'),
   ('nabidka_platnost',  '30',                            'Výchozí platnost nabídky (dny)'),
   ('faktura_splatnost', '14',                            'Výchozí splatnost faktury (dny)'),
   ('zakazka_prefix',    'ZAK',                           'Prefix čísla zakázky'),

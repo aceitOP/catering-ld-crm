@@ -68,13 +68,31 @@ Aplikace bude dostupná na:
 - **Backend API (přímý):** http://localhost:4000
 - **PostgreSQL:** localhost:5432
 
-### 4. Demo přihlášení
+### 4. První přihlášení
+
+Výchozí režim `DB_SEED_MODE=empty` vytvoří čistou instalaci bez demo dat.
+Přihlaste se účtem:
 
 | E-mail | Heslo | Role |
 |--------|-------|------|
-| l.dvorackova@catering-ld.cz | Demo1234! | Administrátor |
-| j.novackova@catering-ld.cz  | Demo1234! | Obchodník |
-| p.dostal@catering-ld.cz     | Demo1234! | Provoz |
+| `SUPER_ADMIN_EMAIL` | `SUPER_ADMIN_PASSWORD` | Super admin |
+
+Po prvním přihlášení se otevře setup wizard pro firmu, branding a e-mail.
+
+### 5. Volitelný demo režim
+
+Pokud chcete lokálně naplnit aplikaci ukázkovými daty, nastavte před prvním startem:
+
+```bash
+DB_SEED_MODE=demo
+```
+
+V demo režimu jsou k dispozici například tyto účty:
+
+| E-mail | Heslo | Role |
+|--------|-------|------|
+| pomykal@aceit.cz | Demo1234! | Super admin |
+| l.dvorackova@catering-ld.cz | Demo1234! | Admin |
 
 ---
 
@@ -138,6 +156,27 @@ npm run system-test
 
 Pokud nechcete testovat frontend, stačí nastavit pouze `SYSTEM_TEST_API_URL`. Nastavení `SYSTEM_TEST_FRONTEND_URL`
 je dobrovolné a spustí kontrolu root stránky (přes `SYSTEM_TEST_INCLUDE_FRONTEND=true`).
+
+## Regresní test
+
+Pro širší ověření hlavních vrstev aplikace je k dispozici:
+
+```bash
+cd backend
+npm run regression-test
+```
+
+Skript vždy kontroluje health, auth, setup status a klíčové read endpointy. Plný CRUD běh nad klienty, venues,
+zakázkami, nabídkami, follow-upy, dokumenty, personálem a fakturací spustí automaticky na `localhost`.
+Pro vzdálenou instanci je potřeba explicitně povolit mutace:
+
+```bash
+REGRESSION_TEST_API_URL=https://moje-api.example.com \
+REGRESSION_TEST_EMAIL=pomykal@aceit.cz \
+REGRESSION_TEST_PASSWORD=... \
+REGRESSION_TEST_MUTATIONS=true \
+npm run regression-test
+```
 
 ## Bezpečnostní test
 

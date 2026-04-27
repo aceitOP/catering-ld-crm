@@ -1,5 +1,3 @@
-version: '3.9'
-
 services:
   db:
     image: postgres:16-alpine
@@ -10,8 +8,6 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme123}
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./backend/db/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
-      - ./backend/db/seed.sql:/docker-entrypoint-initdb.d/02_seed.sql
     ports:
       - "5432:5432"
     healthcheck:
@@ -30,8 +26,13 @@ services:
       NODE_ENV: production
       PORT: 4000
       DATABASE_URL: postgres://catering:${DB_PASSWORD:-changeme123}@db:5432/catering_ld
+      DB_SEED_MODE: ${DB_SEED_MODE:-empty}
       JWT_SECRET: ${JWT_SECRET:-superSecretKey2026changeMe!!CHANGE_IN_PROD}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
+      SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL:-pomykal@aceit.cz}
+      SUPER_ADMIN_PASSWORD: ${SUPER_ADMIN_PASSWORD:-CHANGE_ME_SUPER_SECRET}
+      SUPER_ADMIN_FIRST_NAME: ${SUPER_ADMIN_FIRST_NAME:-Super}
+      SUPER_ADMIN_LAST_NAME: ${SUPER_ADMIN_LAST_NAME:-Admin}
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_SECURE: ${SMTP_SECURE:-false}
@@ -44,12 +45,13 @@ services:
       - uploads:/app/uploads
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: ${VITE_API_URL:-/api}
     restart: unless-stopped
     depends_on:
       - backend
-    environment:
-      VITE_API_URL: ${VITE_API_URL:-http://localhost:4000}
     ports:
       - "80:80"
 

@@ -1,8 +1,9 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { nastaveniApi } from './api';
 
 // Pages
 import LoginPage       from './pages/LoginPage';
@@ -31,6 +32,7 @@ import ArchivPage        from './pages/ArchivPage';
 import SablonyPage       from './pages/SablonyPage';
 import EmailPage         from './pages/EmailPage';
 import ErrorLogPage      from './pages/ErrorLogPage';
+import SetupWizardPage   from './pages/SetupWizardPage';
 import VenueDetailPage   from './pages/VenueDetailPage';
 import Layout           from './components/Layout';
 import AppErrorBoundary from './components/AppErrorBoundary';
@@ -39,8 +41,17 @@ const qc = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000, retry: 1 } },
 });
 
+function FullscreenLoader({ text }) {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-stone-50">
+      <div className="text-stone-400 text-sm">{text}</div>
+    </div>
+  );
+}
+
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
+  if (loading) return <FullscreenLoader text="Nacitam..." />;
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-stone-50">
       <div className="text-stone-400 text-sm">Načítám…</div>
@@ -61,6 +72,49 @@ function SuperAdminRoute({ children }) {
   return user?.role === 'super_admin' ? children : <Navigate to="/dashboard" replace />;
 }
 
+function SetupGuard({ children }) {
+  const { user, loading } = useAuth();
+  const location = useLocation();
+  const setupQuery = useQuery({
+    queryKey: ['setup-status'],
+    queryFn: () => nastaveniApi.setupStatus(),
+    enabled: !loading && !!user && user.role === 'super_admin',
+    select: (res) => res.data,
+    staleTime: 10_000,
+  });
+
+  if (loading || (user?.role === 'super_admin' && setupQuery.isLoading)) {
+    return <FullscreenLoader text="Pripravuji instalaci..." />;
+  }
+
+  if (user?.role === 'super_admin' && !setupQuery.data?.completed && location.pathname !== '/setup') {
+    return <Navigate to="/setup" replace />;
+  }
+
+  return children;
+}
+
+function SetupWizardRoute() {
+  const { user, loading } = useAuth();
+  const setupQuery = useQuery({
+    queryKey: ['setup-status'],
+    queryFn: () => nastaveniApi.setupStatus(),
+    enabled: !loading && !!user && user.role === 'super_admin',
+    select: (res) => res.data,
+    staleTime: 10_000,
+  });
+
+  if (loading || (user?.role === 'super_admin' && setupQuery.isLoading)) {
+    return <FullscreenLoader text="Nacitam setup wizard..." />;
+  }
+
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.role !== 'super_admin') return <Navigate to="/dashboard" replace />;
+  if (setupQuery.data?.completed) return <Navigate to="/dashboard" replace />;
+
+  return <SetupWizardPage />;
+}
+
 function App() {
   return (
     <AppErrorBoundary>
@@ -74,7 +128,8 @@ function App() {
               <Routes>
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/nabidka/:token" element={<ClientProposalPage />} />
-                <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
+                <Route path="/setup" element={<PrivateRoute><SetupWizardRoute /></PrivateRoute>} />
+                <Route path="/" element={<PrivateRoute><SetupGuard><Layout /></SetupGuard></PrivateRoute>}>
                   <Route index element={<Navigate to="/dashboard" replace />} />
                   <Route path="dashboard"         element={<DashboardPage />} />
                   <Route path="poptavky"          element={<PoptavkyPage />} />

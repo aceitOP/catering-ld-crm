@@ -3,6 +3,7 @@ const { pool } = require('./db');
 const fs = require('fs');
 const path = require('path');
 const { DEFAULT_SETTINGS } = require('./settingsDefaults');
+const { bootstrapCanonicalSuperAdmin } = require('./superAdmin');
 
 async function initDb() {
   try {
@@ -615,6 +616,7 @@ async function initDb() {
       await pool.query(`UPDATE uzivatele SET role = 'uzivatel' WHERE role IN ('obchodnik', 'provoz')`);
       await ensureDefaultSettings();
       await ensureSuperAdminUser();
+      await bootstrapCanonicalSuperAdmin(pool.query.bind(pool));
 
       console.log('✅  Migrace OK (google_event_id, faktury, proposals, archivovano, sablony, planovani, pravidelny, followup, password reset, error logs, dokumenty_slozky, email_links, email_sablony, user_roles, venue_twin).');
       return;
@@ -627,9 +629,16 @@ async function initDb() {
     await ensureDefaultSettings();
     console.log('✅  Schema vytvořeno.');
 
-    const seed = fs.readFileSync(path.join(__dirname, '../db/seed.sql'), 'utf8');
-    await pool.query(seed);
+    const seedMode = String(process.env.DB_SEED_MODE || process.env.INIT_SEED_MODE || 'empty').trim().toLowerCase();
+    if (seedMode === 'demo') {
+      const seed = fs.readFileSync(path.join(__dirname, '../db/seed.sql'), 'utf8');
+      await pool.query(seed);
+    }
     await ensureSuperAdminUser();
+    await bootstrapCanonicalSuperAdmin(pool.query.bind(pool));
+    if (seedMode !== 'demo') {
+      console.log(`Demo seed preskocen (rezim: ${seedMode}).`);
+    }
     console.log('✅  Demo data vložena.');
 
   } catch (err) {

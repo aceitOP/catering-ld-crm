@@ -1,9 +1,18 @@
 // Changelog - Catering LD CRM
 // Typy změn: 'new' | 'improvement' | 'fix' | 'security'
 
-export const APP_VERSION = '3.7.1';
+export const APP_VERSION = '3.8.0';
 
 export const CHANGELOG = [
+  {
+    version: '3.8.0',
+    date: '2026-04-27',
+    changes: [
+      { type: 'new', text: 'Cista produkcni instalace: aplikace umi nabehnout bez demo dat jen s kanonickym super admin uctem.' },
+      { type: 'new', text: 'Setup wizard po prvnim prihlaseni super admina pro firmu, branding, SMTP/IMAP a volitelneho dalsiho uzivatele.' },
+      { type: 'improvement', text: 'Novy regression test runner pro auth, nastaveni, klienty, venues, zakazky, nabidky, follow-upy a dalsi hlavni API flow.' },
+    ],
+  },
   {
     version: '3.7.1',
     date: '2026-04-24',
