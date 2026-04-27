@@ -7,6 +7,7 @@ const { auth, requireMinRole, userLevel } = require('../middleware/auth');
 const { appendAdminAudit } = require('../adminAudit');
 
 const router = express.Router();
+const PROTECTED_ADMIN_ROLES = ['super_admin', 'majitel', 'admin'];
 
 router.get('/', auth, requireMinRole('admin'), async (_req, res, next) => {
   try {
@@ -25,8 +26,8 @@ router.post('/', auth, requireMinRole('admin'), async (req, res, next) => {
     }
 
     const requestedRole = role || 'uzivatel';
-    if (userLevel(req) < 3 && ['super_admin', 'admin'].includes(requestedRole)) {
-      return res.status(403).json({ error: 'Pouze super admin může vytvářet adminy' });
+    if (userLevel(req) < 3 && PROTECTED_ADMIN_ROLES.includes(requestedRole)) {
+      return res.status(403).json({ error: 'Pouze super admin může vytvářet adminy a majitele' });
     }
 
     const hash = await bcrypt.hash(heslo, 12);
@@ -58,11 +59,11 @@ router.patch('/:id', auth, requireMinRole('admin'), async (req, res, next) => {
     const target = targetRows[0];
     if (!target) return res.status(404).json({ error: 'Uživatel nenalezen' });
 
-    if (userLevel(req) < 3 && ['super_admin', 'admin'].includes(target.role)) {
-      return res.status(403).json({ error: 'Administrátor nemůže upravovat super adminy ani jiné adminy' });
+    if (userLevel(req) < 3 && PROTECTED_ADMIN_ROLES.includes(target.role)) {
+      return res.status(403).json({ error: 'Administrátor nemůže upravovat super adminy, majitele ani jiné adminy' });
     }
-    if (req.body.role && userLevel(req) < 3 && ['super_admin', 'admin'].includes(req.body.role)) {
-      return res.status(403).json({ error: 'Pouze super admin může přiřadit roli admin nebo super admin' });
+    if (req.body.role && userLevel(req) < 3 && PROTECTED_ADMIN_ROLES.includes(req.body.role)) {
+      return res.status(403).json({ error: 'Pouze super admin může přiřadit roli majitel, admin nebo super admin' });
     }
 
     const allowed = ['jmeno', 'prijmeni', 'email', 'role', 'telefon', 'aktivni'];
@@ -108,8 +109,8 @@ router.delete('/:id', auth, requireMinRole('admin'), async (req, res, next) => {
     const target = targetRows[0];
     if (!target) return res.status(404).json({ error: 'Uživatel nenalezen' });
 
-    if (userLevel(req) < 3 && ['super_admin', 'admin'].includes(target.role)) {
-      return res.status(403).json({ error: 'Administrátor nemůže smazat super adminy ani jiné adminy' });
+    if (userLevel(req) < 3 && PROTECTED_ADMIN_ROLES.includes(target.role)) {
+      return res.status(403).json({ error: 'Administrátor nemůže smazat super adminy, majitele ani jiné adminy' });
     }
 
     const { rows } = await query(

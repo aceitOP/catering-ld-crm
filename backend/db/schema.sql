@@ -9,7 +9,7 @@ CREATE EXTENSION IF NOT EXISTS "unaccent";
 -- ============================================================
 -- UŽIVATELÉ A ROLE
 -- ============================================================
-CREATE TYPE user_role AS ENUM ('super_admin', 'admin', 'uzivatel', 'obchodnik', 'provoz');
+CREATE TYPE user_role AS ENUM ('super_admin', 'majitel', 'admin', 'uzivatel', 'obchodnik', 'provoz');
 
 CREATE TABLE uzivatele (
   id          SERIAL PRIMARY KEY,
@@ -595,6 +595,9 @@ INSERT INTO nastaveni (klic, hodnota, popis) VALUES
   ('modul_email', 'true', 'E-mailovy modul'),
   ('modul_sablony', 'true', 'Sablony zakazek'),
   ('modul_cenik', 'true', 'Cenik'),
+  ('modul_pro', 'true', 'Suroviny a receptury'),
+  ('modul_vouchers', 'true', 'Poukazy'),
+  ('modul_venues', 'true', 'Prostory'),
   ('modul_personal', 'true', 'Personal'),
   ('modul_dokumenty', 'true', 'Dokumenty');
 

@@ -7,6 +7,9 @@ export const MODULE_DEFINITIONS = [
   { key: 'email', label: 'E-mail', description: 'Inbox, odesílání zpráv a navázané e-mailové funkce.' },
   { key: 'sablony', label: 'Šablony', description: 'Šablony zakázek a předvyplnění nové zakázky.' },
   { key: 'cenik', label: 'Ceník', description: 'Ceníkové položky pro nabídky a faktury.' },
+  { key: 'pro', label: 'Pro', description: 'Suroviny a receptury pro kuchyni a kalkulace.' },
+  { key: 'vouchers', label: 'Poukazy', description: 'Dárkové poukazy, jejich vzhled a odesílání.' },
+  { key: 'venues', label: 'Prostory', description: 'Evidence prostorů, kontaktů a provozních poznámek.' },
   { key: 'personal', label: 'Personál', description: 'Evidence personálu a přiřazení na akce.' },
   { key: 'dokumenty', label: 'Dokumenty', description: 'Soubory, přílohy a firemní dokumenty.' },
 ];

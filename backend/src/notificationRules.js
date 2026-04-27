@@ -207,7 +207,7 @@ async function collectRecipients(rule, zakazkaId, eventPayload = {}, dbQuery = q
       `SELECT email
        FROM uzivatele
        WHERE aktivni = true
-         AND role IN ('admin', 'super_admin')
+         AND role IN ('admin', 'majitel', 'super_admin')
          AND email IS NOT NULL`
     );
     rows.forEach((row) => emails.add(String(row.email).trim().toLowerCase()));

@@ -6,6 +6,7 @@ const { getCapabilities, hasCapability } = require('../rbac');
 // Hierarchie roli: cislo = uroven opravneni
 const ROLE_LEVEL = {
   super_admin: 3,
+  majitel: 2,
   admin: 2,
   uzivatel: 1,
   // Zpětná kompatibilita - staré role mají level uživatel

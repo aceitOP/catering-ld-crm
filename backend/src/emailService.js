@@ -523,7 +523,7 @@ async function sendVoucherEmail({ to, voucher, firma, attachPdf = false }) {
       ${voucher.expires_at ? `<div style="font-size:14px;color:#57534e;margin-top:4px;">Expirace: <strong>${datum(voucher.expires_at)}</strong></div>` : ''}
     </div>
 
-    ${voucher.fulfillment_note ? `<p style="font-size:15px;line-height:1.7;margin:0 0 20px;">${esc(voucher.fulfillment_note).replace(/\n/g, '<br>')}</p>` : ''}
+    ${voucher.fulfillment_note ? `<p style="font-size:15px;line-height:1.7;margin:0 0 20px;"><strong>Popis:</strong><br>${esc(voucher.fulfillment_note).replace(/\n/g, '<br>')}</p>` : ''}
 
     ${voucher.verify_url ? `
       <p style="font-size:14px;line-height:1.7;color:#57534e;margin:0 0 10px;">
@@ -551,6 +551,78 @@ async function sendVoucherEmail({ to, voucher, firma, attachPdf = false }) {
     subject: `Dárkový poukaz ${voucher.kod}`,
     html,
     attachments,
+  });
+}
+
+function formatDateTime(value) {
+  if (!value) return '—';
+  return new Date(value).toLocaleString('cs-CZ', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+async function sendVoucherOrderPaymentInstructions({ to, order, firma }) {
+  const { transporter, from } = await getMailer();
+  const nazevFirmy = firma?.firma_nazev || 'Catering LD';
+  const qrImg = order.payment_qr_data_url
+    ? `<img src="${esc(order.payment_qr_data_url)}" alt="QR platba" style="width:180px;height:180px;display:block;border-radius:12px;background:white;">`
+    : '';
+  const body = `
+    <p style="font-size:15px;line-height:1.8;margin:0 0 20px;">
+      Dobrý den,<br><br>
+      děkujeme za objednávku dárkového poukazu <strong>${esc(order.order_number)}</strong>.
+      Poukaz připravíme po přijetí platby bankovním převodem.
+    </p>
+    <div style="background:#f5f5f4;border-radius:10px;padding:18px 20px;margin-bottom:22px;">
+      <div style="font-size:14px;color:#57534e;">Částka k úhradě</div>
+      <div style="font-size:26px;font-weight:700;color:#1c1917;margin-top:6px;">${czk(order.amount)}</div>
+      <div style="font-size:14px;color:#57534e;margin-top:10px;">IBAN: <strong>${esc(order.payment_iban)}</strong></div>
+      <div style="font-size:14px;color:#57534e;margin-top:4px;">Variabilní symbol: <strong>${esc(order.payment_variable_symbol)}</strong></div>
+      <div style="font-size:14px;color:#57534e;margin-top:4px;">Zpráva: <strong>${esc(order.payment_message || order.order_number)}</strong></div>
+    </div>
+    ${qrImg ? `<div style="margin-bottom:22px;"><div style="font-size:13px;color:#78716c;margin-bottom:8px;">QR platba</div>${qrImg}</div>` : ''}
+    <div style="font-size:14px;line-height:1.7;color:#57534e;margin-bottom:18px;">
+      Doručení poukazu: <strong>${order.delivery_mode === 'scheduled' ? `naplánováno na ${esc(formatDateTime(order.delivery_scheduled_at))}` : 'ihned po potvrzení platby'}</strong><br>
+      Adresát: <strong>${esc(order.recipient_choice === 'recipient' ? order.recipient_email : order.buyer_email)}</strong>
+    </div>
+    ${order.public_url ? `<p style="font-size:13px;line-height:1.7;margin:0;">Stav objednávky: <a href="${esc(order.public_url)}" style="color:#0f766e;">${esc(order.public_url)}</a></p>` : ''}
+  `;
+
+  await transporter.sendMail({
+    from: `"${nazevFirmy}" <${from}>`,
+    to,
+    subject: `Objednávka poukazu ${order.order_number} - platební údaje`,
+    html: wrapHtml(firma, `Objednávka poukazu ${order.order_number}`, body),
+  });
+}
+
+async function sendVoucherOrderAdminNotification({ to, order, firma }) {
+  const { transporter, from } = await getMailer();
+  const nazevFirmy = firma?.firma_nazev || 'Catering LD';
+  const adminTo = Array.isArray(to) && to.length ? to : (firma?.firma_email || from);
+  if (!adminTo) return;
+  const body = `
+    <p style="font-size:15px;line-height:1.8;margin:0 0 20px;">
+      Ve veřejném shopu vznikla nová objednávka poukazu <strong>${esc(order.order_number)}</strong>.
+    </p>
+    <div style="background:#f5f5f4;border-radius:10px;padding:18px 20px;margin-bottom:22px;">
+      <div style="font-size:14px;color:#57534e;">Částka: <strong>${czk(order.amount)}</strong></div>
+      <div style="font-size:14px;color:#57534e;margin-top:4px;">Kupující: <strong>${esc(order.buyer_name)}</strong> &lt;${esc(order.buyer_email)}&gt;</div>
+      <div style="font-size:14px;color:#57534e;margin-top:4px;">VS: <strong>${esc(order.payment_variable_symbol)}</strong></div>
+      <div style="font-size:14px;color:#57534e;margin-top:4px;">Doručení: <strong>${order.delivery_mode === 'scheduled' ? esc(formatDateTime(order.delivery_scheduled_at)) : 'ihned po potvrzení platby'}</strong></div>
+    </div>
+    <p style="font-size:14px;color:#78716c;margin:0;">Po přijetí platby označte objednávku v administraci jako zaplacenou.</p>
+  `;
+
+  await transporter.sendMail({
+    from: `"${nazevFirmy}" <${from}>`,
+    to: adminTo,
+    subject: `Nová objednávka poukazu ${order.order_number}`,
+    html: wrapHtml(firma, 'Nová objednávka poukazu', body),
   });
 }
 
@@ -592,5 +664,7 @@ module.exports = {
   sendPasswordReset,
   sendClientPortalMagicLink,
   sendVoucherEmail,
+  sendVoucherOrderPaymentInstructions,
+  sendVoucherOrderAdminNotification,
   sendFakturaEmail,
 };

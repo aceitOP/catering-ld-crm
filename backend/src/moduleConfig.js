@@ -7,6 +7,9 @@ const MODULE_DEFINITIONS = [
   { key: 'email', label: 'E-mail', settingKey: 'modul_email', enabledByDefault: true },
   { key: 'sablony', label: 'Šablony', settingKey: 'modul_sablony', enabledByDefault: true },
   { key: 'cenik', label: 'Ceník', settingKey: 'modul_cenik', enabledByDefault: true },
+  { key: 'pro', label: 'Pro', settingKey: 'modul_pro', enabledByDefault: true },
+  { key: 'vouchers', label: 'Poukazy', settingKey: 'modul_vouchers', enabledByDefault: true },
+  { key: 'venues', label: 'Prostory', settingKey: 'modul_venues', enabledByDefault: true },
   { key: 'personal', label: 'Personál', settingKey: 'modul_personal', enabledByDefault: true },
   { key: 'dokumenty', label: 'Dokumenty', settingKey: 'modul_dokumenty', enabledByDefault: true },
 ];

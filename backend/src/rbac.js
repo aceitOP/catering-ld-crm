@@ -19,7 +19,7 @@ const CAPABILITY_MAP = {
     'owner_dashboard.view': true,
     'vouchers.manage': true,
   },
-  admin: {
+  majitel: {
     'settings.manage': true,
     'settings.manage_sensitive': false,
     'users.manage': true,
@@ -35,6 +35,24 @@ const CAPABILITY_MAP = {
     'recipes.manage': true,
     'recipe_costs.view': true,
     'owner_dashboard.view': true,
+    'vouchers.manage': true,
+  },
+  admin: {
+    'settings.manage': true,
+    'settings.manage_sensitive': false,
+    'users.manage': true,
+    'users.manage_admins': false,
+    'faktury.manage': true,
+    'email.templates.manage': true,
+    'email.smtp_test': false,
+    'venues.manage': true,
+    'backup.manage': false,
+    'notification_rules.manage': true,
+    'error_log.manage': false,
+    'ingredients.manage': true,
+    'recipes.manage': true,
+    'recipe_costs.view': true,
+    'owner_dashboard.view': false,
     'vouchers.manage': true,
   },
   uzivatel: {

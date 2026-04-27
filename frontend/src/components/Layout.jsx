@@ -46,6 +46,8 @@ function timeAgo(ts) {
 const NAV = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/dashboard/owner', label: 'Majitelský přehled', icon: Briefcase, capability: 'owner_dashboard.view' },
+  { to: '/poukazy', label: 'Poukazy', icon: Gift, capability: 'vouchers.manage', moduleKey: 'vouchers' },
+  { to: '/venues', label: 'Prostory', icon: Building2, moduleKey: 'venues' },
   {
     label: 'Catering', icon: ClipboardList,
     children: [
@@ -61,9 +63,15 @@ const NAV = [
     label: 'Správa', icon: Users,
     children: [
       { to: '/klienti',  label: 'Klienti',   icon: Users },
-      { to: '/venues',   label: 'Prostory',  icon: Building2 },
       { to: '/personal', label: 'Personál',  icon: UserCheck, moduleKey: 'personal' },
       { to: '/archiv',   label: 'Archiv',    icon: Archive, moduleKey: 'archiv' },
+    ],
+  },
+  {
+    label: 'Pro', icon: FlaskConical, moduleKey: 'pro',
+    children: [
+      { to: '/suroviny',  label: 'Suroviny',  icon: FlaskConical, moduleKey: 'pro' },
+      { to: '/receptury', label: 'Receptury', icon: BookOpenText, moduleKey: 'pro' },
     ],
   },
   {
@@ -71,9 +79,6 @@ const NAV = [
     children: [
       { to: '/dokumenty', label: 'Dokumenty', icon: FolderOpen, moduleKey: 'dokumenty' },
       { to: '/cenik',     label: 'Ceníky',    icon: Tag, moduleKey: 'cenik' },
-      { to: '/suroviny',  label: 'Suroviny',  icon: FlaskConical, moduleKey: 'cenik' },
-      { to: '/receptury', label: 'Receptury', icon: BookOpenText, moduleKey: 'cenik' },
-      { to: '/poukazy', label: 'Poukazy', icon: Gift, capability: 'vouchers.manage' },
       { to: '/reporty',   label: 'Reporty',   icon: BarChart2, moduleKey: 'reporty' },
       { to: '/error-log', label: 'Error log', icon: ShieldAlert, superAdminOnly: true, moduleKey: 'error_log' },
     ],
@@ -134,7 +139,7 @@ export default function Layout() {
 
   const location = useLocation();
   const isVisibleItem = (item) => (!item.moduleKey || isModuleEnabled(user?.modules, item.moduleKey))
-    && (!item.adminOnly || user?.role === 'admin' || user?.role === 'super_admin')
+    && (!item.adminOnly || user?.role === 'admin' || user?.role === 'majitel' || user?.role === 'super_admin')
     && (!item.superAdminOnly || user?.role === 'super_admin')
     && (!item.capability || user?.capabilities?.[item.capability]);
   const visibleNav = NAV

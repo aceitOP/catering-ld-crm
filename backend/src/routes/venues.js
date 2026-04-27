@@ -496,7 +496,7 @@ router.patch('/:id', auth, requireCapability('venues.manage'), async (req, res, 
         throw err;
       }
       const payload = normalizeVenuePayload(req.body);
-      if (payload.status === 'archived' && req.user.role !== 'admin' && req.user.role !== 'super_admin') {
+      if (payload.status === 'archived' && req.user.role !== 'admin' && req.user.role !== 'majitel' && req.user.role !== 'super_admin') {
         const err = new Error('Archivace venue je povolena jen adminovi');
         err.status = 403;
         throw err;

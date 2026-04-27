@@ -78,6 +78,37 @@ function sanitizeSettingValue(key, value) {
     return normalized;
   }
 
+  if (key === 'voucher_shop_enabled') {
+    return raw === 'true' || raw === '1' || raw === 'on' ? 'true' : 'false';
+  }
+
+  if (key === 'voucher_shop_values') {
+    const values = raw
+      .split(/[,;\n]+/)
+      .map((value) => parseInt(String(value).replace(/\s+/g, ''), 10))
+      .filter((value) => Number.isFinite(value) && value > 0 && value <= 1000000);
+    if (!values.length) {
+      const err = new Error('Zadejte alespoň jednu povolenou hodnotu poukazu');
+      err.status = 400;
+      throw err;
+    }
+    return Array.from(new Set(values)).join(',');
+  }
+
+  if (key === 'voucher_shop_validity_months') {
+    const months = parseInt(raw, 10);
+    if (Number.isNaN(months) || months < 1 || months > 120) {
+      const err = new Error('Platnost poukazu musí být 1 až 120 měsíců');
+      err.status = 400;
+      throw err;
+    }
+    return String(months);
+  }
+
+  if (key === 'voucher_shop_terms_text') {
+    return raw.trim().slice(0, 5000);
+  }
+
   if (key === 'backup_auto_time') {
     const normalized = raw.trim();
     if (!BACKUP_TIME_RE.test(normalized)) {
@@ -238,7 +269,7 @@ router.post('/setup-wizard', auth, requireMinRole('super_admin'), async (req, re
       const heslo = String(additionalUser.heslo || '');
       const jmeno = String(additionalUser.jmeno || '').trim();
       const prijmeni = String(additionalUser.prijmeni || '').trim();
-      const role = additionalUser.role === 'admin' ? 'admin' : 'uzivatel';
+      const role = ['admin', 'majitel'].includes(additionalUser.role) ? additionalUser.role : 'uzivatel';
       const telefon = String(additionalUser.telefon || '').trim();
 
       if (!email || !email.includes('@')) {

@@ -68,13 +68,10 @@ async function loadVoucher(id) {
         k.jmeno AS klient_jmeno,
         k.prijmeni AS klient_prijmeni,
         k.firma AS klient_firma,
-        z.cislo AS zakazka_cislo,
-        z.nazev AS zakazka_nazev,
         u.jmeno AS created_by_jmeno,
         u.prijmeni AS created_by_prijmeni
       FROM vouchers v
       LEFT JOIN klienti k ON k.id = v.klient_id
-      LEFT JOIN zakazky z ON z.id = v.zakazka_id
       LEFT JOIN uzivatele u ON u.id = v.created_by
       WHERE v.id = $1
       LIMIT 1
@@ -127,11 +124,9 @@ router.get('/', auth, requireCapability('vouchers.manage'), async (req, res, nex
           v.*,
           k.firma AS klient_firma,
           k.jmeno AS klient_jmeno,
-          k.prijmeni AS klient_prijmeni,
-          z.cislo AS zakazka_cislo
+          k.prijmeni AS klient_prijmeni
         FROM vouchers v
         LEFT JOIN klienti k ON k.id = v.klient_id
-        LEFT JOIN zakazky z ON z.id = v.zakazka_id
         ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
         ORDER BY v.created_at DESC
       `,
@@ -147,14 +142,15 @@ router.post('/preview', auth, requireCapability('vouchers.manage'), async (req, 
   try {
     const firma = await loadFirmaSettings(['app_title', 'app_logo_data_url', 'app_color_theme', 'app_document_font_family', 'voucher_design_style', 'firma_nazev', 'firma_email']);
     const design = sanitizeVoucherDesignPayload(req.body || {});
+    const previewCode = req.body?.kod || 'NÁHLED';
     const previewVoucher = {
       ...req.body,
       ...design,
-      kod: req.body?.kod || 'NÁHLED',
+      kod: previewCode,
       status: req.body?.status || 'draft',
       verify_url: req.body?.verify_url || `${process.env.FRONTEND_URL || 'http://localhost:5173'}/voucher/nahled`,
       qr_payload: req.body?.qr_payload || `${process.env.FRONTEND_URL || 'http://localhost:5173'}/voucher/nahled`,
-      title: String(req.body?.title || '').trim() || 'Dárkový poukaz',
+      title: previewCode,
     };
     const html = await buildVoucherHtml({ voucher: previewVoucher, firma });
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
@@ -198,9 +194,6 @@ router.get('/:id/history', auth, requireCapability('vouchers.manage'), async (re
 router.post('/', auth, requireCapability('vouchers.manage'), async (req, res, next) => {
   try {
     const payload = req.body || {};
-    if (!String(payload.title || '').trim()) {
-      return res.status(400).json({ error: 'Název poukazu je povinný.' });
-    }
 
     const result = await withTransaction(async (client) => {
       const design = sanitizeVoucherDesignPayload(payload);
@@ -223,7 +216,7 @@ router.post('/', auth, requireCapability('vouchers.manage'), async (req, res, ne
         [
           code,
           publicToken,
-          payload.title.trim(),
+          code,
           payload.nominal_value || null,
           payload.fulfillment_note || null,
           payload.recipient_name || null,
@@ -231,7 +224,7 @@ router.post('/', auth, requireCapability('vouchers.manage'), async (req, res, ne
           payload.buyer_name || null,
           normalizeEmail(payload.buyer_email),
           payload.klient_id || null,
-          payload.zakazka_id || null,
+          null,
           payload.expires_at || null,
           payload.status || 'draft',
           qrPayload,
@@ -282,22 +275,22 @@ router.patch('/:id', auth, requireCapability('vouchers.manage'), async (req, res
             buyer_name = $7,
             buyer_email = $8,
             klient_id = $9,
-            zakazka_id = $10,
-            expires_at = $11,
-            status = $12,
-            note = $13,
-            updated_by = $14,
-            design_style = $15,
-            accent_color = $16,
-            footer_text = $17,
-            image_data_url = $18,
-            redeemed_at = CASE WHEN $12 = 'redeemed' AND redeemed_at IS NULL THEN NOW() ELSE redeemed_at END
+            zakazka_id = NULL,
+            expires_at = $10,
+            status = $11,
+            note = $12,
+            updated_by = $13,
+            design_style = $14,
+            accent_color = $15,
+            footer_text = $16,
+            image_data_url = $17,
+            redeemed_at = CASE WHEN $11 = 'redeemed' AND redeemed_at IS NULL THEN NOW() ELSE redeemed_at END
         WHERE id = $1
         RETURNING id
       `,
       [
         req.params.id,
-        payload.title || current.title,
+        current.kod || current.title,
         Object.prototype.hasOwnProperty.call(payload, 'nominal_value') ? (payload.nominal_value || null) : current.nominal_value,
         Object.prototype.hasOwnProperty.call(payload, 'fulfillment_note') ? (payload.fulfillment_note || null) : current.fulfillment_note,
         Object.prototype.hasOwnProperty.call(payload, 'recipient_name') ? (payload.recipient_name || null) : current.recipient_name,
@@ -305,7 +298,6 @@ router.patch('/:id', auth, requireCapability('vouchers.manage'), async (req, res
         Object.prototype.hasOwnProperty.call(payload, 'buyer_name') ? (payload.buyer_name || null) : current.buyer_name,
         Object.prototype.hasOwnProperty.call(payload, 'buyer_email') ? normalizeEmail(payload.buyer_email) : current.buyer_email,
         Object.prototype.hasOwnProperty.call(payload, 'klient_id') ? (payload.klient_id || null) : current.klient_id,
-        Object.prototype.hasOwnProperty.call(payload, 'zakazka_id') ? (payload.zakazka_id || null) : current.zakazka_id,
         Object.prototype.hasOwnProperty.call(payload, 'expires_at') ? (payload.expires_at || null) : current.expires_at,
         nextStatus,
         Object.prototype.hasOwnProperty.call(payload, 'note') ? (payload.note || null) : current.note,
@@ -419,7 +411,7 @@ router.get('/:id/print', auth, requireCapability('vouchers.manage'), async (req,
   try {
     const voucher = await loadVoucher(req.params.id);
     if (!voucher) return res.status(404).json({ error: 'Poukaz nebyl nalezen.' });
-    const firma = await loadFirmaSettings(['app_title', 'app_logo_data_url', 'app_color_theme', 'app_document_font_family', 'voucher_design_style']);
+    const firma = await loadFirmaSettings(['app_title', 'app_logo_data_url', 'app_color_theme', 'app_document_font_family', 'voucher_design_style', 'firma_nazev', 'firma_email']);
     const html = await buildVoucherHtml({ voucher, firma });
 
     if (isPdfRequested(req)) {

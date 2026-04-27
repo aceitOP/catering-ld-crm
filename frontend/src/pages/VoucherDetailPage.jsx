@@ -86,7 +86,7 @@ export default function VoucherDetailPage() {
           </div>
 
           <div className="mt-5">
-            <div className="text-xs font-semibold uppercase tracking-wide text-stone-500">Rozsah plnění</div>
+            <div className="text-xs font-semibold uppercase tracking-wide text-stone-500">Popis</div>
             <div className="mt-2 rounded-2xl border border-stone-200 px-4 py-4 text-sm leading-6 text-stone-600 whitespace-pre-wrap">{voucher.fulfillment_note || voucher.note || 'Bez doplňujícího popisu.'}</div>
           </div>
 

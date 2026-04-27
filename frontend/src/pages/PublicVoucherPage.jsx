@@ -45,6 +45,7 @@ export default function PublicVoucherPage() {
         </div>
         {voucher.fulfillment_note && (
           <div className="mt-6 rounded-2xl border border-stone-200 px-4 py-4 text-sm leading-6 text-stone-600">
+            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-500">Popis</div>
             {voucher.fulfillment_note}
           </div>
         )}

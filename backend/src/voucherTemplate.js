@@ -112,6 +112,9 @@ async function buildVoucherHtml({ voucher, firma = {}, qrDataUrl = '' }) {
   const qrPayload = voucher.verify_url || voucher.qr_payload || voucher.kod || '';
   const qrImage = qrDataUrl || await renderVoucherQrDataUrl(qrPayload);
   const footerText = String(voucher.footer_text || '').trim();
+  const companyLabel = firma.firma_nazev || branding.appTitle || 'Catering CRM';
+  const defaultFooter = [companyLabel, firma.firma_email].filter(Boolean).join(' • ');
+  const voucherCode = voucher.kod || 'NÁHLED';
 
   return `<!DOCTYPE html>
 <html lang="cs">
@@ -153,10 +156,11 @@ async function buildVoucherHtml({ voucher, firma = {}, qrDataUrl = '' }) {
       ${imageDataUrl ? `<img class="hero-image" src="${esc(imageDataUrl)}" alt="">` : ''}
       ${style.decoration}
       <div class="hero-inner">
-        ${branding.logoDataUrl ? `<div style="width:72px;height:72px;border-radius:24px;background:rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;overflow:hidden;margin-bottom:16px"><img src="${esc(branding.logoDataUrl)}" alt="Logo" style="width:100%;height:100%;object-fit:contain"></div>` : ''}
-        <div class="badge">${esc(firma.app_title || firma.firma_nazev || 'Catering CRM')}</div>
+        ${branding.logoDataUrl
+          ? `<div style="width:92px;height:72px;border-radius:20px;background:rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;overflow:hidden;margin-bottom:16px"><img src="${esc(branding.logoDataUrl)}" alt="${esc(companyLabel)}" style="width:100%;height:100%;object-fit:contain"></div>`
+          : `<div class="badge">${esc(companyLabel)}</div>`}
         <div class="title">${esc(voucher.title)}</div>
-        <div class="subtitle">Dárkový certifikát • ${esc(voucher.kod || 'Náhled')}</div>
+        <div class="subtitle">Dárkový certifikát • ${esc(voucherCode)}</div>
       </div>
     </div>
     <div class="content">
@@ -167,10 +171,10 @@ async function buildVoucherHtml({ voucher, firma = {}, qrDataUrl = '' }) {
           <div class="info-box"><div class="label">Stav</div><div class="value">${esc(voucher.status || 'draft')}</div></div>
           <div class="info-box"><div class="label">Expirace</div><div class="value">${voucher.expires_at ? new Date(voucher.expires_at).toLocaleDateString('cs-CZ') : 'Bez expirace'}</div></div>
           <div class="info-box"><div class="label">Hodnota</div><div class="value">${voucher.nominal_value != null && voucher.nominal_value !== '' ? Number(voucher.nominal_value).toLocaleString('cs-CZ') + ' Kč' : 'Plnění dle popisu'}</div></div>
-          <div class="info-box"><div class="label">Navázaná zakázka</div><div class="value">${esc(voucher.zakazka_cislo || '—')}</div></div>
+          <div class="info-box"><div class="label">Kód poukazu</div><div class="value">${esc(voucherCode)}</div></div>
         </div>
         <div style="margin-top:22px">
-          <div class="label">Rozsah plnění</div>
+          <div class="label">Popis</div>
           <div class="note">${esc(voucher.fulfillment_note || voucher.note || 'Použijte tento certifikát při objednávce nebo předání poukazu na místě.')}</div>
         </div>
       </div>
@@ -182,8 +186,8 @@ async function buildVoucherHtml({ voucher, firma = {}, qrDataUrl = '' }) {
       </div>
     </div>
     <div class="footer">
-      <span>${esc(footerText || `${firma.firma_nazev || 'Catering LD'} • ${firma.firma_email || ''}`)}</span>
-      <span>Vytištěno ${new Date().toLocaleDateString('cs-CZ')}</span>
+      <span>${esc(footerText || defaultFooter)}</span>
+      <span>Kontrolní kód: ${esc(voucherCode)}</span>
     </div>
   </div>
 </body>

@@ -41,7 +41,7 @@ async function getSetupStatus(dbQuery = query) {
     dbQuery(
       `SELECT
          (SELECT COUNT(*)::int FROM uzivatele WHERE aktivni = true) AS active_users,
-         (SELECT COUNT(*)::int FROM uzivatele WHERE aktivni = true AND role IN ('admin', 'super_admin')) AS admin_users,
+         (SELECT COUNT(*)::int FROM uzivatele WHERE aktivni = true AND role IN ('admin', 'majitel', 'super_admin')) AS admin_users,
          (SELECT COUNT(*)::int FROM klienti) AS klienti_count,
          (SELECT COUNT(*)::int FROM zakazky) AS zakazky_count,
          (SELECT COUNT(*)::int FROM venues) AS venues_count`

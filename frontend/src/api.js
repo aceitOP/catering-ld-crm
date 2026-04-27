@@ -178,6 +178,20 @@ export const vouchersApi = {
   publicGet: (token) => pubApi.get(`/vouchers/public/${token}`),
 };
 
+export const voucherShopApi = {
+  config: () => pubApi.get('/pub/voucher-shop/config'),
+  createOrder: (data) => pubApi.post('/pub/voucher-shop/orders', data),
+  getOrder: (token) => pubApi.get(`/pub/voucher-shop/orders/${token}`),
+};
+
+export const voucherOrdersApi = {
+  list: (params) => api.get('/voucher-orders', { params }),
+  get: (id) => api.get(`/voucher-orders/${id}`),
+  markPaid: (id) => api.post(`/voucher-orders/${id}/mark-paid`),
+  cancel: (id) => api.post(`/voucher-orders/${id}/cancel`),
+  resend: (id) => api.post(`/voucher-orders/${id}/resend`),
+};
+
 export const googleCalendarApi = {
   events: (params) => api.get('/google-calendar/events', { params }),
   status: () => api.get('/google-calendar/status'),

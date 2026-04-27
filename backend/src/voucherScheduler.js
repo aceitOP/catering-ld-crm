@@ -2,6 +2,7 @@
 
 const cron = require('node-cron');
 const { query, withTransaction } = require('./db');
+const { runScheduledVoucherOrderSendSweep } = require('./voucherShop');
 
 let scheduled = false;
 
@@ -47,6 +48,17 @@ function startVoucherExpirationScheduler() {
       }
     } catch (err) {
       console.error('❌  Chyba automatické expirace poukazů:', err.message);
+    }
+  });
+
+  cron.schedule('*/10 * * * *', async () => {
+    try {
+      const result = await runScheduledVoucherOrderSendSweep();
+      if (result.sentCount > 0) {
+        console.log(`✅  Naplánovaně odesláno poukazů: ${result.sentCount}`);
+      }
+    } catch (err) {
+      console.error('❌  Chyba plánovaného odesílání poukazů:', err.message);
     }
   });
 }
