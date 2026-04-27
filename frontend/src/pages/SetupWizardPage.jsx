@@ -173,7 +173,7 @@ export default function SetupWizardPage() {
       <div className="min-h-screen bg-stone-100 flex items-center justify-center">
         <div className="flex items-center gap-3 text-sm text-stone-500">
           <Spinner size={18} />
-          Nacitam setup wizard...
+          Načítám setup wizard...
         </div>
       </div>
     );
