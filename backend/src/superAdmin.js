@@ -10,6 +10,14 @@ function getCanonicalSuperAdminEmail() {
 
 async function ensureSuperAdminUser(dbQuery = query) {
   const canonicalEmail = getCanonicalSuperAdminEmail();
+  await dbQuery(
+    `UPDATE uzivatele
+     SET role = 'admin'
+     WHERE role = 'super_admin'
+       AND lower(email) <> $1`,
+    [canonicalEmail]
+  );
+
   const { rows: canonicalRows } = await dbQuery(
     `SELECT id, email
      FROM uzivatele
@@ -24,17 +32,13 @@ async function ensureSuperAdminUser(dbQuery = query) {
 
   const promoted = await dbQuery(
     `UPDATE uzivatele
-     SET role = CASE
-       WHEN lower(email) = $1 THEN 'super_admin'::user_role
-       WHEN role = 'super_admin' THEN 'admin'::user_role
-       ELSE role
-     END
-     WHERE lower(email) = $1 OR role = 'super_admin'
+     SET role = 'super_admin'
+     WHERE lower(email) = $1
      RETURNING id, email, role`,
     [canonicalEmail]
   );
 
-  return promoted.rows.find((row) => row.role === 'super_admin') || canonicalUser;
+  return promoted.rows[0] || canonicalUser;
 }
 
 module.exports = {

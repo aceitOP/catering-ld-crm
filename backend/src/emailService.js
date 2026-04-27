@@ -1,6 +1,7 @@
 'use strict';
 
 const nodemailer = require('nodemailer');
+const { createSmtpTransporter } = require('./smtpConfig');
 
 function esc(value) {
   if (value == null) return '';
@@ -29,6 +30,11 @@ function createTransporter() {
 }
 
 const FROM = () => process.env.SMTP_FROM || process.env.SMTP_USER;
+
+async function getMailer() {
+  const { transporter, smtpCfg } = await createSmtpTransporter();
+  return { transporter, from: smtpCfg.from || smtpCfg.user };
+}
 
 function czk(value) {
   if (value == null || value === '') return '—';
@@ -202,7 +208,7 @@ function buildKomandoBody({ personal, zakazka, poznamka, osoba }) {
 }
 
 async function sendNabidka({ to, nabidka, zakazka, firma, poznamka }) {
-  const transporter = createTransporter();
+  const { transporter, from } = await getMailer();
   const polozky = nabidka.polozky || [];
 
   const radky = polozky.map((polozka) => `
@@ -262,7 +268,7 @@ async function sendNabidka({ to, nabidka, zakazka, firma, poznamka }) {
   `;
 
   await transporter.sendMail({
-    from: `"${firma?.firma_nazev || 'Catering LD'}" <${FROM()}>`,
+    from: `"${firma?.firma_nazev || 'Catering LD'}" <${from}>`,
     to,
     subject: `Nabídka: ${nabidka.nazev} - ${firma?.firma_nazev || 'Catering LD'}`,
     html: wrapHtml(firma, `Nabídka č. v${nabidka.verze}`, body),
@@ -277,7 +283,7 @@ async function sendKomando({
   includeAssignedStaff = true,
   extraEmails = [],
 }) {
-  const transporter = createTransporter();
+  const { transporter, from } = await getMailer();
   const assignedStaff = personal.filter((osoba) => osoba.email);
   const extra = normalizeEmailList(extraEmails);
   const recipients = new Map();
@@ -308,7 +314,7 @@ async function sendKomando({
   const recipientList = Array.from(recipients.values());
 
   await Promise.all(recipientList.map((recipient) => transporter.sendMail({
-    from: `"${firma?.firma_nazev || 'Catering LD'}" <${FROM()}>`,
+    from: `"${firma?.firma_nazev || 'Catering LD'}" <${from}>`,
     to: recipient.email,
     subject,
     html: wrapHtml(
@@ -330,7 +336,7 @@ async function sendKomando({
 }
 
 async function sendDekujeme({ to, zakazka, firma, text }) {
-  const transporter = createTransporter();
+  const { transporter, from } = await getMailer();
   const nazevFirmy = firma?.firma_nazev || 'Catering LD';
 
   const defaultText = `Vážený zákazníku,<br><br>
@@ -360,7 +366,7 @@ Budeme rádi, pokud nás budete mít na paměti při plánování dalších Vaš
   `;
 
   await transporter.sendMail({
-    from: `"${nazevFirmy}" <${FROM()}>`,
+    from: `"${nazevFirmy}" <${from}>`,
     to,
     subject: `Děkujeme za spolupráci - ${zakazka.nazev}`,
     html: wrapHtml(firma, 'Děkujeme za Vaši důvěru', body),
@@ -368,7 +374,7 @@ Budeme rádi, pokud nás budete mít na paměti při plánování dalších Vaš
 }
 
 async function sendPotvrzeniPoptavky({ to, jmeno, zakazka, firma }) {
-  const transporter = createTransporter();
+  const { transporter, from } = await getMailer();
   const nazevFirmy = firma?.firma_nazev || 'Catering LD';
 
   const body = `
@@ -395,7 +401,7 @@ async function sendPotvrzeniPoptavky({ to, jmeno, zakazka, firma }) {
   `;
 
   await transporter.sendMail({
-    from: `"${nazevFirmy}" <${FROM()}>`,
+    from: `"${nazevFirmy}" <${from}>`,
     to,
     subject: `Potvrzení přijetí poptávky - ${nazevFirmy}`,
     html: wrapHtml(firma, 'Vaše poptávka byla přijata', body),
@@ -403,7 +409,7 @@ async function sendPotvrzeniPoptavky({ to, jmeno, zakazka, firma }) {
 }
 
 async function sendPasswordReset({ to, jmeno, resetUrl, firma }) {
-  const transporter = createTransporter();
+  const { transporter, from } = await getMailer();
   const nazevFirmy = firma?.firma_nazev || 'Catering LD';
 
   const body = `
@@ -435,7 +441,7 @@ async function sendPasswordReset({ to, jmeno, resetUrl, firma }) {
   `;
 
   await transporter.sendMail({
-    from: `"${nazevFirmy}" <${FROM()}>`,
+    from: `"${nazevFirmy}" <${from}>`,
     to,
     subject: `Obnovení hesla - ${nazevFirmy}`,
     html: wrapHtml(firma, 'Obnovení hesla', body),

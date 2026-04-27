@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const { query } = require('../db');
+const { getCanonicalSuperAdminEmail } = require('../superAdmin');
 
 // Hierarchie roli: cislo = uroven opravneni
 const ROLE_LEVEL = {
@@ -33,10 +34,15 @@ const auth = async (req, res, next) => {
       return res.status(401).json({ error: 'Neplatny nebo neaktivni ucet' });
     }
 
+    const canonicalSuperAdminEmail = getCanonicalSuperAdminEmail();
+    const effectiveRole = dbUser.role === 'super_admin' && String(dbUser.email).toLowerCase() !== canonicalSuperAdminEmail
+      ? 'admin'
+      : dbUser.role;
+
     req.user = {
       id: dbUser.id,
       email: dbUser.email,
-      role: dbUser.role,
+      role: effectiveRole,
       jmeno: dbUser.jmeno,
       prijmeni: dbUser.prijmeni,
       telefon: dbUser.telefon,

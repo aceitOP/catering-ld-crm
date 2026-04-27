@@ -7,7 +7,7 @@ const { query } = require('../db');
 const { auth }  = require('../middleware/auth');
 const { sendPasswordReset } = require('../emailService');
 const { getModuleState } = require('../moduleAccess');
-const { ensureSuperAdminUser } = require('../superAdmin');
+const { ensureSuperAdminUser, getCanonicalSuperAdminEmail } = require('../superAdmin');
 
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minut
@@ -93,7 +93,7 @@ router.post('/login', loginLimiter, async (req, res, next) => {
       return res.status(401).json({ error: 'Neplatné přihlašovací údaje' });
     }
 
-    // Samooprava role: pokud ve stávající DB chybí super_admin, povýší preferovaný/admin účet při prvním úspěšném loginu.
+    // Samooprava role: jediný super admin smí být jen kanonický účet.
     await ensureSuperAdminUser(query);
 
     // Úspěšné přihlášení
@@ -105,11 +105,20 @@ router.post('/login', loginLimiter, async (req, res, next) => {
       [uzivatel.id]
     );
     const aktualniUzivatel = refreshedRows[0] || uzivatel;
+    const canonicalSuperAdminEmail = getCanonicalSuperAdminEmail();
+    const effectiveRole = aktualniUzivatel.role === 'super_admin'
+      && String(aktualniUzivatel.email).toLowerCase() !== canonicalSuperAdminEmail
+      ? 'admin'
+      : aktualniUzivatel.role;
+    if (effectiveRole !== aktualniUzivatel.role) {
+      await query('UPDATE uzivatele SET role = $1 WHERE id = $2', [effectiveRole, aktualniUzivatel.id]);
+      aktualniUzivatel.role = effectiveRole;
+    }
     await logLogin({ user_id: aktualniUzivatel.id, email: emailNorm, uspech: true, ip_adresa: ip, user_agent: ua, duvod: null });
     const modules = await getModuleState();
 
     const token = jwt.sign(
-      { id: aktualniUzivatel.id, email: aktualniUzivatel.email, role: aktualniUzivatel.role,
+      { id: aktualniUzivatel.id, email: aktualniUzivatel.email, role: effectiveRole,
         jmeno: aktualniUzivatel.jmeno, prijmeni: aktualniUzivatel.prijmeni },
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
@@ -122,7 +131,7 @@ router.post('/login', loginLimiter, async (req, res, next) => {
         jmeno: aktualniUzivatel.jmeno,
         prijmeni: aktualniUzivatel.prijmeni,
         email: aktualniUzivatel.email,
-        role: aktualniUzivatel.role,
+        role: effectiveRole,
         telefon: aktualniUzivatel.telefon,
         modules,
       }

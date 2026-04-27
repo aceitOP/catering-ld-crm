@@ -1,39 +1,42 @@
 'use strict';
-// ── Proposal email service ────────────────────────────────────
-const nodemailer = require('nodemailer');
+
+const { createSmtpTransporter } = require('./smtpConfig');
 
 function esc(s) {
   return String(s || '')
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
 function czk(n) {
-  return new Intl.NumberFormat('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 }).format(n || 0);
+  return new Intl.NumberFormat('cs-CZ', {
+    style: 'currency',
+    currency: 'CZK',
+    maximumFractionDigits: 0,
+  }).format(n || 0);
 }
 
 function datum(d) {
   if (!d) return '—';
-  return new Date(d).toLocaleDateString('cs-CZ', { day: 'numeric', month: 'long', year: 'numeric' });
-}
-
-function createTransporter() {
-  if (!process.env.SMTP_HOST || !process.env.SMTP_USER) return null;
-  return nodemailer.createTransport({
-    host:   process.env.SMTP_HOST,
-    port:   parseInt(process.env.SMTP_PORT || '587'),
-    secure: process.env.SMTP_SECURE === 'true',
-    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+  return new Date(d).toLocaleDateString('cs-CZ', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
   });
 }
 
-const FROM = () => `"${process.env.SMTP_FROM_NAME || 'Catering LD'}" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`;
+async function getMailer() {
+  const { transporter, smtpCfg } = await createSmtpTransporter();
+  return {
+    transporter,
+    from: `"${process.env.SMTP_FROM_NAME || 'Catering LD'}" <${smtpCfg.from || smtpCfg.user}>`,
+  };
+}
 
-// ── sendProposalLink ──────────────────────────────────────────
-// Sends the client menu-selection link
 async function sendProposalLink(to, proposal) {
-  const t = createTransporter();
-  if (!t) throw new Error('SMTP není nakonfigurován');
+  const { transporter, from } = await getMailer();
 
   const html = `
     <!DOCTYPE html>
@@ -42,7 +45,7 @@ async function sendProposalLink(to, proposal) {
     <body style="font-family:Inter,Arial,sans-serif;background:#f5f5f4;margin:0;padding:32px 16px">
       <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.08)">
         <div style="background:linear-gradient(135deg,#2d1b69,#5b21b6);padding:32px;text-align:center">
-          <h1 style="color:#fff;margin:0;font-size:22px">🍽️ Váš výběr menu</h1>
+          <h1 style="color:#fff;margin:0;font-size:22px">Výběr menu</h1>
           <p style="color:#c4b5fd;margin:8px 0 0;font-size:14px">${esc(proposal.nazev || 'Nabídka')}</p>
         </div>
         <div style="padding:32px">
@@ -67,7 +70,7 @@ async function sendProposalLink(to, proposal) {
             <a href="${esc(proposal.url)}" style="color:#7c3aed;word-break:break-all">${esc(proposal.url)}</a>
           </p>
           ${proposal.expires_at ? `<p style="color:#dc2626;font-size:12px;background:#fef2f2;padding:8px 12px;border-radius:8px;border:1px solid #fecaca">
-            ⏰ Výběr je dostupný do: <strong>${datum(proposal.expires_at)}</strong>
+            Výběr je dostupný do: <strong>${datum(proposal.expires_at)}</strong>
           </p>` : ''}
         </div>
         <div style="background:#fafaf9;border-top:1px solid #e7e5e4;padding:16px 32px;text-align:center">
@@ -78,21 +81,17 @@ async function sendProposalLink(to, proposal) {
     </html>
   `;
 
-  await t.sendMail({
-    from:    FROM(),
+  await transporter.sendMail({
+    from,
     to,
     subject: `Výběr menu – ${proposal.nazev || 'Vaše akce'}`,
     html,
   });
 }
 
-// ── sendProposalConfirmed ─────────────────────────────────────
-// Sends confirmation with full selection snapshot
 async function sendProposalConfirmed(to, proposal, selections) {
-  const t = createTransporter();
-  if (!t) throw new Error('SMTP není nakonfigurován');
+  const { transporter, from } = await getMailer();
 
-  // Group selections by section
   const grouped = {};
   for (const pol of selections) {
     if (!grouped[pol.sekce_nazev]) grouped[pol.sekce_nazev] = [];
@@ -102,11 +101,11 @@ async function sendProposalConfirmed(to, proposal, selections) {
   const selectionHtml = Object.entries(grouped).map(([sekce, items]) => `
     <div style="margin-bottom:16px">
       <div style="font-weight:600;color:#2d1b69;font-size:13px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">${esc(sekce)}</div>
-      ${items.map(item => `
+      ${items.map((item) => `
         <div style="display:flex;justify-content:space-between;padding:8px 12px;background:#fafaf9;border-radius:6px;margin-bottom:4px">
           <div>
             <span style="font-size:14px;color:#1c1917">${esc(item.nazev)}</span>
-            ${item.poznamka_klienta ? `<br><span style="font-size:12px;color:#f97316;font-style:italic">⚠ Poznámka: ${esc(item.poznamka_klienta)}</span>` : ''}
+            ${item.poznamka_klienta ? `<br><span style="font-size:12px;color:#f97316;font-style:italic">Poznámka: ${esc(item.poznamka_klienta)}</span>` : ''}
           </div>
           <span style="font-size:13px;color:#44403c;font-weight:500;white-space:nowrap;margin-left:16px">${czk(item.cena_os)} / os.</span>
         </div>
@@ -121,7 +120,7 @@ async function sendProposalConfirmed(to, proposal, selections) {
     <body style="font-family:Inter,Arial,sans-serif;background:#f5f5f4;margin:0;padding:32px 16px">
       <div style="max-width:640px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.08)">
         <div style="background:linear-gradient(135deg,#14532d,#16a34a);padding:28px 32px;text-align:center">
-          <div style="font-size:32px;margin-bottom:8px">✅</div>
+          <div style="font-size:32px;margin-bottom:8px">OK</div>
           <h1 style="color:#fff;margin:0;font-size:20px">Výběr menu potvrzen</h1>
           <p style="color:#bbf7d0;margin:6px 0 0;font-size:13px">${esc(proposal.nazev || '')}</p>
         </div>
@@ -140,10 +139,10 @@ async function sendProposalConfirmed(to, proposal, selections) {
             ${selectionHtml || '<p style="color:#78716c;font-size:14px">Žádné položky nebyly vybrány.</p>'}
           </div>
 
-          ${selections.some(s => s.poznamka_klienta) ? `
+          ${selections.some((s) => s.poznamka_klienta) ? `
           <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:12px 16px;margin-top:16px">
-            <div style="font-weight:600;color:#c2410c;font-size:13px;margin-bottom:8px">⚠ Speciální požadavky klientů (přepsat do pokynů pro kuchyň):</div>
-            ${selections.filter(s => s.poznamka_klienta).map(s => `
+            <div style="font-weight:600;color:#c2410c;font-size:13px;margin-bottom:8px">Speciální požadavky klientů:</div>
+            ${selections.filter((s) => s.poznamka_klienta).map((s) => `
               <div style="font-size:13px;color:#7c2d12;margin-bottom:4px">
                 <strong>${esc(s.nazev)}:</strong> ${esc(s.poznamka_klienta)}
               </div>
@@ -159,10 +158,10 @@ async function sendProposalConfirmed(to, proposal, selections) {
     </html>
   `;
 
-  await t.sendMail({
-    from:    FROM(),
+  await transporter.sendMail({
+    from,
     to,
-    subject: `✅ Potvrzen výběr menu – ${proposal.nazev || proposal.zakazka_nazev || 'Akce'}`,
+    subject: `Potvrzen výběr menu – ${proposal.nazev || proposal.zakazka_nazev || 'Akce'}`,
     html,
   });
 }
