@@ -352,7 +352,6 @@ router.post('/:id/komando', auth, requireAppModule('email'), async (req, res, ne
     const { rows: nastaveni } = await query('SELECT klic, hodnota FROM nastaveni');
     const firma = {};
     nastaveni.forEach(r => { firma[r.klic] = r.hodnota; });
-    const documentBranding = resolveDocumentBranding(firma);
 
     const result = await sendKomando({
       personal,
@@ -481,6 +480,7 @@ router.get('/:id/podklady', auth, async (req, res, next) => {
     const { rows: nastaveni } = await query('SELECT klic, hodnota FROM nastaveni');
     const firma = {};
     nastaveni.forEach(r => { firma[r.klic] = r.hodnota; });
+    const documentBranding = resolveDocumentBranding(firma);
 
     // Pomocné formátovací funkce (server-side)
     const fDate = (d) => d ? new Date(d).toLocaleDateString('cs-CZ', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';
@@ -1000,4 +1000,3 @@ router.delete('/:id', auth, requireMinRole('admin'), async (req, res, next) => {
 });
 
 module.exports = router;
-
