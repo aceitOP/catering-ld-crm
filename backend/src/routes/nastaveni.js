@@ -230,6 +230,18 @@ router.post('/setup-wizard', auth, requireMinRole('super_admin'), async (req, re
 
     const shouldMarkComplete = body.mark_complete !== false;
     if (shouldMarkComplete) {
+      if (!safeEntries.firma_nazev?.trim()) {
+        return res.status(400).json({ error: 'Pro dokonceni setup wizardu je povinny nazev firmy' });
+      }
+      if (!safeEntries.firma_email?.trim()) {
+        return res.status(400).json({ error: 'Pro dokonceni setup wizardu je povinny firemni e-mail' });
+      }
+      if (!safeEntries.app_title?.trim()) {
+        return res.status(400).json({ error: 'Pro dokonceni setup wizardu je povinny nazev aplikace' });
+      }
+      if (!safeEntries.app_color_theme?.trim()) {
+        return res.status(400).json({ error: 'Pro dokonceni setup wizardu je povinna barevna sablona' });
+      }
       safeEntries.app_setup_completed_at = new Date().toISOString();
       safeEntries.app_setup_completed_by = String(req.user.id);
     }

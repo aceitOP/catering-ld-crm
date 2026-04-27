@@ -26,10 +26,20 @@ services:
         generateValue: true
       - key: FRONTEND_URL
         value: https://catering-ld-frontend.onrender.com
+      - key: DB_SEED_MODE
+        value: empty
+      - key: SUPER_ADMIN_EMAIL
+        value: pomykal@aceit.cz
+      - key: SUPER_ADMIN_FIRST_NAME
+        value: Super
+      - key: SUPER_ADMIN_LAST_NAME
+        value: Admin
+      - key: SUPER_ADMIN_PASSWORD
+        sync: false
       - key: UPLOAD_DIR
         value: ./uploads
       - key: MAX_FILE_SIZE_MB
-        value: 25
+        value: 15
 
   # Frontend (staticky web)
   - type: web
