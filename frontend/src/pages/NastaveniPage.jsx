@@ -682,6 +682,61 @@ export function NastaveniPage() {
                   })}
                 </div>
               </div>
+              <div className="rounded-xl border border-stone-200 p-4 space-y-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <div className="text-sm font-medium text-stone-800">Veřejný prodej poukazů</div>
+                    <div className="text-xs text-stone-500 mt-1">Zapne veřejnou stránku pro objednání dárkového poukazu bankovním převodem.</div>
+                  </div>
+                  <label className="inline-flex items-center gap-2 rounded-lg border border-stone-200 px-3 py-2 text-xs font-medium text-stone-700 cursor-pointer hover:bg-stone-50">
+                    <input
+                      type="checkbox"
+                      className="rounded"
+                      checked={String(form.voucher_shop_enabled ?? nastavData?.data?.voucher_shop_enabled ?? 'false') === 'true'}
+                      onChange={(e) => setForm((f) => ({ ...f, voucher_shop_enabled: String(e.target.checked) }))}
+                    />
+                    Aktivní
+                  </label>
+                </div>
+                <div className={`rounded-lg px-3 py-2 text-xs ${String(form.firma_iban ?? nastavData?.data?.firma_iban ?? '').trim() ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
+                  {String(form.firma_iban ?? nastavData?.data?.firma_iban ?? '').trim()
+                    ? 'IBAN je vyplněný, veřejný prodej může přijímat objednávky.'
+                    : 'Pro dokončení objednávky je potřeba vyplnit firemní IBAN výše.'}
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-stone-500 block mb-1">Povolené hodnoty poukazů</label>
+                    <input
+                      className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                      value={form.voucher_shop_values ?? nastavData?.data?.voucher_shop_values ?? '1000,2000,3000,5000,10000'}
+                      onChange={(e) => setForm((f) => ({ ...f, voucher_shop_values: e.target.value }))}
+                      placeholder="1000,2000,3000,5000"
+                    />
+                    <div className="text-[11px] text-stone-400 mt-1">Oddělte čárkou, středníkem nebo novým řádkem.</div>
+                  </div>
+                  <div>
+                    <label className="text-xs text-stone-500 block mb-1">Platnost poukazu v měsících</label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="120"
+                      className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                      value={form.voucher_shop_validity_months ?? nastavData?.data?.voucher_shop_validity_months ?? '12'}
+                      onChange={(e) => setForm((f) => ({ ...f, voucher_shop_validity_months: e.target.value }))}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs text-stone-500 block mb-1">Podmínky veřejného prodeje</label>
+                  <textarea
+                    className="w-full border border-stone-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none resize-y"
+                    rows={4}
+                    value={form.voucher_shop_terms_text ?? nastavData?.data?.voucher_shop_terms_text ?? ''}
+                    onChange={(e) => setForm((f) => ({ ...f, voucher_shop_terms_text: e.target.value }))}
+                    placeholder="Krátké obchodní podmínky nebo informace k použití poukazu."
+                  />
+                </div>
+              </div>
               <div className="flex justify-end">
                 <Btn variant="primary" onClick={() => saveMut.mutate(form)} disabled={saveMut.isPending}>
                   {saveMut.isPending ? 'Ukládám...' : 'Uložit změny'}
@@ -1382,6 +1437,5 @@ export function NastaveniPage() {
 }
 
 export default NastaveniPage;
-
 
 
