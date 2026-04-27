@@ -3,10 +3,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { personalApi } from '../api';
 import { PageHeader, EmptyState, Btn, Modal, Spinner, ExportMenu, useSort, SortTh } from '../components/ui';
 import toast from 'react-hot-toast';
-import { Plus, UserCheck, Pencil, Trash2 as Trash2Personal, Archive as ArchivePersonal, Upload } from 'lucide-react';
+import { Plus, UserCheck, Pencil, Trash2 as Trash2Personal, Archive as ArchivePersonal, Upload, CalendarX } from 'lucide-react';
 import { ImportModal } from '../components/ImportModal';
 
 const ROLE_LABELS = { koordinator:'Koordinátor', cisnik:'Číšník / servírka', kuchar:'Kuchař', ridic:'Řidič', barman:'Barman', pomocna_sila:'Pomocná síla' };
+const ABSENCE_LABELS = { dovolena: 'Dovolená', nemoc: 'Nemoc', blokace: 'Blokace', jina_akce: 'Jiná akce', jine: 'Jiné' };
 
 const PERSONAL_EXPORT_COLS = [
   { header: 'Jméno',       accessor: 'jmeno' },
@@ -19,6 +20,7 @@ const PERSONAL_EXPORT_COLS = [
 ];
 
 const EMPTY_PERSON = { jmeno:'', prijmeni:'', typ:'interni', role:'cisnik', email:'', telefon:'', specializace:'' };
+const EMPTY_ABSENCE = { datum_od: '', datum_do: '', cas_od: '', cas_do: '', typ: 'dovolena', poznamka: '' };
 
 export function PersonalPage() {
   const qc = useQueryClient();
@@ -26,6 +28,9 @@ export function PersonalPage() {
   const [importModal, setImportModal] = useState(false);
   const [editModal, setEditModal] = useState(false);
   const [editPerson, setEditPerson] = useState(null);
+  const [absenceModal, setAbsenceModal] = useState(false);
+  const [absencePerson, setAbsencePerson] = useState(null);
+  const [absenceForm, setAbsenceForm] = useState(EMPTY_ABSENCE);
   const [form, setForm]         = useState(EMPTY_PERSON);
   const [editForm, setEditForm] = useState(EMPTY_PERSON);
   const [filterRole, setFilterRole] = useState('');
@@ -34,6 +39,12 @@ export function PersonalPage() {
   const { data, isLoading } = useQuery({
     queryKey: ['personal'],
     queryFn: () => personalApi.list(),
+  });
+
+  const { data: absenceData, isLoading: absenceLoading } = useQuery({
+    queryKey: ['personal-absence', absencePerson?.id],
+    queryFn: () => personalApi.listAbsence(absencePerson.id),
+    enabled: absenceModal && !!absencePerson?.id,
   });
 
   const specsToArr = (s) => typeof s === 'string' ? s.split(',').map(x => x.trim()).filter(Boolean) : (s || []);
@@ -62,6 +73,25 @@ export function PersonalPage() {
     onError: () => toast.error('Nepodařilo se archivovat'),
   });
 
+  const createAbsenceMut = useMutation({
+    mutationFn: (d) => personalApi.createAbsence(absencePerson.id, { ...d, datum_do: d.datum_do || d.datum_od }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['personal-absence', absencePerson?.id] });
+      toast.success('Nedostupnost uložena');
+      setAbsenceForm(EMPTY_ABSENCE);
+    },
+    onError: (err) => toast.error(err.response?.data?.error || 'Nedostupnost se nepodařilo uložit'),
+  });
+
+  const deleteAbsenceMut = useMutation({
+    mutationFn: (absenceId) => personalApi.deleteAbsence(absencePerson.id, absenceId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['personal-absence', absencePerson?.id] });
+      toast.success('Nedostupnost odstraněna');
+    },
+    onError: () => toast.error('Nedostupnost se nepodařilo odstranit'),
+  });
+
   const personalAll = data?.data?.data || [];
   const personal = personalAll.filter(p => {
     if (filterRole && p.role !== filterRole) return false;
@@ -77,6 +107,12 @@ export function PersonalPage() {
     setEditModal(true);
   };
 
+  const openAbsence = (p) => {
+    setAbsencePerson(p);
+    setAbsenceForm(EMPTY_ABSENCE);
+    setAbsenceModal(true);
+  };
+
   const handleDelete = (p) => {
     if (window.confirm(`Opravdu smazat ${p.jmeno} ${p.prijmeni}?`)) {
       deleteMut.mutate(p.id);
@@ -85,6 +121,7 @@ export function PersonalPage() {
 
   const set  = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const setE = (k, v) => setEditForm(f => ({ ...f, [k]: v }));
+  const setA = (k, v) => setAbsenceForm(f => ({ ...f, [k]: v }));
 
   const [selP, setSelP] = useState(new Set());
   const toggleSelP = (id) => setSelP(s => { const n = new Set(s); n.has(id)?n.delete(id):n.add(id); return n; });
@@ -119,6 +156,21 @@ export function PersonalPage() {
     </div>
   );
 
+  const AbsenceForm = () => (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-3">
+        <div><label className="text-xs text-stone-500 block mb-1">Od</label><input type="date" className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" value={absenceForm.datum_od} onChange={e=>setA('datum_od',e.target.value)}/></div>
+        <div><label className="text-xs text-stone-500 block mb-1">Do</label><input type="date" className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" value={absenceForm.datum_do} onChange={e=>setA('datum_do',e.target.value)}/></div>
+      </div>
+      <div className="grid grid-cols-3 gap-3">
+        <div><label className="text-xs text-stone-500 block mb-1">Typ</label><select className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" value={absenceForm.typ} onChange={e=>setA('typ',e.target.value)}>{Object.entries(ABSENCE_LABELS).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></div>
+        <div><label className="text-xs text-stone-500 block mb-1">Čas od</label><input type="time" className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" value={absenceForm.cas_od} onChange={e=>setA('cas_od',e.target.value)}/></div>
+        <div><label className="text-xs text-stone-500 block mb-1">Čas do</label><input type="time" className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" value={absenceForm.cas_do} onChange={e=>setA('cas_do',e.target.value)}/></div>
+      </div>
+      <div><label className="text-xs text-stone-500 block mb-1">Poznámka</label><input className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" value={absenceForm.poznamka} onChange={e=>setA('poznamka',e.target.value)} placeholder="Např. rodinná dovolená"/></div>
+    </div>
+  );
+
   const Card = ({ p }) => (
     <div className={`bg-white rounded-lg border p-4 relative group transition-colors ${selP.has(p.id) ? 'border-stone-400 bg-stone-50' : 'border-stone-200'}`}>
       {/* Checkbox */}
@@ -130,6 +182,11 @@ export function PersonalPage() {
           className="p-1.5 rounded-md bg-stone-100 hover:bg-stone-200 text-stone-500 hover:text-stone-700 transition-colors"
           title="Upravit">
           <Pencil size={12}/>
+        </button>
+        <button onClick={() => openAbsence(p)}
+          className="p-1.5 rounded-md bg-stone-100 hover:bg-amber-100 text-stone-500 hover:text-amber-700 transition-colors"
+          title="Nedostupnost">
+          <CalendarX size={12}/>
         </button>
         <button onClick={() => window.confirm(`Archivovat ${p.jmeno} ${p.prijmeni}?`) && archivPersonalMut.mutate(p.id)}
           className="p-1.5 rounded-md bg-stone-100 hover:bg-orange-100 text-stone-500 hover:text-orange-600 transition-colors"
@@ -216,6 +273,30 @@ export function PersonalPage() {
       <Modal open={editModal} onClose={() => { setEditModal(false); setEditPerson(null); }} title={editPerson ? `Upravit – ${editPerson.jmeno} ${editPerson.prijmeni}` : ''}
         footer={<><Btn onClick={() => { setEditModal(false); setEditPerson(null); }}>Zrušit</Btn><Btn variant="primary" onClick={() => updateMut.mutate({ id: editPerson.id, ...editForm })} disabled={!editForm.jmeno||!editForm.prijmeni||updateMut.isPending}>{updateMut.isPending?'Ukládám…':'Uložit'}</Btn></>}>
         <PersonForm f={editForm} onChange={setE}/>
+      </Modal>
+
+      <Modal open={absenceModal} onClose={() => { setAbsenceModal(false); setAbsencePerson(null); }} title={absencePerson ? `Nedostupnost – ${absencePerson.jmeno} ${absencePerson.prijmeni}` : ''}
+        footer={<><Btn onClick={() => { setAbsenceModal(false); setAbsencePerson(null); }}>Zavřít</Btn><Btn variant="primary" onClick={() => createAbsenceMut.mutate(absenceForm)} disabled={!absenceForm.datum_od||createAbsenceMut.isPending}>{createAbsenceMut.isPending?'Ukládám…':'Přidat'}</Btn></>}>
+        <div className="space-y-5">
+          <AbsenceForm/>
+          <div className="border-t border-stone-100 pt-4">
+            <div className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-2">Evidovaná nedostupnost</div>
+            {absenceLoading ? <div className="py-4 flex justify-center"><Spinner/></div> : (
+              <div className="space-y-2 max-h-56 overflow-y-auto">
+                {(absenceData?.data?.data || []).map((a) => (
+                  <div key={a.id} className="flex items-center justify-between gap-3 rounded-lg border border-stone-100 px-3 py-2">
+                    <div className="min-w-0">
+                      <div className="text-sm text-stone-700">{ABSENCE_LABELS[a.typ] || a.typ} · {a.datum_od}{a.datum_do !== a.datum_od ? ` – ${a.datum_do}` : ''}</div>
+                      <div className="text-xs text-stone-400">{(a.cas_od || a.cas_do) ? `${(a.cas_od || '').slice(0,5) || '00:00'}–${(a.cas_do || '').slice(0,5) || '23:59'}` : 'Celý den'}{a.poznamka ? ` · ${a.poznamka}` : ''}</div>
+                    </div>
+                    <button onClick={() => deleteAbsenceMut.mutate(a.id)} className="p-1.5 rounded-md text-stone-300 hover:text-red-500 hover:bg-red-50 transition-colors" title="Odstranit"><Trash2Personal size={13}/></button>
+                  </div>
+                ))}
+                {!absenceData?.data?.data?.length && <div className="py-4 text-center text-sm text-stone-400">Zatím bez nedostupnosti</div>}
+              </div>
+            )}
+          </div>
+        </div>
       </Modal>
 
       {selP.size > 0 && (

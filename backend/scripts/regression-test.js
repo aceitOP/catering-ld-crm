@@ -336,6 +336,52 @@ async function run() {
           cas_odchod: '23:30',
         }),
       }, token, [201]);
+
+      const unavailable = await expectJson('/api/personal', {
+        method: 'GET',
+      }, token);
+      const availablePerson = unavailable.data.find((item) => item.id === personal.id);
+      assert(availablePerson?.availability?.available !== false, 'freshly assigned person should remain available for non-overlapping availability query');
+
+      const absentPerson = await expectJson('/api/personal', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          jmeno: 'Regression',
+          prijmeni: `Absent ${suffix}`,
+          typ: 'externi',
+          role: 'cisnik',
+          email: `regression-absent-${suffix}@example.com`,
+        }),
+      }, token, [201]);
+
+      await expectJson(`/api/personal/${absentPerson.id}/absence`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          datum_od: '2026-12-31',
+          datum_do: '2026-12-31',
+          typ: 'dovolena',
+          poznamka: 'Regression unavailable check',
+        }),
+      }, token, [201]);
+
+      const availability = await expectJson(`/api/personal?zakazka_id=${zakazka.id}&cas_od=17:00&cas_do=23:30`, {}, token);
+      const blocked = availability.data.find((item) => item.id === absentPerson.id);
+      assert(blocked?.availability?.available === false, 'absent person should be marked unavailable');
+      assert(blocked.availability.conflicts?.some((item) => item.type === 'absence'), 'absence conflict should be reported');
+
+      const blockedAssignment = await expectJson(`/api/personal/${absentPerson.id}/prirazeni`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          zakazka_id: zakazka.id,
+          role_na_akci: 'Obsluha',
+          cas_prichod: '17:00',
+          cas_odchod: '23:30',
+        }),
+      }, token, [201]);
+      assert(blockedAssignment.availability_warning?.available === false, 'assignment response should include availability warning');
     });
   }
 

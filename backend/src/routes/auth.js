@@ -3,7 +3,7 @@ const bcrypt  = require('bcryptjs');
 const crypto = require('crypto');
 const jwt     = require('jsonwebtoken');
 const rateLimit = require('express-rate-limit');
-const { query } = require('../db');
+const { query, withTransaction } = require('../db');
 const { auth }  = require('../middleware/auth');
 const { sendPasswordReset } = require('../emailService');
 const { getModuleState } = require('../moduleAccess');
@@ -27,6 +27,13 @@ const resetLimiter = rateLimit({
 });
 
 const RESET_TOKEN_TTL_MINUTES = 60;
+
+function isSmtpAuthError(err) {
+  const code = String(err?.code || '').toUpperCase();
+  const responseCode = Number(err?.responseCode || 0);
+  const message = String(err?.message || '');
+  return code === 'EAUTH' || responseCode === 535 || /535|authentication failed|invalid login/i.test(message);
+}
 
 async function loadFirmaSettings() {
   const { rows } = await query(
@@ -166,28 +173,38 @@ router.post('/forgot-password', resetLimiter, async (req, res, next) => {
     const resetToken = crypto.randomBytes(32).toString('hex');
     const tokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
 
-    await query(
-      'DELETE FROM password_reset_tokens WHERE user_id = $1 OR expires_at < NOW() OR used_at IS NOT NULL',
-      [uzivatel.id]
-    );
-
-    await query(
-      `INSERT INTO password_reset_tokens (user_id, token_hash, expires_at)
-       VALUES ($1, $2, NOW() + ($3 || ' minutes')::interval)`,
-      [uzivatel.id, tokenHash, String(RESET_TOKEN_TTL_MINUTES)]
-    );
-
     const firma = await loadFirmaSettings();
     const frontendBaseUrl = process.env.FRONTEND_URL || req.headers.origin || 'http://localhost:5173';
     const resetUrl = new URL('/login', frontendBaseUrl);
     resetUrl.searchParams.set('mode', 'reset');
     resetUrl.searchParams.set('token', resetToken);
 
-    await sendPasswordReset({
-      to: uzivatel.email,
-      jmeno: `${uzivatel.jmeno} ${uzivatel.prijmeni}`.trim(),
-      resetUrl: resetUrl.toString(),
-      firma,
+    await withTransaction(async (client) => {
+      await client.query(
+        'DELETE FROM password_reset_tokens WHERE user_id = $1 OR expires_at < NOW() OR used_at IS NOT NULL',
+        [uzivatel.id]
+      );
+
+      await client.query(
+        `INSERT INTO password_reset_tokens (user_id, token_hash, expires_at)
+         VALUES ($1, $2, NOW() + ($3 || ' minutes')::interval)`,
+        [uzivatel.id, tokenHash, String(RESET_TOKEN_TTL_MINUTES)]
+      );
+
+      try {
+        await sendPasswordReset({
+          to: uzivatel.email,
+          jmeno: `${uzivatel.jmeno} ${uzivatel.prijmeni}`.trim(),
+          resetUrl: resetUrl.toString(),
+          firma,
+        });
+      } catch (err) {
+        if (isSmtpAuthError(err)) {
+          err.status = 503;
+          err.message = 'SMTP autentizace selhala. Zkontrolujte SMTP uživatele, heslo nebo app password v Nastavení -> E-mail -> SMTP.';
+        }
+        throw err;
+      }
     });
 
     res.json(genericResponse);
