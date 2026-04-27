@@ -226,6 +226,12 @@ export const productionApi = {
   calculate: (zakazkaId) => api.get(`/production/calculate/${zakazkaId}`),
   sheet: (zakazkaId) => api.get(`/production/sheet/${zakazkaId}`),
   sheetV2: (zakazkaId) => api.get(`/production/sheet-v2/${zakazkaId}`),
+  kitchenPlan: (params) => api.get('/production/kitchen-plan', { params }),
+};
+
+export const analyticsApi = {
+  trackModuleUsage: (data) => api.post('/analytics/module-usage', data),
+  moduleUsageSummary: (params) => api.get('/analytics/module-usage/summary', { params }),
 };
 
 export const proposalsApi = {

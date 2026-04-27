@@ -407,6 +407,7 @@ export default function VouchersPage() {
                           {order.status !== 'sent' && order.status !== 'cancelled' && <Btn size="sm" onClick={() => cancelOrderMut.mutate(order.id)} disabled={cancelOrderMut.isPending}><XCircle size={12} /> Zrušit</Btn>}
                           {order.voucher_id && <Btn size="sm" onClick={() => resendOrderMut.mutate(order.id)} disabled={resendOrderMut.isPending}><RefreshCw size={12} /> Odeslat</Btn>}
                           {order.voucher_id && <Link to={`/poukazy/${order.voucher_id}`} className="inline-flex items-center gap-1 rounded-xl border border-stone-200 px-3 py-2 text-xs font-medium text-stone-600 hover:bg-stone-50"><ExternalLink size={12} /> Poukaz</Link>}
+                          {order.invoice_id && <Link to={`/faktury/${order.invoice_id}`} className="inline-flex items-center gap-1 rounded-xl border border-stone-200 px-3 py-2 text-xs font-medium text-stone-600 hover:bg-stone-50"><ExternalLink size={12} /> Faktura</Link>}
                         </div>
                       </td>
                     </tr>

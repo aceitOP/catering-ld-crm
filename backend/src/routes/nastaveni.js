@@ -13,7 +13,7 @@ const SECRET_KEYS = new Set([
   'email_smtp_pass',
 ]);
 const SUPER_ADMIN_ONLY_SETTING_PREFIXES = ['email_imap_', 'email_smtp_'];
-const PUBLIC_BRANDING_KEYS = ['app_title', 'app_logo_data_url', 'app_color_theme', 'app_document_font_family'];
+const PUBLIC_BRANDING_KEYS = ['app_title', 'app_logo_data_url', 'app_color_theme', 'app_document_font_family', 'public_ga4_measurement_id'];
 const LOGO_DATA_URL_RE = /^data:image\/(?:png|svg\+xml);base64,[A-Za-z0-9+/=]+$/;
 const BACKUP_TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
 const BRAND_THEMES = new Set(['ocean', 'forest', 'terracotta', 'graphite']);
@@ -62,6 +62,17 @@ function sanitizeSettingValue(key, value) {
     const normalized = raw.trim().toLowerCase();
     if (!DOCUMENT_FONTS.has(normalized)) {
       const err = new Error('Neplatne pismo pro dokumenty');
+      err.status = 400;
+      throw err;
+    }
+    return normalized;
+  }
+
+  if (key === 'public_ga4_measurement_id') {
+    const normalized = raw.trim().toUpperCase();
+    if (!normalized) return '';
+    if (!/^G-[A-Z0-9]{6,20}$/.test(normalized)) {
+      const err = new Error('GA4 Measurement ID musí mít formát G-XXXXXXXX');
       err.status = 400;
       throw err;
     }
@@ -206,6 +217,7 @@ router.get('/public-branding', async (_req, res, next) => {
       app_logo_data_url: '',
       app_color_theme: 'ocean',
       app_document_font_family: 'syne',
+      public_ga4_measurement_id: '',
     };
     rows.forEach((row) => {
       branding[row.klic] = row.hodnota;
@@ -280,6 +292,7 @@ router.post('/setup-wizard', auth, requireMinRole('super_admin'), async (req, re
       'app_logo_data_url',
       'app_color_theme',
       'app_document_font_family',
+      'public_ga4_measurement_id',
       'voucher_design_style',
       'firma_nazev',
       'firma_ico',

@@ -86,4 +86,76 @@ router.get('/sheet-v2/:zakazka_id', auth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+router.get('/kitchen-plan', auth, async (req, res, next) => {
+  try {
+    const today = new Date();
+    const defaultFrom = today.toISOString().slice(0, 10);
+    const defaultToDate = new Date(today);
+    defaultToDate.setDate(defaultToDate.getDate() + 7);
+    const dateFrom = String(req.query.date_from || defaultFrom).slice(0, 10);
+    const dateTo = String(req.query.date_to || defaultToDate.toISOString().slice(0, 10)).slice(0, 10);
+
+    const { rows: zakazky } = await query(
+      `SELECT z.*,
+              k.jmeno AS klient_jmeno,
+              k.prijmeni AS klient_prijmeni,
+              k.firma AS klient_firma
+       FROM zakazky z
+       LEFT JOIN klienti k ON k.id = z.klient_id
+       WHERE z.datum_akce >= $1::date
+         AND z.datum_akce <= $2::date
+         AND COALESCE(z.archivovano, false) = false
+         AND COALESCE(z.stav::text, '') NOT IN ('storno', 'zruseno')
+       ORDER BY z.datum_akce, z.cas_zacatek NULLS LAST, z.cislo`,
+      [dateFrom, dateTo]
+    );
+
+    const events = [];
+    const itemMap = new Map();
+    const allergenMap = new Map();
+
+    for (const zakazka of zakazky) {
+      const result = await loadData(zakazka.id);
+      if (result.error) {
+        events.push({ ...zakazka, error: result.error, sheet: null });
+        continue;
+      }
+      const ingredientSummary = await aggregateIngredientsForZakazka(zakazka.id).catch(() => null);
+      const sheet = generateProductionSheet(result.zakazka, result.kalkulace, ingredientSummary);
+      for (const item of sheet.sekce_a || []) {
+        const key = `${item.nazev}|${item.jednotka || ''}|${item.kategorie || ''}`;
+        const existing = itemMap.get(key) || {
+          nazev: item.nazev,
+          jednotka: item.jednotka,
+          kategorie: item.kategorie,
+          mnozstvi: 0,
+          zakazky: [],
+        };
+        existing.mnozstvi += Number(item.mnozstvi || 0);
+        existing.zakazky.push({ id: zakazka.id, cislo: zakazka.cislo, nazev: zakazka.nazev, mnozstvi: item.mnozstvi });
+        itemMap.set(key, existing);
+      }
+      for (const group of sheet.sekce_c_alergeny || []) {
+        const set = allergenMap.get(group.alergen) || new Set();
+        (group.jidla || []).forEach((jidlo) => set.add(jidlo));
+        allergenMap.set(group.alergen, set);
+      }
+      events.push({ ...zakazka, sheet });
+    }
+
+    res.json({
+      date_from: dateFrom,
+      date_to: dateTo,
+      summary: {
+        events_count: events.length,
+        guests_count: events.reduce((sum, event) => sum + Number(event.pocet_hostu || event.sheet?.pocet_hostu || 0), 0),
+        items_count: itemMap.size,
+      },
+      events,
+      production_items: Array.from(itemMap.values()).sort((a, b) => String(a.nazev).localeCompare(String(b.nazev), 'cs')),
+      allergens: Array.from(allergenMap.entries()).map(([alergen, jidla]) => ({ alergen, jidla: Array.from(jidla) })),
+    });
+  } catch (err) { next(err); }
+});
+
 module.exports = router;

@@ -6,12 +6,12 @@ import {
   LayoutDashboard, ClipboardList, Users, FileText, Building2,
   Calendar, UserCheck, FolderOpen, Tag, Settings, LogOut, BarChart2,
   Bell, X, Globe, Info, Trash2, CheckCheck, Inbox, Receipt, Archive,
-  ChevronDown, BookCopy, Mail, Sun, Moon, Clock, ShieldAlert, Bug, FlaskConical, BookOpenText, Gift, Briefcase,
+  ChevronDown, BookCopy, Mail, Sun, Moon, Clock, ShieldAlert, Bug, FlaskConical, BookOpenText, Gift, Briefcase, ChefHat,
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { APP_VERSION, CHANGELOG } from '../data/changelog';
 import { isModuleEnabled } from '../data/moduleConfig';
-import { errorLogApi, notifikaceApi, zakazkyApi } from '../api';
+import { analyticsApi, errorLogApi, notifikaceApi, zakazkyApi } from '../api';
 import { Btn, Modal } from './ui';
 import toast from 'react-hot-toast';
 
@@ -71,6 +71,7 @@ const NAV = [
     children: [
       { to: '/suroviny',  label: 'Suroviny',  icon: FlaskConical, moduleKey: 'pro' },
       { to: '/receptury', label: 'Receptury', icon: BookOpenText, moduleKey: 'pro' },
+      { to: '/vyrobni-plan', label: 'Výrobní plán', icon: ChefHat, moduleKey: 'pro' },
       { to: '/poukazy', label: 'Poukazy', icon: Gift, capability: 'vouchers.manage', moduleKey: 'vouchers' },
     ],
   },
@@ -80,6 +81,7 @@ const NAV = [
       { to: '/dokumenty', label: 'Dokumenty', icon: FolderOpen, moduleKey: 'dokumenty' },
       { to: '/cenik',     label: 'Ceníky',    icon: Tag, moduleKey: 'cenik' },
       { to: '/reporty',   label: 'Reporty',   icon: BarChart2, moduleKey: 'reporty' },
+      { to: '/analytics/moduly', label: 'Analytika modulů', icon: BarChart2, superAdminOnly: true },
       { to: '/error-log', label: 'Error log', icon: ShieldAlert, superAdminOnly: true, moduleKey: 'error_log' },
     ],
   },
@@ -87,6 +89,30 @@ const NAV = [
   { to: '/funkce', label: 'Funkce', icon: Info },
   { to: '/nastaveni', label: 'Nastavení', icon: Settings },
 ];
+
+const PATH_MODULES = [
+  ['/vyrobni-plan', 'pro'],
+  ['/suroviny', 'pro'],
+  ['/receptury', 'pro'],
+  ['/poukazy', 'vouchers'],
+  ['/venues', 'venues'],
+  ['/faktury', 'faktury'],
+  ['/kalendar', 'kalendar'],
+  ['/reporty', 'reporty'],
+  ['/dokumenty', 'dokumenty'],
+  ['/cenik', 'cenik'],
+  ['/personal', 'personal'],
+  ['/archiv', 'archiv'],
+  ['/sablony', 'sablony'],
+  ['/email', 'email'],
+  ['/error-log', 'error_log'],
+  ['/analytics/moduly', 'module_analytics'],
+];
+
+function inferModuleKey(pathname) {
+  const match = PATH_MODULES.find(([prefix]) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+  return match?.[1] || 'core';
+}
 
 // ── Brand logo ───────────────────────────────────────────────
 function BrandLogo({ size = 28, logoUrl = '' }) {
@@ -170,6 +196,12 @@ export default function Layout() {
       }
     });
   }, [location.pathname, user?.modules, user?.role]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    const path = `${location.pathname}${location.search || ''}`;
+    analyticsApi.trackModuleUsage({ module_key: inferModuleKey(location.pathname), path }).catch(() => {});
+  }, [location.pathname, location.search, user?.id]);
 
   const handleLogout = () => { logout(); navigate('/login'); };
 

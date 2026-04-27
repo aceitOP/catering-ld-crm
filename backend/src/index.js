@@ -83,6 +83,7 @@ app.use('/api/email',           requireAppModule('email'), require('./routes/ema
 app.use('/api/error-log',       requireAppModule('error_log'), require('./routes/errorLog'));
 app.use('/api/backup',          require('./routes/backup'));
 app.use('/api/login-log',       require('./routes/loginLog'));
+app.use('/api/analytics',       require('./routes/analytics'));
 
 // ── Health check ─────────────────────────────────────────────
 app.get('/api/health', async (_req, res) => {

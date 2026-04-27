@@ -10,6 +10,7 @@ const DEFAULT_BRANDING = {
   app_logo_data_url: '',
   app_color_theme: 'ocean',
   app_document_font_family: 'syne',
+  public_ga4_measurement_id: '',
 };
 
 export function AuthProvider({ children }) {
@@ -24,6 +25,7 @@ export function AuthProvider({ children }) {
       app_logo_data_url: response.data?.app_logo_data_url || '',
       app_color_theme: response.data?.app_color_theme || 'ocean',
       app_document_font_family: response.data?.app_document_font_family || 'syne',
+      public_ga4_measurement_id: response.data?.public_ga4_measurement_id || '',
     };
     setBranding(nextBranding);
     safeSetItem('app_branding', JSON.stringify(nextBranding));

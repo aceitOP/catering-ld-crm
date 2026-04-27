@@ -497,6 +497,93 @@ async function createVoucherForPaidOrder(client, order, actorId = null) {
   return rows[0];
 }
 
+async function generateInvoiceNumber(client) {
+  const year = new Date().getFullYear();
+  const { rows } = await client.query(
+    `SELECT cislo FROM faktury WHERE cislo LIKE $1 ORDER BY cislo DESC LIMIT 1`,
+    [`FAK-${year}-%`]
+  );
+  if (!rows.length) return `FAK-${year}-001`;
+  const last = parseInt(String(rows[0].cislo || '').split('-')[2], 10) || 0;
+  return `FAK-${year}-${String(last + 1).padStart(3, '0')}`;
+}
+
+async function loadFirmaSettingsForInvoice(client) {
+  const { rows } = await client.query(
+    `SELECT klic, hodnota
+     FROM nastaveni
+     WHERE klic LIKE 'firma_%' OR klic IN ('app_title')`
+  );
+  return rows.reduce((acc, row) => {
+    acc[row.klic] = row.hodnota;
+    return acc;
+  }, {});
+}
+
+function buildVoucherInvoiceNote(order) {
+  const billing = [
+    order.billing_company,
+    order.billing_name,
+    order.billing_ico ? `IČO: ${order.billing_ico}` : '',
+    order.billing_dic ? `DIČ: ${order.billing_dic}` : '',
+    order.billing_address,
+    order.billing_email,
+  ].filter(Boolean).join('\n');
+  return [
+    `Automaticky vystaveno k objednávce poukazu ${order.order_number}.`,
+    `Kupující: ${order.buyer_name} <${order.buyer_email}>`,
+    billing ? `Fakturační údaje:\n${billing}` : '',
+  ].filter(Boolean).join('\n\n');
+}
+
+async function ensureInvoiceForPaidOrder(client, order, actorId = null) {
+  if (order.invoice_id) return order.invoice_id;
+  const invoiceNumber = await generateInvoiceNumber(client);
+  const firma = await loadFirmaSettingsForInvoice(client);
+  const today = new Date().toISOString().slice(0, 10);
+  const total = Number(order.amount || 0);
+  const buyerLabel = order.billing_company || order.billing_name || order.buyer_name;
+  const itemTitle = order.offer_title || `Dárkový poukaz ${order.order_number}`;
+  const { rows: invoiceRows } = await client.query(
+    `INSERT INTO faktury (
+       cislo, stav, datum_vystaveni, datum_splatnosti, datum_zaplaceni,
+       zpusob_platby, variabilni_symbol, poznamka,
+       cena_bez_dph, dph, cena_celkem, dodavatel_json, vystavil_id
+     )
+     VALUES ($1,'zaplacena',$2,$2,$2,$3,$4,$5,$6,0,$6,$7,$8)
+     RETURNING id`,
+    [
+      invoiceNumber,
+      today,
+      'převod',
+      order.payment_variable_symbol || null,
+      buildVoucherInvoiceNote(order),
+      total,
+      JSON.stringify(firma),
+      actorId,
+    ]
+  );
+  const invoiceId = invoiceRows[0].id;
+  await client.query(
+    `INSERT INTO faktury_polozky (faktura_id, nazev, jednotka, mnozstvi, cena_jednotka, dph_sazba, poradi)
+     VALUES ($1, $2, 'ks', 1, $3, 0, 1)`,
+    [invoiceId, itemTitle, total]
+  );
+  await client.query(
+    `UPDATE voucher_orders
+     SET invoice_id = $2
+     WHERE id = $1`,
+    [order.id, invoiceId]
+  );
+  await createNotif({
+    typ: 'system',
+    titulek: 'Faktura k poukazu vystavena',
+    zprava: `${invoiceNumber} · ${buyerLabel || order.buyer_email} · ${total.toLocaleString('cs-CZ')} Kč`,
+    odkaz: `/faktury/${invoiceId}`,
+  });
+  return invoiceId;
+}
+
 function getDeliveryEmail(order) {
   return order.recipient_choice === 'recipient'
     ? order.recipient_email
@@ -537,7 +624,13 @@ async function markOrderPaid(orderId, actorId = null) {
       err.status = 400;
       throw err;
     }
-    if (order.voucher_id) return order;
+    if (order.voucher_id) {
+      if (!order.invoice_id) {
+        const invoiceId = await ensureInvoiceForPaidOrder(client, order, actorId);
+        return { ...order, invoice_id: invoiceId };
+      }
+      return order;
+    }
     const paidAt = new Date();
     const paidOrder = { ...order, paid_at: paidAt.toISOString() };
     const voucher = await createVoucherForPaidOrder(client, paidOrder, actorId);
@@ -546,14 +639,16 @@ async function markOrderPaid(orderId, actorId = null) {
       || new Date(order.delivery_scheduled_at) <= new Date();
     shouldSend = deliverNow;
     const nextStatus = deliverNow ? 'voucher_created' : 'voucher_created';
+    const invoiceId = await ensureInvoiceForPaidOrder(client, { ...order, voucher_id: voucher.id, paid_at: paidAt.toISOString() }, actorId);
     const { rows: updatedRows } = await client.query(
       `UPDATE voucher_orders
        SET status = $2,
            paid_at = $3,
-           voucher_id = $4
+           voucher_id = $4,
+           invoice_id = $5
        WHERE id = $1
        RETURNING *`,
-      [order.id, nextStatus, paidAt.toISOString(), voucher.id]
+      [order.id, nextStatus, paidAt.toISOString(), voucher.id, invoiceId]
     );
     return updatedRows[0];
   });

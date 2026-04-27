@@ -3,6 +3,7 @@ const DEFAULT_SETTINGS = [
   ['app_logo_data_url', '', 'Logo aplikace jako data URL'],
   ['app_color_theme', 'ocean', 'Barevná šablona aplikace'],
   ['app_document_font_family', 'syne', 'Písmo pro tiskové výstupy a PDF materiály'],
+  ['public_ga4_measurement_id', '', 'GA4 Measurement ID pro veřejné části aplikace'],
   ['voucher_design_style', 'classic', 'Vzhled tiskového poukazu'],
   ['voucher_shop_enabled', 'false', 'Veřejný prodej poukazů zapnutý'],
   ['voucher_shop_values', '1000,2000,3000,5000,10000', 'Povolené hodnoty poukazů ve veřejném shopu'],

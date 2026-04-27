@@ -1,4 +1,5 @@
-﻿import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+﻿import { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -28,6 +29,7 @@ import FakturyPage from './pages/FakturyPage';
 import FakturaDetail from './pages/FakturaDetail';
 import NovaFakturaPage from './pages/NovaFakturaPage';
 import VyrobniListPage from './pages/VyrobniListPage';
+import KitchenPlanPage from './pages/KitchenPlanPage';
 import ClientProposalPage from './pages/ClientProposalPage';
 import ArchivPage from './pages/ArchivPage';
 import SablonyPage from './pages/SablonyPage';
@@ -51,6 +53,7 @@ import VoucherShopPage from './pages/VoucherShopPage';
 import VoucherShopOrderPage from './pages/VoucherShopOrderPage';
 import VoucherShopTermsPage from './pages/VoucherShopTermsPage';
 import FunctionsPage from './pages/FunctionsPage';
+import ModuleAnalyticsPage from './pages/ModuleAnalyticsPage';
 import Layout from './components/Layout';
 import AppErrorBoundary from './components/AppErrorBoundary';
 import ClientPortalLayout from './components/ClientPortalLayout';
@@ -140,6 +143,35 @@ function OwnerRoute({ children }) {
   return user?.capabilities?.['owner_dashboard.view'] ? children : <Navigate to="/dashboard" replace />;
 }
 
+const PUBLIC_ANALYTICS_PATHS = ['/shop', '/nabidka', '/voucher'];
+
+function PublicAnalytics() {
+  const location = useLocation();
+  const { branding } = useAuth();
+  const measurementId = branding?.public_ga4_measurement_id || '';
+  const isPublicPath = PUBLIC_ANALYTICS_PATHS.some((prefix) => location.pathname === prefix || location.pathname.startsWith(`${prefix}/`));
+
+  useEffect(() => {
+    if (!isPublicPath || !measurementId || typeof window === 'undefined') return;
+    const scriptId = 'ga4-public-script';
+    window.dataLayer = window.dataLayer || [];
+    window.gtag = window.gtag || function gtag(){ window.dataLayer.push(arguments); };
+    if (!document.getElementById(scriptId)) {
+      const script = document.createElement('script');
+      script.id = scriptId;
+      script.async = true;
+      script.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(measurementId)}`;
+      document.head.appendChild(script);
+      window.gtag('js', new Date());
+    }
+    window.gtag('config', measurementId, {
+      page_path: `${location.pathname}${location.search || ''}`,
+    });
+  }, [isPublicPath, measurementId, location.pathname, location.search]);
+
+  return null;
+}
+
 function App() {
   const isShopHost = typeof window !== 'undefined' && window.location.hostname.startsWith('shop.');
   return (
@@ -149,6 +181,7 @@ function App() {
           <AuthProvider>
             <ClientPortalAuthProvider>
               <BrowserRouter>
+                <PublicAnalytics />
                 <Toaster
                   position="bottom-right"
                   toastOptions={{
@@ -187,6 +220,7 @@ function App() {
                     <Route path="zakazky/nova" element={<NovaZakazka />} />
                     <Route path="zakazky/:id" element={<ZakazkaDetail />} />
                     <Route path="zakazky/:id/vyrobni-list" element={<VyrobniListPage />} />
+                    <Route path="vyrobni-plan" element={<ModuleRoute moduleKey="pro"><KitchenPlanPage /></ModuleRoute>} />
                     <Route path="klienti" element={<KlientiPage />} />
                     <Route path="venues" element={<ModuleRoute moduleKey="venues"><VenuesPage /></ModuleRoute>} />
                     <Route path="venues/:id" element={<ModuleRoute moduleKey="venues"><VenueDetailPage /></ModuleRoute>} />
@@ -201,6 +235,7 @@ function App() {
                     <Route path="receptury" element={<ModuleRoute moduleKey="pro"><RecipesPage /></ModuleRoute>} />
                     <Route path="receptury/:id" element={<ModuleRoute moduleKey="pro"><RecipeDetailPage /></ModuleRoute>} />
                     <Route path="reporty" element={<ModuleRoute moduleKey="reporty"><ReportPage /></ModuleRoute>} />
+                    <Route path="analytics/moduly" element={<SuperAdminRoute><ModuleAnalyticsPage /></SuperAdminRoute>} />
                     <Route path="faktury" element={<ModuleRoute moduleKey="faktury"><FakturyPage /></ModuleRoute>} />
                     <Route path="faktury/nova" element={<ModuleRoute moduleKey="faktury"><NovaFakturaPage /></ModuleRoute>} />
                     <Route path="faktury/:id" element={<ModuleRoute moduleKey="faktury"><FakturaDetail /></ModuleRoute>} />

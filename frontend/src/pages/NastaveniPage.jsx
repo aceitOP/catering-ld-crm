@@ -663,6 +663,21 @@ export function NastaveniPage() {
                 </div>
               </div>
               <div className="rounded-xl border border-stone-200 p-4 space-y-3">
+                <div>
+                  <div className="text-sm font-medium text-stone-800">GA4 pro veřejné stránky</div>
+                  <div className="text-xs text-stone-500 mt-1">Measurement ID se vloží jen na veřejné části jako /shop, objednávka poukazu, veřejná nabídka a veřejný poukaz.</div>
+                </div>
+                <div>
+                  <label className="text-xs text-stone-500 block mb-1">GA4 Measurement ID</label>
+                  <input
+                    className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                    value={form.public_ga4_measurement_id ?? nastavData?.data?.public_ga4_measurement_id ?? ''}
+                    onChange={(e) => setForm((f) => ({ ...f, public_ga4_measurement_id: e.target.value }))}
+                    placeholder="G-XXXXXXXXXX"
+                  />
+                </div>
+              </div>
+              <div className="rounded-xl border border-stone-200 p-4 space-y-3">
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <div className="text-sm font-medium text-stone-800">Logo aplikace</div>
