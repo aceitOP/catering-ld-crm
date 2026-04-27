@@ -84,6 +84,7 @@ const NAV = [
     ],
   },
   { to: '/email', label: 'E-mail', icon: Mail, moduleKey: 'email' },
+  { to: '/funkce', label: 'Funkce', icon: Info },
   { to: '/nastaveni', label: 'Nastavení', icon: Settings },
 ];
 

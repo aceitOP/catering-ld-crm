@@ -49,6 +49,7 @@ import VoucherDetailPage from './pages/VoucherDetailPage';
 import PublicVoucherPage from './pages/PublicVoucherPage';
 import VoucherShopPage from './pages/VoucherShopPage';
 import VoucherShopOrderPage from './pages/VoucherShopOrderPage';
+import FunctionsPage from './pages/FunctionsPage';
 import Layout from './components/Layout';
 import AppErrorBoundary from './components/AppErrorBoundary';
 import ClientPortalLayout from './components/ClientPortalLayout';
@@ -203,6 +204,7 @@ function App() {
                     <Route path="faktury/:id" element={<ModuleRoute moduleKey="faktury"><FakturaDetail /></ModuleRoute>} />
                     <Route path="poukazy" element={<ModuleRoute moduleKey="vouchers"><VouchersPage /></ModuleRoute>} />
                     <Route path="poukazy/:id" element={<ModuleRoute moduleKey="vouchers"><VoucherDetailPage /></ModuleRoute>} />
+                    <Route path="funkce" element={<FunctionsPage />} />
                     <Route path="nastaveni" element={<NastaveniPage />} />
                     <Route path="archiv" element={<ModuleRoute moduleKey="archiv"><ArchivPage /></ModuleRoute>} />
                     <Route path="sablony" element={<ModuleRoute moduleKey="sablony"><SablonyPage /></ModuleRoute>} />
