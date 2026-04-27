@@ -44,6 +44,39 @@ async function legacySchemaExists(client) {
   return Boolean(rows[0]?.exists);
 }
 
+async function tableExists(client, tableName) {
+  const { rows } = await client.query(
+    `SELECT EXISTS (
+       SELECT 1
+       FROM information_schema.tables
+       WHERE table_schema = 'public'
+         AND table_name = $1
+     ) AS exists`,
+    [tableName]
+  );
+  return Boolean(rows[0]?.exists);
+}
+
+async function ensureLegacyCompatibilityConstraints(client) {
+  if (await tableExists(client, 'nastaveni')) {
+    await client.query(`
+      DELETE FROM nastaveni
+      WHERE klic IS NULL
+         OR ctid NOT IN (
+           SELECT MIN(ctid)
+           FROM nastaveni
+           WHERE klic IS NOT NULL
+           GROUP BY klic
+         )
+    `);
+
+    await client.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_nastaveni_klic_unique
+      ON nastaveni(klic)
+    `);
+  }
+}
+
 async function markLegacyBaseline(client) {
   const filePath = path.join(MIGRATIONS_DIR, `${BASELINE_VERSION}.js`);
   const checksum = fs.existsSync(filePath) ? getFileChecksum(filePath) : null;
@@ -110,6 +143,10 @@ async function runMigrations() {
     await ensureMigrationsTable(client);
     const legacyExists = await legacySchemaExists(client);
     const applied = await getAppliedMigrations(client);
+
+    if (legacyExists) {
+      await ensureLegacyCompatibilityConstraints(client);
+    }
 
     if (legacyExists && !applied.has(BASELINE_VERSION)) {
       await markLegacyBaseline(client);

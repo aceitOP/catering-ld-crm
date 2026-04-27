@@ -36,9 +36,10 @@ WHERE subject_template IS NULL
    OR body_template IS NULL
    OR template_key IS NULL;
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_email_sablony_template_key
-  ON email_sablony(template_key)
-  WHERE template_key IS NOT NULL;
+DROP INDEX IF EXISTS idx_email_sablony_template_key;
+
+CREATE UNIQUE INDEX idx_email_sablony_template_key
+  ON email_sablony(template_key);
 
 CREATE INDEX IF NOT EXISTS idx_email_sablony_use_case
   ON email_sablony(use_case, aktivni, poradi, id);
