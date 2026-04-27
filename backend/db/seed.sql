@@ -194,3 +194,88 @@ INSERT INTO venue_observations (
     'restriction', 'Nove zjistena restrikce', 'Galerie nepovolila zaveseni dekoraci na okenni ramy.', 'critical', NULL, NOW() - INTERVAL '18 days',
     2, 'manual', true, 'restriction_window_frames', true, 'pending'
   );
+
+INSERT INTO ingredients (slug, nazev, jednotka, nakupni_jednotka, aktualni_cena_za_jednotku, vytiznost_procent, odpad_procent, alergeny, poznamka, aktivni) VALUES
+  ('kuraci-prsa', 'Kuraci prsa', 'kg', 'kg', 189, 92, 3, ARRAY[]::text[], 'Zakladni maso pro hlavni chody.', true),
+  ('smetana-31', 'Smetana 31 %', 'l', 'l', 92, 100, 0, ARRAY['mleko'], 'Pouziva se do omacek a kremu.', true),
+  ('brambory-varne-typ-b', 'Brambory varne typ B', 'kg', 'kg', 26, 88, 8, ARRAY[]::text[], 'Zakladni prilohova surovina.', true),
+  ('parmazan', 'Parmazan', 'kg', 'kg', 410, 100, 0, ARRAY['mleko'], 'Na finalni dochuceni.', true),
+  ('maslo', 'Maslo', 'kg', 'kg', 228, 100, 0, ARRAY['mleko'], 'Kuchynske maslo.', true),
+  ('sul', 'Sul', 'kg', 'kg', 14, 100, 0, ARRAY[]::text[], 'Zakladni koreni.', true),
+  ('pepr-cerny', 'Pepr cerny', 'kg', 'kg', 540, 100, 0, ARRAY[]::text[], 'Mlety pepr.', true)
+ON CONFLICT (slug) DO NOTHING;
+
+INSERT INTO ingredient_price_history (ingredient_id, cena_za_jednotku, platne_od, zdroj, poznamka, created_by)
+SELECT id, aktualni_cena_za_jednotku, CURRENT_DATE - INTERVAL '20 days', 'demo_seed', 'Vychozi demo cena', 1
+FROM ingredients
+WHERE slug IN ('kuraci-prsa', 'smetana-31', 'brambory-varne-typ-b', 'parmazan', 'maslo', 'sul', 'pepr-cerny')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO recipes (
+  slug, nazev, interni_nazev, typ, kategorie, vydatnost_mnozstvi, vydatnost_jednotka,
+  default_porce_mnozstvi, default_porce_jednotka, cas_pripravy_min, poznamka, aktivni
+) VALUES
+  ('bramborove-pyre-zaklad', 'Bramborove pyre - zaklad', 'Komponenta pyre', 'component', 'priloha', 10, 'kg', 0.25, 'kg', 45, 'Zakladni komponenta pro bufet i servis.', true),
+  ('kuraci-supreme-se-smetanovym-pyre', 'Kuraci supreme se smetanovym pyre', 'Hlavni chod demo', 'final', 'hlavni_chod', 40, 'porce', 1, 'porce', 70, 'Ukazkova receptura navazana na catering cenik.', true)
+ON CONFLICT (slug) DO NOTHING;
+
+INSERT INTO recipe_versions (recipe_id, verze, stav, poznamka_zmeny, created_by, schvaleno_by, schvaleno_at)
+SELECT r.id, 1, 'active', 'Demo seed verze', 1, 1, NOW()
+FROM recipes r
+WHERE r.slug IN ('bramborove-pyre-zaklad', 'kuraci-supreme-se-smetanovym-pyre')
+  AND NOT EXISTS (SELECT 1 FROM recipe_versions rv WHERE rv.recipe_id = r.id AND rv.verze = 1);
+
+INSERT INTO recipe_items (recipe_version_id, item_type, ingredient_id, subrecipe_id, mnozstvi, jednotka, poradi, poznamka)
+SELECT rv.id, 'ingredient', i.id, NULL, x.mnozstvi, x.jednotka, x.poradi, x.poznamka
+FROM (
+  VALUES
+    ('bramborove-pyre-zaklad', 'brambory-varne-typ-b', 8.5::numeric, 'kg', 1, 'Oloupane a uvarene brambory'),
+    ('bramborove-pyre-zaklad', 'maslo', 0.9::numeric, 'kg', 2, 'Vyslehat do hladka'),
+    ('bramborove-pyre-zaklad', 'smetana-31', 1.1::numeric, 'l', 3, 'Pridat postupne'),
+    ('bramborove-pyre-zaklad', 'sul', 0.08::numeric, 'kg', 4, 'Dochuceni'),
+    ('bramborove-pyre-zaklad', 'pepr-cerny', 0.01::numeric, 'kg', 5, 'Dochuceni')
+) AS x(recipe_slug, ingredient_slug, mnozstvi, jednotka, poradi, poznamka)
+JOIN recipes r ON r.slug = x.recipe_slug
+JOIN recipe_versions rv ON rv.recipe_id = r.id AND rv.verze = 1
+JOIN ingredients i ON i.slug = x.ingredient_slug
+WHERE NOT EXISTS (
+  SELECT 1 FROM recipe_items ri WHERE ri.recipe_version_id = rv.id
+);
+
+INSERT INTO recipe_items (recipe_version_id, item_type, ingredient_id, subrecipe_id, mnozstvi, jednotka, poradi, poznamka)
+SELECT rv.id, x.item_type, i.id, sr.id, x.mnozstvi, x.jednotka, x.poradi, x.poznamka
+FROM (
+  VALUES
+    ('kuraci-supreme-se-smetanovym-pyre', 'ingredient', 'kuraci-prsa', NULL, 6.4::numeric, 'kg', 1, '40 porci po cca 160 g'),
+    ('kuraci-supreme-se-smetanovym-pyre', 'subrecipe', NULL, 'bramborove-pyre-zaklad', 10::numeric, 'kg', 2, 'Priloha'),
+    ('kuraci-supreme-se-smetanovym-pyre', 'ingredient', 'parmazan', NULL, 0.45::numeric, 'kg', 3, 'Finalni posyp'),
+    ('kuraci-supreme-se-smetanovym-pyre', 'ingredient', 'sul', NULL, 0.05::numeric, 'kg', 4, 'Dochuceni'),
+    ('kuraci-supreme-se-smetanovym-pyre', 'ingredient', 'pepr-cerny', NULL, 0.01::numeric, 'kg', 5, 'Dochuceni')
+) AS x(recipe_slug, item_type, ingredient_slug, subrecipe_slug, mnozstvi, jednotka, poradi, poznamka)
+JOIN recipes r ON r.slug = x.recipe_slug
+JOIN recipe_versions rv ON rv.recipe_id = r.id AND rv.verze = 1
+LEFT JOIN ingredients i ON i.slug = x.ingredient_slug
+LEFT JOIN recipes sr ON sr.slug = x.subrecipe_slug
+WHERE NOT EXISTS (
+  SELECT 1 FROM recipe_items ri WHERE ri.recipe_version_id = rv.id
+);
+
+INSERT INTO recipe_steps (recipe_version_id, krok_index, nazev, instrukce, pracoviste, cas_min, kriticky_bod, poznamka)
+SELECT rv.id, x.krok_index, x.nazev, x.instrukce, x.pracoviste, x.cas_min, x.kriticky_bod, x.poznamka
+FROM (
+  VALUES
+    ('bramborove-pyre-zaklad', 1, 'Brambory uvarit', 'Oloupane brambory uvarte doměkka a slijte vodu.', 'Tepla kuchyne', 25, false, NULL),
+    ('bramborove-pyre-zaklad', 2, 'Vyšlehat pyre', 'Pridat maslo, teplou smetanu a dochutit soli s peprem.', 'Tepla kuchyne', 12, false, 'Drzet teplotu nad 60 °C.'),
+    ('kuraci-supreme-se-smetanovym-pyre', 1, 'Maso opéct', 'Kuraci prsa osolit, opeprit a opéct dozlatova.', 'Tepla kuchyne', 18, true, 'Kontrolovat propečení.'),
+    ('kuraci-supreme-se-smetanovym-pyre', 2, 'Dopéct a odpočinout', 'Dokoncit v konvektomatu a nechat kratce odpocinout.', 'Konvektomat', 14, true, 'Core temp. min. 72 °C.'),
+    ('kuraci-supreme-se-smetanovym-pyre', 3, 'Kompletace', 'Naservirovat na pyre a dokoncit parmazanem.', 'Výdej', 8, false, NULL)
+) AS x(recipe_slug, krok_index, nazev, instrukce, pracoviste, cas_min, kriticky_bod, poznamka)
+JOIN recipes r ON r.slug = x.recipe_slug
+JOIN recipe_versions rv ON rv.recipe_id = r.id AND rv.verze = 1
+WHERE NOT EXISTS (
+  SELECT 1 FROM recipe_steps rs WHERE rs.recipe_version_id = rv.id
+);
+
+UPDATE cenik
+SET recipe_id = (SELECT id FROM recipes WHERE slug = 'kuraci-supreme-se-smetanovym-pyre')
+WHERE nazev ILIKE '%kuraci%' AND recipe_id IS NULL;

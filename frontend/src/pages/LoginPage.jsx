@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { authApi } from '../api';
@@ -131,7 +131,7 @@ export default function LoginPage() {
                   disabled={resetLoading}
                   className="w-full bg-brand-600 text-white text-sm font-semibold rounded-xl py-3 hover:bg-brand-700 shadow-md shadow-brand-600/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-2"
                 >
-                  {resetLoading ? 'Ukládám…' : 'Uložit nové heslo'}
+                  {resetLoading ? 'Ukládám...' : 'Uložit nové heslo'}
                 </button>
               </form>
               <button
@@ -165,7 +165,7 @@ export default function LoginPage() {
                   disabled={forgotLoading}
                   className="w-full bg-brand-600 text-white text-sm font-semibold rounded-xl py-3 hover:bg-brand-700 shadow-md shadow-brand-600/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-2"
                 >
-                  {forgotLoading ? 'Odesílám…' : 'Poslat reset odkaz'}
+                  {forgotLoading ? 'Odesílám...' : 'Poslat reset odkaz'}
                 </button>
               </form>
               <button
@@ -197,7 +197,7 @@ export default function LoginPage() {
                     type="password"
                     required
                     className="w-full border border-stone-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100 transition-all"
-                    placeholder="••••••••"
+                    placeholder="â€˘â€˘â€˘â€˘â€˘â€˘â€˘â€˘"
                     value={form.heslo}
                     onChange={e => setForm(f => ({ ...f, heslo: e.target.value }))}
                   />
@@ -207,7 +207,7 @@ export default function LoginPage() {
                   disabled={loading}
                   className="w-full bg-brand-600 text-white text-sm font-semibold rounded-xl py-3 hover:bg-brand-700 shadow-md shadow-brand-600/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-2"
                 >
-                  {loading ? 'Přihlašuji…' : 'Přihlásit se'}
+                  {loading ? 'Přihlašuji...' : 'Přihlásit se'}
                 </button>
               </form>
               <button
@@ -222,9 +222,10 @@ export default function LoginPage() {
         </div>
 
         <div className="text-center mt-5 text-xs text-stone-400">
-          Demo: l.dvorackova@catering-ld.cz · Demo1234!
+          Demo: l.dvorackova@catering-ld.cz Â· Demo1234!
         </div>
       </div>
     </div>
   );
 }
+

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { cenikApi } from '../api';
+import { cenikApi, recipesApi } from '../api';
 import { PageHeader, EmptyState, Btn, Modal, Spinner, ExportMenu, useSort, SortTh } from '../components/ui';
 import toast from 'react-hot-toast';
 import { Plus, Tag, Pencil as PencilCenik, Trash2 } from 'lucide-react';
@@ -26,8 +26,8 @@ export function CenikPage() {
   const [editRow, setEditRow] = useState(null);
   const [cenaEdit, setCenaEdit] = useState('');
   const [editItem, setEditItem] = useState(null);
-  const [editItemForm, setEditItemForm] = useState({ nazev:'', kategorie:'jidlo', jednotka:'os.', cena_nakup:0, cena_prodej:0, dph_sazba:12 });
-  const [form, setForm] = useState({ nazev:'', kategorie:'jidlo', jednotka:'os.', cena_nakup:0, cena_prodej:0, dph_sazba:12 });
+  const [editItemForm, setEditItemForm] = useState({ nazev:'', kategorie:'jidlo', jednotka:'os.', cena_nakup:0, cena_prodej:0, dph_sazba:12, recipe_id:'' });
+  const [form, setForm] = useState({ nazev:'', kategorie:'jidlo', jednotka:'os.', cena_nakup:0, cena_prodej:0, dph_sazba:12, recipe_id:'' });
   const [katForm, setKatForm] = useState({ nazev:'' });
 
   const { data: katData } = useQuery({
@@ -37,6 +37,10 @@ export function CenikPage() {
   const { data, isLoading } = useQuery({
     queryKey: ['cenik', katFilter],
     queryFn: () => cenikApi.list({ kategorie: katFilter||undefined, aktivni: 'true' }),
+  });
+  const { data: recipesData } = useQuery({
+    queryKey: ['recipes-picker-cenik'],
+    queryFn: () => recipesApi.list({ aktivni: 'true' }),
   });
 
   const createMut = useMutation({
@@ -91,19 +95,21 @@ export function CenikPage() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['cenik'] }); setEditRow(null); setEditItem(null); toast.success('Položka aktualizována'); },
   });
   const openEditItem = (p) => {
-    setEditItemForm({ nazev: p.nazev, kategorie: p.kategorie, jednotka: p.jednotka, cena_nakup: p.cena_nakup, cena_prodej: p.cena_prodej, dph_sazba: p.dph_sazba });
+    setEditItemForm({ nazev: p.nazev, kategorie: p.kategorie, jednotka: p.jednotka, cena_nakup: p.cena_nakup, cena_prodej: p.cena_prodej, dph_sazba: p.dph_sazba, recipe_id: p.recipe_id || '' });
     setEditItem(p.id);
   };
   const setEI = (k, v) => setEditItemForm(f => ({ ...f, [k]: v }));
 
   const kategorie = katData?.data?.data || [];
   const items = data?.data?.data || [];
+  const recipes = recipesData?.data?.data || [];
   const categoryUsage = items.reduce((acc, item) => { acc[item.kategorie] = (acc[item.kategorie] || 0) + 1; return acc; }, {});
   const sortC = useSort();
   const SORT_ACC_C = { nazev: 'nazev', jedn: 'jednotka', nakup: r => parseFloat(r.cena_nakup)||0, prodej: r => parseFloat(r.cena_prodej)||0, dph: r => parseFloat(r.dph_sazba)||0, marze: r => { const n=parseFloat(r.cena_nakup)||0,p=parseFloat(r.cena_prodej)||0; return p>0?(p-n)/p*100:0; } };
   const sortedItems = sortC.sortFn(items, SORT_ACC_C);
   const grouped = sortedItems.reduce((acc, item) => { (acc[item.kategorie] = acc[item.kategorie]||[]).push(item); return acc; }, {});
   const set = (k,v) => setForm(f=>({...f,[k]:v}));
+  const effectiveNakup = (item) => Number(item?.recipe_cost_current ?? item?.cena_nakup ?? 0);
   const marze = (n,p) => p>0 ? Math.round((p-n)/p*100) : 0;
   const marze_color = (m) => m >= 40 ? 'text-green-700' : m >= 25 ? 'text-amber-700' : 'text-red-600';
   const klic = toKlic(katForm.nazev);
@@ -214,6 +220,13 @@ export function CenikPage() {
             </div>
             <div><label className="text-xs text-stone-500 block mb-1">Jednotka</label><input className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" value={form.jednotka} onChange={e=>set('jednotka',e.target.value)}/></div>
           </div>
+          <div>
+            <label className="text-xs text-stone-500 block mb-1">Navázaná receptura</label>
+            <select className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" value={form.recipe_id} onChange={e=>set('recipe_id',e.target.value)}>
+              <option value="">Bez receptury</option>
+              {recipes.map((recipe) => <option key={recipe.id} value={recipe.id}>{recipe.nazev}</option>)}
+            </select>
+          </div>
           <div className="grid grid-cols-3 gap-3">
             <div><label className="text-xs text-stone-500 block mb-1">Nákupní cena</label><input type="number" className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" value={form.cena_nakup} onChange={e=>set('cena_nakup',e.target.value)}/></div>
             <div><label className="text-xs text-stone-500 block mb-1">Prodejní cena</label><input type="number" className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" value={form.cena_prodej} onChange={e=>set('cena_prodej',e.target.value)}/></div>
@@ -236,6 +249,13 @@ export function CenikPage() {
               </select>
             </div>
             <div><label className="text-xs text-stone-500 block mb-1">Jednotka</label><input className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" value={editItemForm.jednotka} onChange={e => setEI('jednotka', e.target.value)}/></div>
+          </div>
+          <div>
+            <label className="text-xs text-stone-500 block mb-1">Navázaná receptura</label>
+            <select className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" value={editItemForm.recipe_id} onChange={e => setEI('recipe_id', e.target.value)}>
+              <option value="">Bez receptury</option>
+              {recipes.map((recipe) => <option key={recipe.id} value={recipe.id}>{recipe.nazev}</option>)}
+            </select>
           </div>
           <div className="grid grid-cols-3 gap-3">
             <div><label className="text-xs text-stone-500 block mb-1">Nákupní cena</label><input type="number" className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" value={editItemForm.cena_nakup} onChange={e => setEI('cena_nakup', e.target.value)}/></div>

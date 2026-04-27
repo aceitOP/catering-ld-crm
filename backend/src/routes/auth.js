@@ -8,6 +8,7 @@ const { auth }  = require('../middleware/auth');
 const { sendPasswordReset } = require('../emailService');
 const { getModuleState } = require('../moduleAccess');
 const { ensureSuperAdminUser, getCanonicalSuperAdminEmail } = require('../superAdmin');
+const { getCapabilities } = require('../rbac');
 
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minut
@@ -134,6 +135,7 @@ router.post('/login', loginLimiter, async (req, res, next) => {
         role: effectiveRole,
         telefon: aktualniUzivatel.telefon,
         modules,
+        capabilities: getCapabilities(effectiveRole),
       }
     });
   } catch (err) { next(err); }
@@ -201,7 +203,7 @@ router.get('/me', auth, async (req, res, next) => {
       [req.user.id]
     );
     if (!rows[0]) return res.status(404).json({ error: 'Uživatel nenalezen' });
-    res.json({ ...rows[0], modules });
+    res.json({ ...rows[0], modules, capabilities: getCapabilities(rows[0].role) });
   } catch (err) { next(err); }
 });
 

@@ -6,7 +6,7 @@ import {
   LayoutDashboard, ClipboardList, Users, FileText, Building2,
   Calendar, UserCheck, FolderOpen, Tag, Settings, LogOut, BarChart2,
   Bell, X, Globe, Info, Trash2, CheckCheck, Inbox, Receipt, Archive,
-  ChevronDown, BookCopy, Mail, Sun, Moon, Clock, ShieldAlert, Bug,
+  ChevronDown, BookCopy, Mail, Sun, Moon, Clock, ShieldAlert, Bug, FlaskConical, BookOpenText,
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { APP_VERSION, CHANGELOG } from '../data/changelog';
@@ -71,6 +71,8 @@ const NAV = [
     children: [
       { to: '/dokumenty', label: 'Dokumenty', icon: FolderOpen, moduleKey: 'dokumenty' },
       { to: '/cenik',     label: 'Ceníky',    icon: Tag, moduleKey: 'cenik' },
+      { to: '/suroviny',  label: 'Suroviny',  icon: FlaskConical, moduleKey: 'cenik' },
+      { to: '/receptury', label: 'Receptury', icon: BookOpenText, moduleKey: 'cenik' },
       { to: '/reporty',   label: 'Reporty',   icon: BarChart2, moduleKey: 'reporty' },
       { to: '/error-log', label: 'Error log', icon: ShieldAlert, superAdminOnly: true, moduleKey: 'error_log' },
     ],

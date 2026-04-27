@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2, ChevronLeft, ChevronRight, Mail, Palette, Settings2, Users2 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -12,7 +12,7 @@ const STEPS = [
   { key: 'company', label: 'Firma', icon: Settings2 },
   { key: 'branding', label: 'Branding', icon: Palette },
   { key: 'email', label: 'E-mail', icon: Mail },
-  { key: 'team', label: 'Tym', icon: Users2 },
+  { key: 'team', label: 'Tým', icon: Users2 },
 ];
 
 const INITIAL_FORM = {
@@ -117,10 +117,10 @@ export default function SetupWizardPage() {
         refreshBranding(),
         refreshUser(),
       ]);
-      toast.success('Zakladni nastaveni je ulozeno');
+      toast.success('Základní nastavení je uloženo');
       navigate('/dashboard', { replace: true });
     },
-    onError: (err) => toast.error(err.response?.data?.error || 'Setup wizard se nepodarilo ulozit'),
+    onError: (err) => toast.error(err.response?.data?.error || 'Setup wizard se nepodařilo uložit'),
   });
 
   const stepKey = STEPS[stepIndex].key;
@@ -185,10 +185,10 @@ export default function SetupWizardPage() {
     <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(37,99,235,0.10),_transparent_32%),linear-gradient(180deg,#fafaf9_0%,#f5f5f4_100%)] px-6 py-8">
       <div className="mx-auto max-w-6xl grid gap-6 lg:grid-cols-[300px,1fr]">
         <aside className="rounded-[28px] bg-white border border-stone-200/80 shadow-xl shadow-stone-200/50 p-6">
-          <div className="text-xs uppercase tracking-[0.22em] text-stone-400 font-semibold">Prvni spusteni</div>
+          <div className="text-xs uppercase tracking-[0.22em] text-stone-400 font-semibold">První spuštění</div>
           <h1 className="mt-2 text-2xl font-bold text-stone-900">Setup wizard</h1>
           <p className="mt-2 text-sm text-stone-500">
-            Cista instalace je pripravena. Ted jen nastavime firmu, vzhled a zakladni e-mailove kanaly.
+            Čistá instalace je připravena. Teď jen nastavíme firmu, vzhled a základní e-mailové kanály.
           </p>
 
           <div className="mt-8 space-y-5">
@@ -204,7 +204,7 @@ export default function SetupWizardPage() {
           </div>
 
           <div className="mt-8 rounded-3xl bg-stone-50 border border-stone-200 p-4">
-            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-400">Doporuceni</div>
+            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-400">Doporučení</div>
             {recommendations.length ? (
               <ul className="mt-3 space-y-2 text-sm text-stone-600">
                 {recommendations.map((item) => (
@@ -218,7 +218,7 @@ export default function SetupWizardPage() {
                 ))}
               </ul>
             ) : (
-              <div className="mt-3 text-sm text-emerald-600 font-medium">Vsechny doporucene sekce jsou vyplnene.</div>
+              <div className="mt-3 text-sm text-emerald-600 font-medium">Všechny doporučené sekce jsou vyplněné.</div>
             )}
           </div>
         </aside>
@@ -228,16 +228,16 @@ export default function SetupWizardPage() {
             <div className="space-y-6">
               <div>
                 <div className="text-xs uppercase tracking-[0.2em] text-stone-400 font-semibold">Firma</div>
-                <h2 className="mt-2 text-2xl font-bold text-stone-900">Zakladni firemni udaje</h2>
-                <p className="mt-2 text-sm text-stone-500">Tyto hodnoty se propisi do nabidek, faktur, PDF vystupu i podpisu.</p>
+                <h2 className="mt-2 text-2xl font-bold text-stone-900">Základní firemní údaje</h2>
+                <p className="mt-2 text-sm text-stone-500">Tyto hodnoty se propíšou do nabídek, faktur, PDF výstupů i podpisů.</p>
               </div>
               <div className="grid gap-4 md:grid-cols-2">
-                <Field label="Nazev firmy *" value={form.firma_nazev} onChange={(e) => setForm((f) => ({ ...f, firma_nazev: e.target.value }))} />
-                <Field label="Firemni e-mail *" value={form.firma_email} onChange={(e) => setForm((f) => ({ ...f, firma_email: e.target.value }))} type="email" />
+                <Field label="Název firmy *" value={form.firma_nazev} onChange={(e) => setForm((f) => ({ ...f, firma_nazev: e.target.value }))} />
+                <Field label="Firemní e-mail *" value={form.firma_email} onChange={(e) => setForm((f) => ({ ...f, firma_email: e.target.value }))} type="email" />
                 <Field label="Telefon" value={form.firma_telefon} onChange={(e) => setForm((f) => ({ ...f, firma_telefon: e.target.value }))} />
                 <Field label="Web" value={form.firma_web} onChange={(e) => setForm((f) => ({ ...f, firma_web: e.target.value }))} placeholder="https://..." />
-                <Field label="ICO" value={form.firma_ico} onChange={(e) => setForm((f) => ({ ...f, firma_ico: e.target.value }))} />
-                <Field label="DIC" value={form.firma_dic} onChange={(e) => setForm((f) => ({ ...f, firma_dic: e.target.value }))} />
+                <Field label="IČO" value={form.firma_ico} onChange={(e) => setForm((f) => ({ ...f, firma_ico: e.target.value }))} />
+                <Field label="DIČ" value={form.firma_dic} onChange={(e) => setForm((f) => ({ ...f, firma_dic: e.target.value }))} />
                 <div className="md:col-span-2">
                   <Field label="Adresa sidla" value={form.firma_adresa} onChange={(e) => setForm((f) => ({ ...f, firma_adresa: e.target.value }))} />
                 </div>
@@ -345,7 +345,7 @@ export default function SetupWizardPage() {
           {stepKey === 'team' && (
             <div className="space-y-6">
               <div>
-                <div className="text-xs uppercase tracking-[0.2em] text-stone-400 font-semibold">Tym</div>
+                <div className="text-xs uppercase tracking-[0.2em] text-stone-400 font-semibold">Tým</div>
                 <h2 className="mt-2 text-2xl font-bold text-stone-900">Prvni dalsi uzivatel</h2>
                 <p className="mt-2 text-sm text-stone-500">
                   Tento krok je volitelny. Klidne nech zatim jen super admin ucet a dalsi lidi pridej az pozdeji v Nastaveni.
@@ -416,3 +416,4 @@ export default function SetupWizardPage() {
     </div>
   );
 }
+

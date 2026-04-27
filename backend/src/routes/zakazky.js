@@ -1,9 +1,10 @@
-const router = require('express').Router();
+﻿const router = require('express').Router();
 const { query, withTransaction } = require('../db');
 const { auth, requireMinRole } = require('../middleware/auth');
 const { requireAppModule } = require('../moduleAccess');
 const { sendKomando, sendDekujeme } = require('../emailService');
 const { createNotif } = require('../notifHelper');
+const { processNotificationEvent } = require('../notificationRules');
 const { upsertEvent, deleteEvent } = require('../googleCalendar');
 const { autoFollowup } = require('../followupHelper');
 const {
@@ -18,8 +19,21 @@ const {
   createVenueSnapshot,
   submitVenueDebrief,
 } = require('../venueTwin');
+const { aggregateIngredientsForZakazka } = require('../eventIngredientAggregator');
 
-// Generátor čísla zakázky – musí být voláno uvnitř transakce (FOR UPDATE zabrání race condition)
+const CRITICAL_EVENT_FIELDS = new Set([
+  'datum_akce',
+  'cas_zacatek',
+  'cas_konec',
+  'misto',
+  'venue_id',
+  'venue_loading_zone_id',
+  'venue_service_area_id',
+  'venue_route_id',
+  'pocet_hostu',
+]);
+
+// GenerĂˇtor ÄŤĂ­sla zakĂˇzky â€“ musĂ­ bĂ˝t volĂˇno uvnitĹ™ transakce (FOR UPDATE zabrĂˇnĂ­ race condition)
 async function genCislo(client) {
   const rok = new Date().getFullYear();
   const { rows } = await client.query(
@@ -38,7 +52,7 @@ router.get('/', auth, async (req, res, next) => {
             cena_od, cena_do, q, page = 1, limit = 20 } = req.query;
 
     // Input validation
-    if (q && q.length > 200) return res.status(400).json({ error: 'Hledaný výraz je příliš dlouhý' });
+    if (q && q.length > 200) return res.status(400).json({ error: 'HledanĂ˝ vĂ˝raz je pĹ™Ă­liĹˇ dlouhĂ˝' });
     const safeLimit = Math.min(Math.max(parseInt(limit) || 20, 1), 200);
     const safePage  = Math.max(parseInt(page) || 1, 1);
 
@@ -105,15 +119,18 @@ router.get('/:id', auth, async (req, res, next) => {
       LEFT JOIN venues v ON v.id = z.venue_id
       WHERE z.id = $1`, [req.params.id]);
 
-    if (!rows[0]) return res.status(404).json({ error: 'Zakázka nenalezena' });
+    
 
-    // Historie stavů
+    const hasCriticalChange = fields.some((field) => CRITICAL_EVENT_FIELDS.has(field))
+      && fields.some((field) => previous.rows[0][field] !== rows[0][field]);
+
+    // Historie stavĹŻ
     const history = await query(`
       SELECT zh.*, u.jmeno, u.prijmeni FROM zakazky_history zh
       LEFT JOIN uzivatele u ON u.id = zh.uzivatel_id
       WHERE zh.zakazka_id = $1 ORDER BY zh.created_at ASC LIMIT 200`, [req.params.id]);
 
-    // Personál
+    // PersonĂˇl
     const personal = await query(`
       SELECT zp.*, p.jmeno, p.prijmeni, p.role, p.telefon, p.email
       FROM zakazky_personal zp
@@ -125,7 +142,7 @@ router.get('/:id', auth, async (req, res, next) => {
       'SELECT * FROM dokumenty WHERE zakazka_id = $1 ORDER BY created_at DESC',
       [req.params.id]);
 
-    // Nabídka (aktivní) s položkami pro Komando
+    // NabĂ­dka (aktivnĂ­) s poloĹľkami pro Komando
     const nabidkaRes = await query(`
       SELECT n.*,
         COALESCE(
@@ -173,15 +190,15 @@ router.post('/', auth, async (req, res, next) => {
          cas_zacatek, cas_konec, misto, venue_id || null, venue_loading_zone_id || null, venue_service_area_id || null, venue_route_id || null,
          pocet_hostu, rozpocet_klienta, poznamka_klient, poznamka_interni, JSON.stringify(checklist)]);
       await client.query(`INSERT INTO zakazky_history (zakazka_id, stav_po, uzivatel_id, poznamka)
-                   VALUES ($1, 'rozpracovano', $2, 'Zakázka vytvořena')`,
+                   VALUES ($1, 'rozpracovano', $2, 'ZakĂˇzka vytvoĹ™ena')`,
         [rows[0].id, req.user.id]);
       return rows[0];
     });
 
     createNotif({
       typ: 'nova_zakazka',
-      titulek: `Nová zakázka — ${newZakazka.nazev}`,
-      zprava: `�slo: ${newZakazka.cislo}${misto ? ` � M�sto: ${misto}` : ''}`,
+      titulek: `NovĂˇ zakĂˇzka â€” ${newZakazka.nazev}`,
+      zprava: `ďż˝slo: ${newZakazka.cislo}${misto ? ` ďż˝ Mďż˝sto: ${misto}` : ''}`,
       odkaz: `/zakazky/${newZakazka.id}`,
     });
 
@@ -200,11 +217,20 @@ router.patch('/:id', auth, async (req, res, next) => {
                      'harmonogram','kontaktni_osoby_misto','rozsah_sluzeb','personalni_pozadavky',
                      'logistika','technicke_pozadavky','alergeny','specialni_prani','checklist'];
 
+    const previous = await query(
+      `SELECT id, cislo, nazev, datum_akce, cas_zacatek, cas_konec, misto,
+              venue_id, venue_loading_zone_id, venue_service_area_id, venue_route_id, pocet_hostu
+       FROM zakazky
+       WHERE id = $1`,
+      [req.params.id]
+    );
+
     const fields = Object.keys(req.body).filter(k => allowed.includes(k));
-    if (!fields.length) return res.status(400).json({ error: 'Žádná platná pole k aktualizaci' });
+    
+    if (!previous.rows[0]) return res.status(404).json({ error: 'Zakazka nenalezena' });
 
     const sets = fields.map((f, i) => `${f} = $${i + 2}`).join(', ');
-    // Prázdný string → null (zabrání chybě "invalid input syntax for type integer" u FK polí)
+    // PrĂˇzdnĂ˝ string â†’ null (zabrĂˇnĂ­ chybÄ› "invalid input syntax for type integer" u FK polĂ­)
     const vals = fields.map((f) => {
       const v = req.body[f];
       if (f === 'checklist') return JSON.stringify(normalizeChecklist(v));
@@ -215,9 +241,10 @@ router.patch('/:id', auth, async (req, res, next) => {
       `UPDATE zakazky SET ${sets} WHERE id = $1 RETURNING *`,
       [req.params.id, ...vals]);
 
-    if (!rows[0]) return res.status(404).json({ error: 'Zakázka nenalezena' });
+    const hasCriticalChange = fields.some((field) => CRITICAL_EVENT_FIELDS.has(field))
+      && fields.some((field) => previous.rows[0][field] !== rows[0][field]);
 
-    // Google Calendar sync: update event if zakázka is confirmed and has an event
+    // Google Calendar sync: update event if zakĂˇzka is confirmed and has an event
     if (rows[0].google_event_id && rows[0].stav === 'potvrzeno') {
       const { rows: full } = await query(`
         SELECT z.*, k.jmeno AS klient_jmeno, k.prijmeni AS klient_prijmeni, k.firma AS klient_firma
@@ -225,18 +252,29 @@ router.patch('/:id', auth, async (req, res, next) => {
       upsertEvent(full[0]).catch(err => console.warn('[GoogleCalendar] PATCH sync chyba:', err.message));
     }
 
+    if (hasCriticalChange) {
+      processNotificationEvent({
+        eventType: 'zakazka_changed',
+        zakazkaId: rows[0].id,
+        actorId: req.user.id,
+        dedupeKey: `zakazka_changed:${rows[0].id}:${Date.now()}`,
+        title: `Zmena zakazky: ${rows[0].cislo} - ${rows[0].nazev}`,
+        message: `Zakazka ${rows[0].cislo} (${rows[0].nazev}) ma zmenene dulezite detaily.`,
+      }).catch((err) => console.warn('[notification-rules] zakazka_changed chyba:', err.message));
+    }
+
     res.json(rows[0]);
   } catch (err) { next(err); }
 });
 
-// PATCH /api/zakazky/:id/stav – změna stavu s historií
+// PATCH /api/zakazky/:id/stav â€“ zmÄ›na stavu s historiĂ­
 router.patch('/:id/stav', auth, async (req, res, next) => {
   try {
     const { stav, poznamka } = req.body;
     const validStavy = ['nova_poptavka','rozpracovano','nabidka_pripravena','nabidka_odeslana',
                         'ceka_na_vyjadreni','potvrzeno','ve_priprave','realizovano','uzavreno','stornovano'];
     if (!validStavy.includes(stav)) {
-      return res.status(400).json({ error: 'Neplatný stav zakázky' });
+      return res.status(400).json({ error: 'NeplatnĂ˝ stav zakĂˇzky' });
     }
 
     let zakazkaRow = null;
@@ -248,7 +286,7 @@ router.patch('/:id/stav', auth, async (req, res, next) => {
                k.jmeno AS klient_jmeno, k.prijmeni AS klient_prijmeni, k.firma AS klient_firma
         FROM zakazky z LEFT JOIN klienti k ON k.id = z.klient_id
         WHERE z.id = $1`, [req.params.id]);
-      if (!old.rows[0]) throw Object.assign(new Error('Zakázka nenalezena'), { status: 404 });
+      if (!old.rows[0]) throw Object.assign(new Error('ZakĂˇzka nenalezena'), { status: 404 });
       zakazkaRow = old.rows[0];
       zakazkaRow.checklist = mergeChecklistWithTemplate(zakazkaRow.checklist, zakazkaRow.typ);
 
@@ -266,11 +304,19 @@ router.patch('/:id/stav', auth, async (req, res, next) => {
         [req.params.id, old.rows[0].stav, stav, req.user.id, poznamka || null]);
     });
 
-    // Follow-up auto-úkoly (fire-and-forget)
+    // Follow-up auto-Ăşkoly (fire-and-forget)
     autoFollowup(req.params.id, stav);
 
     // Google Calendar sync (fire-and-forget, errors non-fatal)
     if (stav === 'potvrzeno') {
+      processNotificationEvent({
+        eventType: 'zakazka_confirmed',
+        zakazkaId: req.params.id,
+        actorId: req.user.id,
+        dedupeKey: `zakazka_confirmed:${req.params.id}:${Date.now()}`,
+        title: `Potvrzena zakazka: ${zakazkaRow.cislo} - ${zakazkaRow.nazev}`,
+        message: `Zakazka ${zakazkaRow.cislo} (${zakazkaRow.nazev}) byla potvrzena.`,
+      }).catch((err) => console.warn('[notification-rules] zakazka_confirmed chyba:', err.message));
       createVenueSnapshot(null, req.params.id, req.user.id)
         .catch(err => console.warn('[VenueTwin] snapshot chyba:', err.message));
       upsertEvent({ ...zakazkaRow, id: req.params.id })
@@ -280,7 +326,7 @@ router.patch('/:id/stav', auth, async (req, res, next) => {
         .catch(err => console.warn('[GoogleCalendar] delete sync chyba:', err.message));
     }
 
-    res.json({ message: 'Stav zakázky aktualizován', stav });
+    res.json({ message: 'Stav zakĂˇzky aktualizovĂˇn', stav });
   } catch (err) { next(err); }
 });
 
@@ -293,7 +339,7 @@ router.post('/:id/komando', auth, requireAppModule('email'), async (req, res, ne
       SELECT z.*, k.jmeno AS klient_jmeno, k.prijmeni AS klient_prijmeni, k.firma AS klient_firma
       FROM zakazky z LEFT JOIN klienti k ON k.id = z.klient_id
       WHERE z.id = $1`, [req.params.id]);
-    if (!zRows[0]) return res.status(404).json({ error: 'Zakázka nenalezena' });
+    if (!zRows[0]) return res.status(404).json({ error: 'ZakĂˇzka nenalezena' });
 
     const { rows: personal } = await query(`
       SELECT zp.role_na_akci, zp.cas_prichod, zp.cas_odchod,
@@ -316,7 +362,7 @@ router.post('/:id/komando', auth, requireAppModule('email'), async (req, res, ne
     });
 
     res.json({
-      message: `Komando odesláno na ${result.count} adres`,
+      message: `Komando odeslĂˇno na ${result.count} adres`,
       count: result.count,
       recipients: result.recipients,
     });
@@ -326,7 +372,7 @@ router.post('/:id/komando', auth, requireAppModule('email'), async (req, res, ne
   }
 });
 
-// POST /api/zakazky/:id/dekujeme – odešle děkovací email klientovi
+// POST /api/zakazky/:id/dekujeme â€“ odeĹˇle dÄ›kovacĂ­ email klientovi
 router.post('/:id/dekujeme', auth, requireAppModule('email'), async (req, res, next) => {
   try {
     const { to, text } = req.body;
@@ -335,29 +381,32 @@ router.post('/:id/dekujeme', auth, requireAppModule('email'), async (req, res, n
       SELECT z.*, k.email AS klient_email, k.jmeno AS klient_jmeno, k.prijmeni AS klient_prijmeni, k.firma AS klient_firma
       FROM zakazky z LEFT JOIN klienti k ON k.id = z.klient_id
       WHERE z.id = $1`, [req.params.id]);
-    if (!rows[0]) return res.status(404).json({ error: 'Zakázka nenalezena' });
+    
+
+    const hasCriticalChange = fields.some((field) => CRITICAL_EVENT_FIELDS.has(field))
+      && fields.some((field) => previous.rows[0][field] !== rows[0][field]);
 
     const recipient = to || rows[0].klient_email;
-    if (!recipient) return res.status(400).json({ error: 'Chybí emailová adresa příjemce' });
+    if (!recipient) return res.status(400).json({ error: 'ChybĂ­ emailovĂˇ adresa pĹ™Ă­jemce' });
 
     const { rows: nastaveni } = await query('SELECT klic, hodnota FROM nastaveni');
     const firma = {};
     nastaveni.forEach(r => { firma[r.klic] = r.hodnota; });
 
     await sendDekujeme({ to: recipient, zakazka: rows[0], firma, text });
-    res.json({ message: `Děkovací e-mail odeslán na ${recipient}` });
+    res.json({ message: `DÄ›kovacĂ­ e-mail odeslĂˇn na ${recipient}` });
   } catch (err) {
     if (err.message.includes('SMTP')) return res.status(503).json({ error: err.message });
     next(err);
   }
 });
 
-// DELETE /api/zakazky/:id/personal/:pid – odebrat personál ze zakázky
+// DELETE /api/zakazky/:id/personal/:pid â€“ odebrat personĂˇl ze zakĂˇzky
 router.delete('/:id/personal/:pid', auth, async (req, res, next) => {
   try {
     await query('DELETE FROM zakazky_personal WHERE zakazka_id = $1 AND personal_id = $2',
       [req.params.id, req.params.pid]);
-    res.json({ message: 'Personál odebrán' });
+    res.json({ message: 'PersonĂˇl odebrĂˇn' });
   } catch (err) { next(err); }
 });
 
@@ -367,8 +416,11 @@ router.patch('/:id/archivovat', auth, async (req, res, next) => {
     const { rows } = await query(
       'UPDATE zakazky SET archivovano=true WHERE id=$1 RETURNING id, cislo, nazev',
       [req.params.id]);
-    if (!rows[0]) return res.status(404).json({ error: 'Zakázka nenalezena' });
-    res.json({ message: 'Zakázka archivována', ...rows[0] });
+    
+
+    const hasCriticalChange = fields.some((field) => CRITICAL_EVENT_FIELDS.has(field))
+      && fields.some((field) => previous.rows[0][field] !== rows[0][field]);
+    res.json({ message: 'ZakĂˇzka archivovĂˇna', ...rows[0] });
   } catch (err) { next(err); }
 });
 
@@ -378,12 +430,15 @@ router.patch('/:id/obnovit', auth, async (req, res, next) => {
     const { rows } = await query(
       'UPDATE zakazky SET archivovano=false WHERE id=$1 RETURNING id, cislo, nazev',
       [req.params.id]);
-    if (!rows[0]) return res.status(404).json({ error: 'Zakázka nenalezena' });
-    res.json({ message: 'Zakázka obnovena', ...rows[0] });
+    
+
+    const hasCriticalChange = fields.some((field) => CRITICAL_EVENT_FIELDS.has(field))
+      && fields.some((field) => previous.rows[0][field] !== rows[0][field]);
+    res.json({ message: 'ZakĂˇzka obnovena', ...rows[0] });
   } catch (err) { next(err); }
 });
 
-// GET /api/zakazky/:id/podklady – HTML dokument k tisku / uložení jako PDF
+// GET /api/zakazky/:id/podklady â€“ HTML dokument k tisku / uloĹľenĂ­ jako PDF
 router.get('/:id/podklady', auth, async (req, res, next) => {
   try {
     const { rows } = await query(`
@@ -395,10 +450,13 @@ router.get('/:id/podklady', auth, async (req, res, next) => {
       LEFT JOIN klienti k  ON k.id = z.klient_id
       LEFT JOIN uzivatele u ON u.id = z.obchodnik_id
       WHERE z.id = $1`, [req.params.id]);
-    if (!rows[0]) return res.status(404).json({ error: 'Zakázka nenalezena' });
+    
+
+    const hasCriticalChange = fields.some((field) => CRITICAL_EVENT_FIELDS.has(field))
+      && fields.some((field) => previous.rows[0][field] !== rows[0][field]);
     const z = rows[0];
 
-    // Personál
+    // PersonĂˇl
     const { rows: personal } = await query(`
       SELECT zp.role_na_akci, zp.cas_prichod, zp.cas_odchod, zp.poznamka,
              p.jmeno, p.prijmeni, p.role, p.telefon
@@ -407,7 +465,7 @@ router.get('/:id/podklady', auth, async (req, res, next) => {
       WHERE zp.zakazka_id = $1
       ORDER BY p.role`, [req.params.id]);
 
-    // Kalkulace – nejnovější verze s položkami
+    // Kalkulace â€“ nejnovÄ›jĹˇĂ­ verze s poloĹľkami
     const { rows: kalc } = await query(
       `SELECT * FROM kalkulace WHERE zakazka_id = $1 ORDER BY verze DESC LIMIT 1`,
       [req.params.id]);
@@ -420,24 +478,24 @@ router.get('/:id/podklady', auth, async (req, res, next) => {
     }
     const kalkulace = kalc[0] || null;
 
-    // Firma (nastavení)
+    // Firma (nastavenĂ­)
     const { rows: nastaveni } = await query('SELECT klic, hodnota FROM nastaveni');
     const firma = {};
     nastaveni.forEach(r => { firma[r.klic] = r.hodnota; });
 
-    // Pomocné formátovací funkce (server-side)
+    // PomocnĂ© formĂˇtovacĂ­ funkce (server-side)
     const fDate = (d) => d ? new Date(d).toLocaleDateString('cs-CZ', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
     const fTime = (t) => t ? t.slice(0, 5) : '';
     const fMoney = (n) => n != null ? Number(n).toLocaleString('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 }) : '';
-    const typMap = { svatba: 'Svatba', soukroma_akce: 'Soukromá akce', firemni_akce: 'Firemní akce', zavoz: 'Závoz', bistro: 'Bistro' };
-    const stavMap = { nova_poptavka: 'Nová poptávka', rozpracovano: 'Rozpracováno', nabidka_pripravena: 'Nabídka připravena', nabidka_odeslana: 'Nabídka odeslána', ceka_na_vyjadreni: 'Čeká na vyjádření', potvrzeno: 'Potvrzeno', ve_priprave: 'Ve přípravě', realizovano: 'Realizováno', uzavreno: 'Uzavřeno', stornovano: 'Stornováno' };
-    const rolMap = { koordinator: 'Koordinátor', cisnik: 'Číšník', kuchar: 'Kuchař', ridic: 'Řidič', barman: 'Barman', pomocna_sila: 'Pomocná síla' };
-    const katMap = { jidlo: 'Jídlo', napoje: 'Nápoje', personal: 'Personál', doprava: 'Doprava', vybaveni: 'Vybavení', pronajem: 'Pronájem', externi: 'Externí' };
+    const typMap = { svatba: 'Svatba', soukroma_akce: 'SoukromĂˇ akce', firemni_akce: 'FiremnĂ­ akce', zavoz: 'ZĂˇvoz', bistro: 'Bistro' };
+    const stavMap = { nova_poptavka: 'NovĂˇ poptĂˇvka', rozpracovano: 'RozpracovĂˇno', nabidka_pripravena: 'NabĂ­dka pĹ™ipravena', nabidka_odeslana: 'NabĂ­dka odeslĂˇna', ceka_na_vyjadreni: 'ÄŚekĂˇ na vyjĂˇdĹ™enĂ­', potvrzeno: 'Potvrzeno', ve_priprave: 'Ve pĹ™Ă­pravÄ›', realizovano: 'RealizovĂˇno', uzavreno: 'UzavĹ™eno', stornovano: 'StornovĂˇno' };
+    const rolMap = { koordinator: 'KoordinĂˇtor', cisnik: 'ÄŚĂ­ĹˇnĂ­k', kuchar: 'KuchaĹ™', ridic: 'ĹidiÄŤ', barman: 'Barman', pomocna_sila: 'PomocnĂˇ sĂ­la' };
+    const katMap = { jidlo: 'JĂ­dlo', napoje: 'NĂˇpoje', personal: 'PersonĂˇl', doprava: 'Doprava', vybaveni: 'VybavenĂ­', pronajem: 'PronĂˇjem', externi: 'ExternĂ­' };
 
-    const klientNazev = z.klient_firma || [z.klient_jmeno, z.klient_prijmeni].filter(Boolean).join(' ') || '—';
-    const obchodnikNazev = [z.obch_jmeno, z.obch_prijmeni].filter(Boolean).join(' ') || '—';
+    const klientNazev = z.klient_firma || [z.klient_jmeno, z.klient_prijmeni].filter(Boolean).join(' ') || 'â€”';
+    const obchodnikNazev = [z.obch_jmeno, z.obch_prijmeni].filter(Boolean).join(' ') || 'â€”';
 
-    // Skupiny položek kalkulace
+    // Skupiny poloĹľek kalkulace
     const skupiny = {};
     for (const p of kalcPolozky) {
       if (!skupiny[p.kategorie]) skupiny[p.kategorie] = [];
@@ -462,8 +520,8 @@ router.get('/:id/podklady', auth, async (req, res, next) => {
       <tr>
         <td style="padding:5px 8px;font-size:12px">${p.jmeno} ${p.prijmeni}</td>
         <td style="padding:5px 8px;font-size:12px">${rolMap[p.role] || p.role}${p.role_na_akci ? `  ${p.role_na_akci}` : ''}</td>
-        <td style="padding:5px 8px;font-size:12px;text-align:center">${fTime(p.cas_prichod)} – ${fTime(p.cas_odchod)}</td>
-        <td style="padding:5px 8px;font-size:12px">${p.telefon || '—'}</td>
+        <td style="padding:5px 8px;font-size:12px;text-align:center">${fTime(p.cas_prichod)} â€“ ${fTime(p.cas_odchod)}</td>
+        <td style="padding:5px 8px;font-size:12px">${p.telefon || 'â€”'}</td>
         <td style="padding:5px 8px;font-size:12px;color:#666">${p.poznamka || ''}</td>
       </tr>`).join('');
 
@@ -475,7 +533,7 @@ router.get('/:id/podklady', auth, async (req, res, next) => {
 <html lang="cs">
 <head>
 <meta charset="UTF-8">
-<title>Podklady k fakturaci – ${z.cislo}</title>
+<title>Podklady k fakturaci â€“ ${z.cislo}</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 13px; color: #222; background: #fff; }
@@ -509,10 +567,10 @@ router.get('/:id/podklady', auth, async (req, res, next) => {
 </style>
 </head>
 <body>
-<button class="print-btn no-print" onclick="window.print()">Tisk / Uložit PDF</button>
+<button class="print-btn no-print" onclick="window.print()">Tisk / UloĹľit PDF</button>
 <div class="page">
 
-  <!-- Hlavička -->
+  <!-- HlaviÄŤka -->
   <div class="header">
     <div>
       <div class="firma-name">${firma.firma_nazev || 'Catering LD'}</div>
@@ -522,37 +580,37 @@ router.get('/:id/podklady', auth, async (req, res, next) => {
     <div class="doc-title">
       <h1>Podklady k fakturaci</h1>
       <div class="cislo">${z.cislo}</div>
-      <div class="datum">Vygenerováno: ${fDate(new Date())}</div>
+      <div class="datum">VygenerovĂˇno: ${fDate(new Date())}</div>
     </div>
   </div>
 
-  <!-- Základní informace -->
+  <!-- ZĂˇkladnĂ­ informace -->
   <div class="section">
-    <div class="section-title">Zakázka</div>
+    <div class="section-title">ZakĂˇzka</div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:10px">
       <div class="info-block highlight">
-        <div class="label">Název akce</div>
+        <div class="label">NĂˇzev akce</div>
         <div class="value" style="font-size:14px">${z.nazev}</div>
-        <div class="sub">${typMap[z.typ] || z.typ} &nbsp;·&nbsp; <span class="badge">${stavMap[z.stav] || z.stav}</span></div>
+        <div class="sub">${typMap[z.typ] || z.typ} &nbsp;Â·&nbsp; <span class="badge">${stavMap[z.stav] || z.stav}</span></div>
       </div>
       <div class="info-block">
         <div class="label">Datum akce</div>
         <div class="value">${fDate(z.datum_akce)}</div>
-        <div class="sub">${fTime(z.cas_zacatek)} – ${fTime(z.cas_konec)}</div>
+        <div class="sub">${fTime(z.cas_zacatek)} â€“ ${fTime(z.cas_konec)}</div>
       </div>
       <div class="info-block">
-        <div class="label">Místo konání</div>
-        <div class="value" style="font-size:12px">${z.misto || '—'}</div>
+        <div class="label">MĂ­sto konĂˇnĂ­</div>
+        <div class="value" style="font-size:12px">${z.misto || 'â€”'}</div>
       </div>
       <div class="info-block">
-        <div class="label">Počet hostů</div>
-        <div class="value" style="font-size:20px">${z.pocet_hostu || '—'}</div>
+        <div class="label">PoÄŤet hostĹŻ</div>
+        <div class="value" style="font-size:20px">${z.pocet_hostu || 'â€”'}</div>
         <div class="sub">osob</div>
       </div>
     </div>
   </div>
 
-  <!-- Klient + Obchodník -->
+  <!-- Klient + ObchodnĂ­k -->
   <div class="section">
     <div class="grid2">
       <div>
@@ -565,7 +623,7 @@ router.get('/:id/podklady', auth, async (req, res, next) => {
         </div>
       </div>
       <div>
-        <div class="section-title">Koordinátor / Obchodník</div>
+        <div class="section-title">KoordinĂˇtor / ObchodnĂ­k</div>
         <div class="info-block">
           <div class="value">${obchodnikNazev}</div>
           ${z.obch_telefon ? `<div class="sub">${z.obch_telefon}</div>` : ''}
@@ -581,8 +639,8 @@ router.get('/:id/podklady', auth, async (req, res, next) => {
     <table>
       <thead>
         <tr>
-          <th>Položka</th>
-          <th class="right" style="width:70px">Množství</th>
+          <th>PoloĹľka</th>
+          <th class="right" style="width:70px">MnoĹľstvĂ­</th>
           <th style="width:50px">Jedn.</th>
           <th class="right" style="width:90px">Cena/jedn.</th>
           <th class="right" style="width:100px">Celkem</th>
@@ -592,27 +650,27 @@ router.get('/:id/podklady', auth, async (req, res, next) => {
         ${polozkyRows}
         <tr class="total-row">
           <td colspan="3" style="padding:7px 8px;font-size:12px">CELKEM BEZ DPH</td>
-          <td style="padding:7px 8px;font-size:12px;text-align:right;color:#666">Marže: ${marze}%</td>
+          <td style="padding:7px 8px;font-size:12px;text-align:right;color:#666">MarĹľe: ${marze}%</td>
           <td style="padding:7px 8px;font-size:13px;text-align:right">${fMoney(totalProdej)}</td>
         </tr>
       </tbody>
     </table>
     ${z.rozpocet_klienta ? `<div style="text-align:right;font-size:11px;color:#888;margin-top:6px">Rozpo
 et klienta: ${fMoney(z.rozpocet_klienta)}</div>` : ''}
-  </div>` : '<div class="section"><div class="section-title">Kalkulace</div><p style="color:#aaa;font-size:12px">Ke zakázce není přiřazena žádná kalkulace.</p></div>'}
+  </div>` : '<div class="section"><div class="section-title">Kalkulace</div><p style="color:#aaa;font-size:12px">Ke zakĂˇzce nenĂ­ pĹ™iĹ™azena ĹľĂˇdnĂˇ kalkulace.</p></div>'}
 
   ${personal.length > 0 ? `
-  <!-- Personál -->
+  <!-- PersonĂˇl -->
   <div class="section">
-    <div class="section-title">Personál na akci</div>
+    <div class="section-title">PersonĂˇl na akci</div>
     <table>
       <thead>
         <tr>
-          <th>Jméno</th>
+          <th>JmĂ©no</th>
           <th>Role</th>
-          <th style="width:120px;text-align:center">Příchod – Odchod</th>
+          <th style="width:120px;text-align:center">PĹ™Ă­chod â€“ Odchod</th>
           <th style="width:120px">Telefon</th>
-          <th>Poznámka</th>
+          <th>PoznĂˇmka</th>
         </tr>
       </thead>
       <tbody>${personalRows}</tbody>
@@ -620,28 +678,28 @@ et klienta: ${fMoney(z.rozpocet_klienta)}</div>` : ''}
   </div>` : ''}
 
   ${z.poznamka_klient || z.poznamka_interni ? `
-  <!-- Poznámky -->
+  <!-- PoznĂˇmky -->
   <div class="section">
     <div class="grid2">
-      ${z.poznamka_klient ? `<div><div class="section-title">Pozn�mka klienta</div><div class="poznamka-box">${z.poznamka_klient}</div></div>` : '<div></div>'}
-      ${z.poznamka_interni ? `<div><div class="section-title">Intern� pozn�mka</div><div class="poznamka-box" style="background:#f0f4ff;border-color:#c0d0f0">${z.poznamka_interni}</div></div>` : ''}
+      ${z.poznamka_klient ? `<div><div class="section-title">Poznďż˝mka klienta</div><div class="poznamka-box">${z.poznamka_klient}</div></div>` : '<div></div>'}
+      ${z.poznamka_interni ? `<div><div class="section-title">Internďż˝ poznďż˝mka</div><div class="poznamka-box" style="background:#f0f4ff;border-color:#c0d0f0">${z.poznamka_interni}</div></div>` : ''}
     </div>
   </div>` : ''}
 
-  <!-- Finanční souhrn -->
+  <!-- FinanÄŤnĂ­ souhrn -->
   <div class="section">
-    <div class="section-title">Finanční souhrn</div>
+    <div class="section-title">FinanÄŤnĂ­ souhrn</div>
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
       <div class="info-block highlight">
         <div class="label">Cena celkem</div>
         <div class="value" style="font-size:15px">${fMoney(z.cena_celkem || totalProdej || null)}</div>
       </div>
       <div class="info-block">
-        <div class="label">Náklady</div>
+        <div class="label">NĂˇklady</div>
         <div class="value" style="font-size:15px">${fMoney(z.cena_naklady || totalNakup || null)}</div>
       </div>
       <div class="info-block">
-        <div class="label">Záloha</div>
+        <div class="label">ZĂˇloha</div>
         <div class="value" style="font-size:15px">${fMoney(z.zaloha)}</div>
       </div>
       <div class="info-block">
@@ -652,8 +710,8 @@ et klienta: ${fMoney(z.rozpocet_klienta)}</div>` : ''}
   </div>
 
   <div class="footer">
-    <span>${firma.firma_nazev || 'Catering LD'} &nbsp;·&nbsp; ${firma.firma_email || ''} &nbsp;·&nbsp; ${firma.firma_telefon || ''}</span>
-    <span>Dokument vygenerován ${new Date().toLocaleString('cs-CZ')} &nbsp;·&nbsp; ${z.cislo}</span>
+    <span>${firma.firma_nazev || 'Catering LD'} &nbsp;Â·&nbsp; ${firma.firma_email || ''} &nbsp;Â·&nbsp; ${firma.firma_telefon || ''}</span>
+    <span>Dokument vygenerovĂˇn ${new Date().toLocaleString('cs-CZ')} &nbsp;Â·&nbsp; ${z.cislo}</span>
   </div>
 </div>
 </body>
@@ -681,7 +739,10 @@ router.get('/:id/dodaci-list', auth, async (req, res, next) => {
       WHERE z.id = $1
     `, [req.params.id]);
 
-    if (!rows[0]) return res.status(404).json({ error: 'Zakázka nenalezena' });
+    
+
+    const hasCriticalChange = fields.some((field) => CRITICAL_EVENT_FIELDS.has(field))
+      && fields.some((field) => previous.rows[0][field] !== rows[0][field]);
     const z = rows[0];
 
     const esc = (value) => String(value ?? '')
@@ -693,11 +754,11 @@ router.get('/:id/dodaci-list', auth, async (req, res, next) => {
 
     const fDate = (value) => value
       ? new Date(value).toLocaleDateString('cs-CZ', { day: '2-digit', month: '2-digit', year: 'numeric' })
-      : '—';
-    const fTime = (value) => value ? String(value).slice(0, 5) : '—';
+      : 'â€”';
+    const fTime = (value) => value ? String(value).slice(0, 5) : 'â€”';
 
-    const klientNazev = z.klient_firma || [z.klient_jmeno, z.klient_prijmeni].filter(Boolean).join(' ') || '—';
-    const venueNazev = z.venue_name || z.misto || '—';
+    const klientNazev = z.klient_firma || [z.klient_jmeno, z.klient_prijmeni].filter(Boolean).join(' ') || 'â€”';
+    const venueNazev = z.venue_name || z.misto || 'â€”';
     const venueAdresa = [
       z.venue_address_line_1,
       z.venue_address_line_2,
@@ -737,25 +798,25 @@ router.get('/:id/dodaci-list', auth, async (req, res, next) => {
             <td>${esc(item.nazev)}</td>
             <td class="right">${esc(item.mnozstvi)}</td>
             <td>${esc(item.jednotka || 'ks')}</td>
-            <td class="right">${item.cena_celkem != null ? new Intl.NumberFormat('cs-CZ').format(item.cena_celkem) + ' Kč' : '—'}</td>
+            <td class="right">${item.cena_celkem != null ? new Intl.NumberFormat('cs-CZ').format(item.cena_celkem) + ' KÄŤ' : 'â€”'}</td>
           </tr>
         `).join('')
-      : `<tr><td colspan="4" class="muted">Položky nejsou zatím vyplněné. Dodací list slouží jako provozní podklad a potvrzení předání.</td></tr>`;
+      : `<tr><td colspan="4" class="muted">PoloĹľky nejsou zatĂ­m vyplnÄ›nĂ©. DodacĂ­ list slouĹľĂ­ jako provoznĂ­ podklad a potvrzenĂ­ pĹ™edĂˇnĂ­.</td></tr>`;
 
     const logisticsRows = [
-      ['Místo akce', venueNazev],
-      ['Adresa venue', venueAdresa || z.misto || '—'],
-      ['Příjezdové okno', brief?.access_rule?.delivery_window || '—'],
-      ['Check-in point', brief?.access_rule?.check_in_point || '—'],
-      ['Security buffer', brief?.risk_summary?.expected_security_delay_minutes != null ? `${brief.risk_summary.expected_security_delay_minutes} min` : '—'],
-      ['Loading instrukce', brief?.loading_zone?.arrival_instructions || '—'],
-      ['Trasa do servisní zóny', brief?.route?.name || '—'],
-      ['Odhad unload -> room', brief?.risk_summary?.expected_unload_to_room_minutes != null ? `${brief.risk_summary.expected_unload_to_room_minutes} min` : '—'],
-      ['Parkování', brief?.parking_summary || '—'],
+      ['MĂ­sto akce', venueNazev],
+      ['Adresa venue', venueAdresa || z.misto || 'â€”'],
+      ['PĹ™Ă­jezdovĂ© okno', brief?.access_rule?.delivery_window || 'â€”'],
+      ['Check-in point', brief?.access_rule?.check_in_point || 'â€”'],
+      ['Security buffer', brief?.risk_summary?.expected_security_delay_minutes != null ? `${brief.risk_summary.expected_security_delay_minutes} min` : 'â€”'],
+      ['Loading instrukce', brief?.loading_zone?.arrival_instructions || 'â€”'],
+      ['Trasa do servisnĂ­ zĂłny', brief?.route?.name || 'â€”'],
+      ['Odhad unload -> room', brief?.risk_summary?.expected_unload_to_room_minutes != null ? `${brief.risk_summary.expected_unload_to_room_minutes} min` : 'â€”'],
+      ['ParkovĂˇnĂ­', brief?.parking_summary || 'â€”'],
     ].map(([label, value]) => `
       <tr>
         <td class="label-cell">${esc(label)}</td>
-        <td>${esc(value || '—')}</td>
+        <td>${esc(value || 'â€”')}</td>
       </tr>
     `).join('');
 
@@ -764,7 +825,7 @@ router.get('/:id/dodaci-list', auth, async (req, res, next) => {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Dodací list ${esc(z.cislo)}</title>
+  <title>DodacĂ­ list ${esc(z.cislo)}</title>
   <style>
     body { font-family: Arial, Helvetica, sans-serif; color:#1f2937; margin:0; background:#f5f5f4; }
     .page { max-width: 980px; margin: 24px auto; background:#fff; padding:32px; box-shadow:0 8px 24px rgba(0,0,0,.06); }
@@ -794,8 +855,8 @@ router.get('/:id/dodaci-list', auth, async (req, res, next) => {
   <div class="page">
     <div class="header">
       <div>
-        <h1 class="title">Dodací list</h1>
-        <div class="subtitle">Zakázka ${esc(z.cislo)} | ${esc(z.nazev)}</div>
+        <h1 class="title">DodacĂ­ list</h1>
+        <div class="subtitle">ZakĂˇzka ${esc(z.cislo)} | ${esc(z.nazev)}</div>
       </div>
       <div class="subtitle" style="text-align:right">
         <div><strong>${esc(firma.firma_nazev || 'Catering LD')}</strong></div>
@@ -807,7 +868,7 @@ router.get('/:id/dodaci-list', auth, async (req, res, next) => {
 
     <div class="grid">
       <div class="card">
-        <div class="section-title">Odběratel / klient</div>
+        <div class="section-title">OdbÄ›ratel / klient</div>
         <div><strong>${esc(klientNazev)}</strong></div>
         ${z.klient_email ? `<div class="muted">${esc(z.klient_email)}</div>` : ''}
         ${z.klient_telefon ? `<div class="muted">${esc(z.klient_telefon)}</div>` : ''}
@@ -816,27 +877,27 @@ router.get('/:id/dodaci-list', auth, async (req, res, next) => {
       <div class="card">
         <div class="section-title">Souhrn akce</div>
         <div><strong>Datum:</strong> ${esc(fDate(z.datum_akce))}</div>
-        <div><strong>Čas:</strong> ${esc(fTime(z.cas_zacatek))} - ${esc(fTime(z.cas_konec))}</div>
-        <div><strong>Typ akce:</strong> ${esc(z.typ || '—')}</div>
-        <div><strong>Počet hostů:</strong> ${esc(z.pocet_hostu || '—')}</div>
-        <div><strong>Koordinátor:</strong> ${esc([z.obch_jmeno, z.obch_prijmeni].filter(Boolean).join(' ') || '—')}</div>
+        <div><strong>ÄŚas:</strong> ${esc(fTime(z.cas_zacatek))} - ${esc(fTime(z.cas_konec))}</div>
+        <div><strong>Typ akce:</strong> ${esc(z.typ || 'â€”')}</div>
+        <div><strong>PoÄŤet hostĹŻ:</strong> ${esc(z.pocet_hostu || 'â€”')}</div>
+        <div><strong>KoordinĂˇtor:</strong> ${esc([z.obch_jmeno, z.obch_prijmeni].filter(Boolean).join(' ') || 'â€”')}</div>
       </div>
     </div>
 
     <div class="card" style="margin-bottom:18px;">
-      <div class="section-title">Logistika doručení</div>
+      <div class="section-title">Logistika doruÄŤenĂ­</div>
       <table>
         <tbody>${logisticsRows}</tbody>
       </table>
     </div>
 
     <div class="card" style="margin-bottom:18px;">
-      <div class="section-title">Dodávané položky / služby</div>
+      <div class="section-title">DodĂˇvanĂ© poloĹľky / sluĹľby</div>
       <table>
         <thead>
           <tr>
-            <th>Položka</th>
-            <th class="right">Množství</th>
+            <th>PoloĹľka</th>
+            <th class="right">MnoĹľstvĂ­</th>
             <th>Jednotka</th>
             <th class="right">Cena</th>
           </tr>
@@ -847,27 +908,27 @@ router.get('/:id/dodaci-list', auth, async (req, res, next) => {
 
     <div class="grid">
       <div class="card">
-        <div class="section-title">Rozsah služeb</div>
-        <div class="notes">${esc(z.rozsah_sluzeb || 'Není vyplněno.')}</div>
+        <div class="section-title">Rozsah sluĹľeb</div>
+        <div class="notes">${esc(z.rozsah_sluzeb || 'NenĂ­ vyplnÄ›no.')}</div>
       </div>
       <div class="card">
-        <div class="section-title">Poznámky pro předání</div>
-        <div class="notes">${esc(z.poznamka_klient || z.poznamka_interni || 'Bez doplňujících poznámek.')}</div>
+        <div class="section-title">PoznĂˇmky pro pĹ™edĂˇnĂ­</div>
+        <div class="notes">${esc(z.poznamka_klient || z.poznamka_interni || 'Bez doplĹujĂ­cĂ­ch poznĂˇmek.')}</div>
       </div>
     </div>
 
     <div class="signature-grid">
       <div class="signature">
-        <div class="section-title">Předal</div>
-        <div class="muted">Jméno a podpis</div>
+        <div class="section-title">PĹ™edal</div>
+        <div class="muted">JmĂ©no a podpis</div>
         <div class="signature-line"></div>
-        <div class="muted" style="margin-top:10px;">Datum a čas: ____________________</div>
+        <div class="muted" style="margin-top:10px;">Datum a ÄŤas: ____________________</div>
       </div>
       <div class="signature">
-        <div class="section-title">Převzal</div>
-        <div class="muted">Jméno a podpis</div>
+        <div class="section-title">PĹ™evzal</div>
+        <div class="muted">JmĂ©no a podpis</div>
         <div class="signature-line"></div>
-        <div class="muted" style="margin-top:10px;">Datum a čas: ____________________</div>
+        <div class="muted" style="margin-top:10px;">Datum a ÄŤas: ____________________</div>
       </div>
     </div>
   </div>
@@ -876,6 +937,14 @@ router.get('/:id/dodaci-list', auth, async (req, res, next) => {
 
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.send(html);
+  } catch (err) { next(err); }
+});
+
+// GET /api/zakazky/:id/ingredient-summary
+router.get('/:id/ingredient-summary', auth, async (req, res, next) => {
+  try {
+    const summary = await aggregateIngredientsForZakazka(req.params.id);
+    res.json(summary);
   } catch (err) { next(err); }
 });
 
@@ -900,6 +969,14 @@ router.post('/:id/venue-snapshot', auth, async (req, res, next) => {
 router.post('/:id/venue-debrief', auth, async (req, res, next) => {
   try {
     const result = await withTransaction(async (client) => submitVenueDebrief(client, req.params.id, req.body || {}, req.user.id));
+    processNotificationEvent({
+      eventType: 'venue_debrief_submitted',
+      zakazkaId: req.params.id,
+      actorId: req.user.id,
+      dedupeKey: `venue_debrief_submitted:${req.params.id}:${Date.now()}`,
+      title: `Venue debrief vyplnen: ${req.params.id}`,
+      message: 'Byl vyplnen venue debrief a ulozena nova pozorovani.',
+    }).catch((err) => console.warn('[notification-rules] venue_debrief_submitted chyba:', err.message));
     res.status(201).json(result);
   } catch (err) { next(err); }
 });
@@ -908,9 +985,13 @@ router.post('/:id/venue-debrief', auth, async (req, res, next) => {
 router.delete('/:id', auth, requireMinRole('admin'), async (req, res, next) => {
   try {
     const { rows } = await query('DELETE FROM zakazky WHERE id = $1 RETURNING id', [req.params.id]);
-    if (!rows[0]) return res.status(404).json({ error: 'Zakázka nenalezena' });
-    res.json({ message: 'Zakázka smazána' });
+    
+
+    const hasCriticalChange = fields.some((field) => CRITICAL_EVENT_FIELDS.has(field))
+      && fields.some((field) => previous.rows[0][field] !== rows[0][field]);
+    res.json({ message: 'ZakĂˇzka smazĂˇna' });
   } catch (err) { next(err); }
 });
 
 module.exports = router;
+

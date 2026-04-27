@@ -2,7 +2,7 @@
 
 const router = require('express').Router();
 const { query, withTransaction } = require('../db');
-const { auth, requireMinRole } = require('../middleware/auth');
+const { auth, requireCapability, requireMinRole } = require('../middleware/auth');
 const {
   getVenueBundle,
   buildVenueSummary,
@@ -423,7 +423,7 @@ router.get('/', auth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.post('/', auth, async (req, res, next) => {
+router.post('/', auth, requireCapability('venues.manage'), async (req, res, next) => {
   try {
     const payload = normalizeVenuePayload(req.body);
     if (!payload.name) return res.status(400).json({ error: 'Nazev venue je povinny' });
@@ -486,7 +486,7 @@ router.get('/:id', auth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.patch('/:id', auth, async (req, res, next) => {
+router.patch('/:id', auth, requireCapability('venues.manage'), async (req, res, next) => {
   try {
     const updated = await withTransaction(async (client) => {
       const before = await getSectionRow(client, 'venues', req.params.id);
@@ -547,7 +547,7 @@ router.get('/:id/event-history', auth, async (req, res, next) => {
 });
 
 for (const [sectionKey, def] of Object.entries(SECTION_DEFS)) {
-  router.post(`/:id/${sectionKey}`, auth, async (req, res, next) => {
+  router.post(`/:id/${sectionKey}`, auth, requireCapability('venues.manage'), async (req, res, next) => {
     try {
       const created = await withTransaction(async (client) => {
         const venue = await getSectionRow(client, 'venues', req.params.id);
@@ -582,7 +582,7 @@ for (const [sectionKey, def] of Object.entries(SECTION_DEFS)) {
     } catch (err) { next(err); }
   });
 
-  router.patch(`/:id/${sectionKey}/:rowId`, auth, async (req, res, next) => {
+  router.patch(`/:id/${sectionKey}/:rowId`, auth, requireCapability('venues.manage'), async (req, res, next) => {
     try {
       const updated = await withTransaction(async (client) => {
         const venue = await getSectionRow(client, 'venues', req.params.id);
@@ -610,7 +610,7 @@ for (const [sectionKey, def] of Object.entries(SECTION_DEFS)) {
     } catch (err) { next(err); }
   });
 
-  router.delete(`/:id/${sectionKey}/:rowId`, auth, async (req, res, next) => {
+  router.delete(`/:id/${sectionKey}/:rowId`, auth, requireCapability('venues.manage'), async (req, res, next) => {
     try {
       await withTransaction(async (client) => {
         const row = await getSectionRow(client, def.table, req.params.rowId);

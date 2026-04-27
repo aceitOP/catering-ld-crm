@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const { query } = require('../db');
 const { getCanonicalSuperAdminEmail } = require('../superAdmin');
+const { getCapabilities, hasCapability } = require('../rbac');
 
 // Hierarchie roli: cislo = uroven opravneni
 const ROLE_LEVEL = {
@@ -46,6 +47,7 @@ const auth = async (req, res, next) => {
       jmeno: dbUser.jmeno,
       prijmeni: dbUser.prijmeni,
       telefon: dbUser.telefon,
+      capabilities: getCapabilities(effectiveRole),
     };
     next();
   } catch {
@@ -76,4 +78,11 @@ const requireRole = (...roles) => (req, res, next) => {
 // Helper - zjisti level role uzivatele z requestu
 const userLevel = (req) => ROLE_LEVEL[req.user?.role] || 0;
 
-module.exports = { auth, requireRole, requireMinRole, userLevel, ROLE_LEVEL };
+const requireCapability = (capability) => (req, res, next) => {
+  if (!hasCapability(req.user, capability)) {
+    return res.status(403).json({ error: 'Nedostatecna opravneni' });
+  }
+  next();
+};
+
+module.exports = { auth, requireRole, requireMinRole, requireCapability, userLevel, ROLE_LEVEL };

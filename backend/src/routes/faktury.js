@@ -1,7 +1,7 @@
 'use strict';
 const router = require('express').Router();
 const { query, withTransaction } = require('../db');
-const { auth } = require('../middleware/auth');
+const { auth, requireCapability } = require('../middleware/auth');
 
 // Generátor čísla faktury: FAK-{rok}-{seq}
 async function genCislo(client) {
@@ -62,7 +62,7 @@ router.get('/:id', auth, async (req, res, next) => {
 });
 
 // POST /api/faktury
-router.post('/', auth, async (req, res, next) => {
+router.post('/', auth, requireCapability('faktury.manage'), async (req, res, next) => {
   try {
     const { klient_id, zakazka_id, datum_splatnosti, zpusob_platby, variabilni_symbol, poznamka, polozky } = req.body;
     if (!datum_splatnosti) return res.status(400).json({ error: 'Datum splatnosti je povinné' });
@@ -113,7 +113,7 @@ router.post('/', auth, async (req, res, next) => {
 });
 
 // PATCH /api/faktury/:id
-router.patch('/:id', auth, async (req, res, next) => {
+router.patch('/:id', auth, requireCapability('faktury.manage'), async (req, res, next) => {
   try {
     const { datum_splatnosti, zpusob_platby, variabilni_symbol, poznamka, polozky, klient_id } = req.body;
 
@@ -155,7 +155,7 @@ router.patch('/:id', auth, async (req, res, next) => {
 });
 
 // PATCH /api/faktury/:id/stav
-router.patch('/:id/stav', auth, async (req, res, next) => {
+router.patch('/:id/stav', auth, requireCapability('faktury.manage'), async (req, res, next) => {
   try {
     const { stav, datum_zaplaceni } = req.body;
     const valid = ['vystavena', 'odeslana', 'zaplacena', 'storno'];
@@ -176,7 +176,7 @@ router.patch('/:id/stav', auth, async (req, res, next) => {
 });
 
 // DELETE /api/faktury/:id
-router.delete('/:id', auth, async (req, res, next) => {
+router.delete('/:id', auth, requireCapability('faktury.manage'), async (req, res, next) => {
   try {
     // Atomicky: smaž pouze pokud stav = 'vystavena' – odstraní race condition
     const { rows } = await query(

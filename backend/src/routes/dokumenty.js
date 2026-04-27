@@ -57,11 +57,13 @@ const uploadSingleDocument = (req, res, next) => {
 
 router.get('/', auth, async (req, res, next) => {
   try {
-    const { zakazka_id, klient_id, venue_id, kategorie, slozka_id } = req.query;
+    const { zakazka_id, klient_id, venue_id, recipe_id, recipe_version_id, kategorie, slozka_id } = req.query;
     const where = []; const params = []; let p = 1;
     if (zakazka_id) { where.push(`zakazka_id = $${p++}`); params.push(zakazka_id); }
     if (klient_id)  { where.push(`klient_id = $${p++}`);  params.push(klient_id); }
     if (venue_id)   { where.push(`venue_id = $${p++}`);   params.push(venue_id); }
+    if (recipe_id)  { where.push(`recipe_id = $${p++}`);  params.push(recipe_id); }
+    if (recipe_version_id) { where.push(`recipe_version_id = $${p++}`); params.push(recipe_version_id); }
     if (kategorie)  { where.push(`kategorie = $${p++}`);  params.push(kategorie); }
     if (slozka_id === 'none') {
       where.push(`slozka_id IS NULL`);
@@ -99,12 +101,12 @@ router.get('/:id/download', auth, async (req, res, next) => {
 router.post('/upload', auth, uploadSingleDocument, async (req, res, next) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'Žádný soubor nahrán' });
-    const { kategorie, zakazka_id, klient_id, venue_id, poznamka, slozka_id } = req.body;
+    const { kategorie, zakazka_id, klient_id, venue_id, recipe_id, recipe_version_id, poznamka, slozka_id } = req.body;
     const { rows } = await query(
-      `INSERT INTO dokumenty (nazev, filename, mime_type, velikost, kategorie, zakazka_id, klient_id, venue_id, nahral_id, poznamka, slozka_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
+      `INSERT INTO dokumenty (nazev, filename, mime_type, velikost, kategorie, zakazka_id, klient_id, venue_id, recipe_id, recipe_version_id, nahral_id, poznamka, slozka_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
       [req.file.originalname, req.file.filename, req.file.mimetype, req.file.size,
-       kategorie || 'interni', zakazka_id || null, klient_id || null, venue_id || null, req.user.id, poznamka || null, slozka_id || null]);
+       kategorie || 'interni', zakazka_id || null, klient_id || null, venue_id || null, recipe_id || null, recipe_version_id || null, req.user.id, poznamka || null, slozka_id || null]);
     res.status(201).json(rows[0]);
   } catch (err) { next(err); }
 });

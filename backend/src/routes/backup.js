@@ -10,7 +10,8 @@ const {
   TABLES,
 } = require('../backupService');
 const { pool } = require('../db');
-const { auth, requireMinRole } = require('../middleware/auth');
+const { auth, requireCapability } = require('../middleware/auth');
+const { appendAdminAudit } = require('../adminAudit');
 
 const router = express.Router();
 
@@ -28,7 +29,7 @@ async function getTableCounts() {
 }
 
 // GET /api/backup - okamzity download JSON zalohy
-router.get('/', auth, requireMinRole('admin'), async (_req, res, next) => {
+router.get('/', auth, requireCapability('backup.manage'), async (_req, res, next) => {
   try {
     const payload = await buildBackupPayload();
     const json = JSON.stringify(payload, null, 2);
@@ -40,9 +41,20 @@ router.get('/', auth, requireMinRole('admin'), async (_req, res, next) => {
 });
 
 // POST /api/backup/run - vytvori zalohu na serveru
-router.post('/run', auth, requireMinRole('admin'), async (req, res, next) => {
+router.post('/run', auth, requireCapability('backup.manage'), async (req, res, next) => {
   try {
     const result = await runManagedBackup({ trigger: 'manual', actorId: req.user?.id });
+    await appendAdminAudit({
+      actorId: req.user?.id,
+      action: 'backup.run',
+      entityType: 'backup',
+      entityId: result.fileName,
+      afterPayload: {
+        file: result.fileName,
+        size: result.size,
+        created_at: result.createdAt,
+      },
+    });
     res.status(201).json({
       message: 'Zaloha byla vytvorena',
       file: {
@@ -55,7 +67,7 @@ router.post('/run', auth, requireMinRole('admin'), async (req, res, next) => {
 });
 
 // GET /api/backup/files - seznam ulozenych zaloh
-router.get('/files', auth, requireMinRole('admin'), async (_req, res, next) => {
+router.get('/files', auth, requireCapability('backup.manage'), async (_req, res, next) => {
   try {
     const files = await listBackupFiles();
     res.json({ data: files });
@@ -63,7 +75,7 @@ router.get('/files', auth, requireMinRole('admin'), async (_req, res, next) => {
 });
 
 // GET /api/backup/files/:name - stazeni konkretni zalohy
-router.get('/files/:name', auth, requireMinRole('admin'), async (req, res, next) => {
+router.get('/files/:name', auth, requireCapability('backup.manage'), async (req, res, next) => {
   try {
     const filePath = getBackupFilePath(req.params.name);
     if (!fs.existsSync(filePath)) {
@@ -74,7 +86,7 @@ router.get('/files/:name', auth, requireMinRole('admin'), async (req, res, next)
 });
 
 // GET /api/backup/info - pocty radku + stav backupu + seznam souboru
-router.get('/info', auth, requireMinRole('admin'), async (_req, res, next) => {
+router.get('/info', auth, requireCapability('backup.manage'), async (_req, res, next) => {
   try {
     const [counts, settings, files] = await Promise.all([
       getTableCounts(),

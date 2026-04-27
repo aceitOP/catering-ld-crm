@@ -1,6 +1,6 @@
 {
   "name": "catering-ld-backend",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Catering LD CRM – Backend API",
   "main": "src/index.js",
   "type": "commonjs",
@@ -13,6 +13,7 @@
     "security-test": "node scripts/security-test.js",
     "venue-test": "node scripts/venue-twin-test.js",
     "regression-test": "node scripts/regression-test.js",
+    "release-check": "node scripts/release-check.js",
     "smoke": "node scripts/system-test.js && node scripts/security-test.js",
     "lint": "eslint src --ext .js"
   },

@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+﻿import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -19,6 +19,7 @@ import KalendarPage from './pages/KalendarPage';
 import PersonalPage from './pages/PersonalPage';
 import DokumentyPage from './pages/DokumentyPage';
 import CenikPage from './pages/CenikPage';
+import IngredientsPage from './pages/IngredientsPage';
 import NastaveniPage from './pages/NastaveniPage';
 import ReportPage from './pages/ReportPage';
 import PoptavkyPage from './pages/PoptavkyPage';
@@ -33,6 +34,8 @@ import EmailPage from './pages/EmailPage';
 import ErrorLogPage from './pages/ErrorLogPage';
 import SetupWizardPage from './pages/SetupWizardPage';
 import VenueDetailPage from './pages/VenueDetailPage';
+import RecipesPage from './pages/RecipesPage';
+import RecipeDetailPage from './pages/RecipeDetailPage';
 import Layout from './components/Layout';
 import AppErrorBoundary from './components/AppErrorBoundary';
 
@@ -144,6 +147,9 @@ function App() {
                   <Route path="personal" element={<ModuleRoute moduleKey="personal"><PersonalPage /></ModuleRoute>} />
                   <Route path="dokumenty" element={<ModuleRoute moduleKey="dokumenty"><DokumentyPage /></ModuleRoute>} />
                   <Route path="cenik" element={<ModuleRoute moduleKey="cenik"><CenikPage /></ModuleRoute>} />
+                  <Route path="suroviny" element={<ModuleRoute moduleKey="cenik"><IngredientsPage /></ModuleRoute>} />
+                  <Route path="receptury" element={<ModuleRoute moduleKey="cenik"><RecipesPage /></ModuleRoute>} />
+                  <Route path="receptury/:id" element={<ModuleRoute moduleKey="cenik"><RecipeDetailPage /></ModuleRoute>} />
                   <Route path="reporty" element={<ModuleRoute moduleKey="reporty"><ReportPage /></ModuleRoute>} />
                   <Route path="faktury" element={<ModuleRoute moduleKey="faktury"><FakturyPage /></ModuleRoute>} />
                   <Route path="faktury/nova" element={<ModuleRoute moduleKey="faktury"><NovaFakturaPage /></ModuleRoute>} />
@@ -168,3 +174,5 @@ function App() {
 }
 
 export default App;
+
+

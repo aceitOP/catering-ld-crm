@@ -5,6 +5,7 @@ const { auth, requireMinRole, userLevel } = require('../middleware/auth');
 const { isModuleSettingKey } = require('../moduleConfig');
 const { refreshBackupScheduler } = require('../backupScheduler');
 const { getSetupStatus } = require('../setupWizard');
+const { appendAdminAudit } = require('../adminAudit');
 
 const router = express.Router();
 const SECRET_KEYS = new Set([
@@ -134,6 +135,11 @@ router.get('/', auth, async (req, res, next) => {
 
 router.patch('/', auth, requireMinRole('admin'), async (req, res, next) => {
   try {
+    const beforeResponse = await query('SELECT klic, hodnota FROM nastaveni');
+    const beforeMap = beforeResponse.rows.reduce((acc, row) => {
+      acc[row.klic] = row.hodnota;
+      return acc;
+    }, {});
     const keys = Object.keys(req.body || {});
     if (keys.some(isModuleSettingKey) && req.user?.role !== 'super_admin') {
       return res.status(403).json({ error: 'Moduly muze menit pouze super admin' });
@@ -146,6 +152,13 @@ router.patch('/', auth, requireMinRole('admin'), async (req, res, next) => {
       Object.entries(req.body || {}).map(([klic, hodnota]) => [klic, sanitizeSettingValue(klic, hodnota)])
     );
     await persistSettings(safeEntries);
+    await appendAdminAudit({
+      actorId: req.user?.id,
+      action: 'settings.update',
+      entityType: 'settings',
+      beforePayload: Object.fromEntries(keys.map((key) => [key, beforeMap[key] ?? null])),
+      afterPayload: safeEntries,
+    });
 
     if (keys.some((key) => key.startsWith('backup_auto_') || key === 'backup_retention_count')) {
       await refreshBackupScheduler();
@@ -247,6 +260,16 @@ router.post('/setup-wizard', auth, requireMinRole('super_admin'), async (req, re
     }
 
     const changedKeys = await persistSettings(safeEntries);
+    await appendAdminAudit({
+      actorId: req.user?.id,
+      action: 'settings.setup_wizard',
+      entityType: 'setup_wizard',
+      afterPayload: {
+        changed_keys: changedKeys,
+        created_user_id: createdUser?.id || null,
+        mark_complete: shouldMarkComplete,
+      },
+    });
     if (changedKeys.some((key) => key.startsWith('backup_auto_') || key === 'backup_retention_count')) {
       await refreshBackupScheduler();
     }

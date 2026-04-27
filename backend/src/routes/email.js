@@ -31,7 +31,7 @@ const nodemailer   = require('nodemailer');
 const { simpleParser } = require('mailparser');
 const fs           = require('fs');
 const path         = require('path');
-const { auth, requireMinRole } = require('../middleware/auth');
+const { auth, requireCapability, requireMinRole } = require('../middleware/auth');
 const { withImap, getImapConfig } = require('../emailImapService');
 const { withTransaction, query } = require('../db');
 const uploadDir    = process.env.UPLOAD_DIR || './uploads';
@@ -398,7 +398,7 @@ async function getSmtpConfig() {
 }
 
 // ── POST /smtp-test ───────────────────────────────────────────────────────────
-router.post('/smtp-test', requireMinRole('super_admin'), async (req, res) => {
+router.post('/smtp-test', requireCapability('email.smtp_test'), async (req, res) => {
   const smtpCfg = await getSmtpConfig().catch(err => ({ _err: err.message }));
   if (smtpCfg._err) return res.status(500).json({ ok: false, error: smtpCfg._err });
   if (!smtpCfg.host || !smtpCfg.user) {
@@ -776,7 +776,7 @@ router.get('/sablony', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.post('/sablony', async (req, res, next) => {
+router.post('/sablony', requireCapability('email.templates.manage'), async (req, res, next) => {
   try {
     const { nazev, predmet_prefix, telo, poradi } = req.body;
     if (!nazev) return res.status(400).json({ error: 'Chybí název' });
@@ -788,7 +788,7 @@ router.post('/sablony', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.patch('/sablony/:id', async (req, res, next) => {
+router.patch('/sablony/:id', requireCapability('email.templates.manage'), async (req, res, next) => {
   try {
     const { nazev, predmet_prefix, telo, poradi } = req.body;
     const { rows: [r] } = await query(
@@ -801,7 +801,7 @@ router.patch('/sablony/:id', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.delete('/sablony/:id', async (req, res, next) => {
+router.delete('/sablony/:id', requireCapability('email.templates.manage'), async (req, res, next) => {
   try {
     await query('DELETE FROM email_sablony WHERE id = $1', [req.params.id]);
     res.json({ ok: true });

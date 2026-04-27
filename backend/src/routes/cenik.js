@@ -2,6 +2,7 @@
 const express = require('express');
 const { query, withTransaction } = require('../db');
 const { auth, requireMinRole } = require('../middleware/auth');
+const { computeRecipeCostWithClient } = require('../recipeCostEngine');
 
 const router = express.Router();
 
@@ -120,25 +121,60 @@ router.get('/', auth, async (req, res, next) => {
     if (aktivni !== undefined) { where.push(`aktivni = $${p++}`); params.push(aktivni === 'true'); }
     if (q) { where.push(`nazev ILIKE $${p++}`); params.push(`%${q}%`); }
     const wc = where.length ? 'WHERE ' + where.join(' AND ') : '';
-    const { rows } = await query(`SELECT * FROM cenik ${wc} ORDER BY kategorie, nazev`, params);
-    res.json({ data: rows });
+    const { rows } = await query(
+      `
+        SELECT c.*, r.nazev AS recipe_nazev
+        FROM cenik c
+        LEFT JOIN recipes r ON r.id = c.recipe_id
+        ${wc}
+        ORDER BY c.kategorie, c.nazev
+      `,
+      params
+    );
+
+    const data = [];
+    for (const row of rows) {
+      let recipeCost = null;
+      if (row.recipe_id) {
+        recipeCost = await computeRecipeCostWithClient({ query }, { recipeId: row.recipe_id }).catch(() => null);
+      }
+      data.push({
+        ...row,
+        recipe_cost_current: recipeCost?.cost_per_portion ?? recipeCost?.total_cost ?? null,
+        recipe_cost_total: recipeCost?.total_cost ?? null,
+        recipe_allergens: recipeCost?.allergens || [],
+      });
+    }
+
+    res.json({ data });
   } catch (err) { next(err); }
 });
 
 router.post('/', auth, requireMinRole('uzivatel'), async (req, res, next) => {
   try {
-    const { nazev, kategorie, jednotka, cena_nakup, cena_prodej, dph_sazba, poznamka } = req.body;
+    const { nazev, kategorie, jednotka, cena_nakup, cena_prodej, dph_sazba, poznamka, recipe_id } = req.body;
+    let effectiveNakup = cena_nakup || 0;
+    if (recipe_id) {
+      const recipeCost = await computeRecipeCostWithClient({ query }, { recipeId: recipe_id }).catch(() => null);
+      if (recipeCost) effectiveNakup = recipeCost.cost_per_portion ?? recipeCost.total_cost ?? effectiveNakup;
+    }
     const { rows } = await query(
-      `INSERT INTO cenik (nazev,kategorie,jednotka,cena_nakup,cena_prodej,dph_sazba,poznamka)
-       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
-      [nazev, kategorie, jednotka || 'os.', cena_nakup || 0, cena_prodej || 0, dph_sazba || 12, poznamka]);
+      `INSERT INTO cenik (nazev,kategorie,jednotka,cena_nakup,cena_prodej,dph_sazba,poznamka,recipe_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+      [nazev, kategorie, jednotka || 'os.', effectiveNakup || 0, cena_prodej || 0, dph_sazba || 12, poznamka, recipe_id || null]);
     res.status(201).json(rows[0]);
   } catch (err) { next(err); }
 });
 
 router.patch('/:id', auth, requireMinRole('uzivatel'), async (req, res, next) => {
   try {
-    const allowed = ['nazev','kategorie','jednotka','cena_nakup','cena_prodej','dph_sazba','aktivni','poznamka'];
+    if (req.body.recipe_id) {
+      const recipeCost = await computeRecipeCostWithClient({ query }, { recipeId: req.body.recipe_id }).catch(() => null);
+      if (recipeCost && !Object.prototype.hasOwnProperty.call(req.body, 'cena_nakup')) {
+        req.body.cena_nakup = recipeCost.cost_per_portion ?? recipeCost.total_cost ?? req.body.cena_nakup;
+      }
+    }
+    const allowed = ['nazev','kategorie','jednotka','cena_nakup','cena_prodej','dph_sazba','aktivni','poznamka','recipe_id'];
     const fields = Object.keys(req.body).filter(k => allowed.includes(k));
     const sets = fields.map((f, i) => `${f} = $${i + 2}`).join(', ');
     const { rows } = await query(`UPDATE cenik SET ${sets} WHERE id = $1 RETURNING *`,

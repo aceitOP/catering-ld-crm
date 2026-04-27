@@ -14,8 +14,12 @@ const path    = require('path');
 const fs      = require('fs');
 const { initDb } = require('./initDb');
 const { startBackupScheduler } = require('./backupScheduler');
+const { startNotificationRuleScheduler } = require('./notificationRules');
 const { logAppError } = require('./errorLog');
 const { requireAppModule } = require('./moduleAccess');
+const { getBuildInfo } = require('./buildInfo');
+const { getInitState } = require('./initState');
+const { query } = require('./db');
 
 const app = express();
 
@@ -38,11 +42,14 @@ app.use('/api/kalkulace',  require('./routes/kalkulace'));
 app.use('/api/personal',   requireAppModule('personal'), require('./routes/personal'));
 app.use('/api/dokumenty',  requireAppModule('dokumenty'), require('./routes/dokumenty'));
 app.use('/api/cenik',      requireAppModule('cenik'), require('./routes/cenik'));
+app.use('/api/ingredients', requireAppModule('cenik'), require('./routes/ingredients'));
+app.use('/api/recipes', requireAppModule('cenik'), require('./routes/recipes'));
 app.use('/api/uzivatele',  require('./routes/uzivatele'));
 app.use('/api/nastaveni',  require('./routes/nastaveni'));
 app.use('/api/kalendar',   requireAppModule('kalendar'), require('./routes/kalendar'));
 app.use('/api/reporty',    requireAppModule('reporty'), require('./routes/reporty'));
 app.use('/api/notifikace', require('./routes/notifikace'));
+app.use('/api/notification-rules', require('./routes/notificationRules'));
 app.use('/api/tally',           require('./routes/tally'));
 app.use('/api/google-calendar', requireAppModule('kalendar'), require('./routes/google'));
 app.use('/api/faktury',         requireAppModule('faktury'), require('./routes/faktury'));
@@ -59,8 +66,32 @@ app.use('/api/backup',          require('./routes/backup'));
 app.use('/api/login-log',       require('./routes/loginLog'));
 
 // ── Health check ─────────────────────────────────────────────
-app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok', version: '1.0.0', time: new Date().toISOString() });
+app.get('/api/health', async (_req, res) => {
+  const build = getBuildInfo();
+  const init = getInitState();
+  let db = { ready: false };
+
+  try {
+    await query('SELECT 1');
+    db = { ready: true };
+  } catch (err) {
+    db = { ready: false, error: err.message };
+  }
+
+  const ready = Boolean(init.ready) && Boolean(db.ready);
+  res.status(ready ? 200 : 503).json({
+    status: ready ? 'ok' : 'degraded',
+    time: new Date().toISOString(),
+    version: build.frontend_app_version,
+    backend_version: build.backend_version,
+    frontend_version: build.frontend_app_version,
+    environment: build.node_env,
+    render_service: build.render_service,
+    render_git_commit: build.render_git_commit,
+    init,
+    db,
+    ready,
+  });
 });
 
 // ── Frontend SPA (production) ─────────────────────────────────
@@ -99,9 +130,11 @@ const PORT = process.env.PORT || 4000;
 
 initDb().then(() => {
   startBackupScheduler();
+  startNotificationRuleScheduler();
   app.listen(PORT, () => {
+    const build = getBuildInfo();
     console.log(`✅  Catering LD API běží na portu ${PORT}`);
-    console.log(`   Prostředí: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`   Prostředí: ${process.env.NODE_ENV || 'development'} · verze ${build.frontend_app_version}`);
   });
 }).catch((err) => {
   console.error('❌  Chyba při startu serveru:', err.message);

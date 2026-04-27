@@ -41,7 +41,7 @@ export function VyrobniListPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['vyrobni-list', id],
-    queryFn: () => productionApi.sheet(id),
+    queryFn: () => productionApi.sheetV2(id),
   });
 
   const sheet = data?.data;
@@ -286,6 +286,71 @@ export function VyrobniListPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {sheet.sekce_f_suroviny?.length > 0 && (
+          <div className="bg-white rounded-xl border border-stone-200 p-5">
+            <SectionHeader icon={Package} title="F – Agregovaný nákup surovin" count={sheet.sekce_f_suroviny.length} color="text-amber-700" />
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-xs text-stone-400 border-b border-stone-100">
+                  <th className="text-left pb-2 font-medium">Surovina</th>
+                  <th className="text-right pb-2 font-medium">Čisté množství</th>
+                  <th className="text-right pb-2 font-medium">Nákupní množství</th>
+                  <th className="text-right pb-2 font-medium">Náklad</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-stone-50">
+                {sheet.sekce_f_suroviny.map((row) => (
+                  <tr key={`${row.ingredient_id}-${row.jednotka}`} className="hover:bg-stone-50 transition-colors">
+                    <td className="py-2 pr-4 font-medium text-stone-800">{row.ingredient_name}</td>
+                    <td className="py-2 text-right text-stone-600">{row.mnozstvi} {row.jednotka}</td>
+                    <td className="py-2 text-right text-stone-600">{row.nakupni_mnozstvi} {row.jednotka}</td>
+                    <td className="py-2 text-right font-semibold text-stone-900">{Number(row.total_cost || 0).toLocaleString('cs-CZ')} Kč</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {sheet.sekce_g_komponenty?.length > 0 && (
+          <div className="bg-white rounded-xl border border-stone-200 p-5">
+            <SectionHeader icon={ChefHat} title="G – Komponenty k přípravě" count={sheet.sekce_g_komponenty.length} color="text-stone-700" />
+            <div className="space-y-2">
+              {sheet.sekce_g_komponenty.map((row) => (
+                <div key={`${row.recipe_id}-${row.jednotka}`} className="rounded-xl border border-stone-200 px-4 py-3 flex items-center justify-between gap-3">
+                  <div>
+                    <div className="font-medium text-stone-800">{row.recipe_name}</div>
+                    <div className="text-xs text-stone-400">{row.mnozstvi} {row.jednotka}</div>
+                  </div>
+                  <div className="text-sm font-semibold text-stone-700">{Number(row.scaled_cost || 0).toLocaleString('cs-CZ')} Kč</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {sheet.sekce_h_receptury?.length > 0 && (
+          <div className="bg-white rounded-xl border border-stone-200 p-5">
+            <SectionHeader icon={ChefHat} title="H – Recepturové karty v zakázce" count={sheet.sekce_h_receptury.length} color="text-blue-700" />
+            <div className="space-y-3">
+              {sheet.sekce_h_receptury.map((row) => (
+                <div key={`${row.kalkulace_polozka_id}-${row.recipe_version_id}`} className="rounded-xl border border-stone-200 px-4 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="font-medium text-stone-800">{row.recipe_name}</div>
+                      <div className="text-xs text-stone-400">verze {row.version_number} · {row.requested_quantity} {row.requested_unit}</div>
+                    </div>
+                    <div className="text-sm font-semibold text-stone-700">{Number(row.scaled_cost || 0).toLocaleString('cs-CZ')} Kč</div>
+                  </div>
+                  {row.allergens?.length > 0 && (
+                    <div className="mt-2 text-xs text-stone-500">Alergeny: {row.allergens.join(', ')}</div>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         )}
 

@@ -58,9 +58,10 @@ function detectAlergeny(items) {
  *
  * @param {object} zakazka   – row from zakazky table (with klient_* joins if available)
  * @param {object} kalkulace – kalkulace row + polozky array
+ * @param {object|null} ingredientSummary – agregovane suroviny a recepturove karty
  * @returns {object} production sheet
  */
-function generateProductionSheet(zakazka, kalkulace) {
+function generateProductionSheet(zakazka, kalkulace, ingredientSummary = null) {
   const items      = kalkulace.polozky || [];
   const pocetHostu = zakazka.pocet_hostu || kalkulace.pocet_hostu || 1;
 
@@ -136,6 +137,8 @@ function generateProductionSheet(zakazka, kalkulace) {
     total_nakup_adjusted: spotreba.total_nakup_adjusted,
     extra_naklady:        spotreba.extra_naklady,
     pocet_alergen_skupin: sekce_c_alergeny.length,
+    recepturove_radky: ingredientSummary?.summary?.total_recipe_rows || 0,
+    agregovane_suroviny: ingredientSummary?.summary?.total_ingredients || 0,
   };
 
   return {
@@ -161,8 +164,12 @@ function generateProductionSheet(zakazka, kalkulace) {
     sekce_c_alergeny,
     sekce_d_personal,
     sekce_e_logistika,
+    sekce_f_suroviny: ingredientSummary?.ingredients || [],
+    sekce_g_komponenty: ingredientSummary?.components || [],
+    sekce_h_receptury: ingredientSummary?.recipe_cards || [],
     // Summary
     shrnuti,
+    ingredient_summary: ingredientSummary,
     // Full consumption data (for detail view)
     spotreba,
   };
