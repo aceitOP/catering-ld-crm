@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const { query, withTransaction } = require('./db');
 const { loadFirmaSettings } = require('./firmaSettings');
 const { sendVoucherEmail, sendVoucherOrderPaymentInstructions, sendVoucherOrderAdminNotification } = require('./emailService');
+const { createNotif } = require('./notifHelper');
 
 function normalizeEmail(value) {
   const email = String(value || '').trim().toLowerCase();
@@ -20,6 +21,66 @@ function parseShopValues(raw) {
     .map((value) => Number(String(value).trim().replace(/\s+/g, '').replace(',', '.')))
     .filter((value) => Number.isFinite(value) && value > 0)
     .map((value) => Math.round(value));
+}
+
+function parseShopOffers(raw, minAmount) {
+  let parsed = [];
+  try {
+    parsed = JSON.parse(raw || '[]');
+  } catch {
+    parsed = [];
+  }
+  if (!Array.isArray(parsed)) return [];
+  return parsed
+    .map((offer, index) => {
+      const amount = Math.round(Number(offer?.amount));
+      const title = String(offer?.title || '').trim();
+      if (!title || !Number.isFinite(amount) || amount < minAmount || amount > 1000000) return null;
+      return {
+        id: String(offer?.id || `offer-${index + 1}`).trim().slice(0, 120) || `offer-${index + 1}`,
+        title: title.slice(0, 120),
+        amount,
+        description: String(offer?.description || '').trim().slice(0, 500),
+      };
+    })
+    .filter(Boolean);
+}
+
+function normalizeShopOffersForSave(rawOffers) {
+  const source = Array.isArray(rawOffers) ? rawOffers : [];
+  return source
+    .slice(0, 30)
+    .map((offer, index) => {
+      const title = String(offer?.title || '').trim().slice(0, 120);
+      const amount = parseInt(String(offer?.amount || '').replace(/\s+/g, ''), 10);
+      if (!title || Number.isNaN(amount) || amount < 1 || amount > 1000000) return null;
+      const id = String(offer?.id || title || `poukaz-${index + 1}`)
+        .trim()
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 80) || `poukaz-${index + 1}`;
+      return {
+        id,
+        title,
+        amount,
+        description: String(offer?.description || '').trim().slice(0, 500),
+      };
+    })
+    .filter(Boolean);
+}
+
+async function saveVoucherShopOffers(rawOffers) {
+  const offers = normalizeShopOffersForSave(rawOffers);
+  await query(
+    `INSERT INTO nastaveni (klic, hodnota, popis)
+     VALUES ('voucher_shop_offers', $1, 'Nabízené typy poukazů ve veřejném shopu')
+     ON CONFLICT (klic) DO UPDATE SET hodnota = EXCLUDED.hodnota`,
+    [JSON.stringify(offers)]
+  );
+  return offers;
 }
 
 function parsePositiveInt(value, fallback, min = 1, max = 120) {
@@ -74,6 +135,7 @@ async function getVoucherShopConfig({ includeQr = false } = {}) {
     'app_title',
     'app_logo_data_url',
     'app_color_theme',
+    'voucher_design_style',
     'firma_nazev',
     'firma_email',
     'firma_telefon',
@@ -82,15 +144,18 @@ async function getVoucherShopConfig({ includeQr = false } = {}) {
     'voucher_shop_enabled',
     'voucher_shop_values',
     'voucher_shop_min_amount',
+    'voucher_shop_offers',
     'voucher_shop_validity_months',
     'voucher_shop_terms_text',
   ]);
   const values = parseShopValues(firma.voucher_shop_values || '1000,2000,3000,5000,10000');
   const minAmount = parsePositiveInt(firma.voucher_shop_min_amount, 500, 1, 1000000);
+  const offers = parseShopOffers(firma.voucher_shop_offers, minAmount);
   return {
     enabled: String(firma.voucher_shop_enabled || 'false') === 'true',
     values: values.length ? values : [1000, 2000, 3000, 5000, 10000],
     min_amount: minAmount,
+    offers,
     validity_months: parsePositiveInt(firma.voucher_shop_validity_months, 12),
     terms_text: firma.voucher_shop_terms_text || '',
     bank_ready: Boolean(normalizeIban(firma.firma_iban)),
@@ -104,6 +169,7 @@ async function getVoucherShopConfig({ includeQr = false } = {}) {
       firma_web: firma.firma_web || '',
       app_logo_data_url: firma.app_logo_data_url || '',
       app_color_theme: firma.app_color_theme || 'ocean',
+      voucher_design_style: firma.voucher_design_style || 'classic',
     },
     includeQr,
   };
@@ -183,7 +249,11 @@ async function listOrders(params = {}) {
 }
 
 function normalizePublicOrderPayload(payload, config) {
-  const amount = Math.round(Number(payload.amount));
+  const selectedOfferId = String(payload.selected_offer_id || '').trim();
+  const selectedOffer = selectedOfferId
+    ? (config.offers || []).find((offer) => offer.id === selectedOfferId)
+    : null;
+  const amount = selectedOffer ? selectedOffer.amount : Math.round(Number(payload.amount));
   if (!Number.isFinite(amount) || amount < config.min_amount || amount > 1000000) {
     const err = new Error(`Hodnota poukazu musí být alespoň ${config.min_amount.toLocaleString('cs-CZ')} Kč.`);
     err.status = 400;
@@ -225,6 +295,9 @@ function normalizePublicOrderPayload(payload, config) {
   }
   return {
     amount,
+    selected_offer_id: selectedOffer?.id || null,
+    offer_title: (selectedOffer?.title || payload.offer_title || `Dárkový poukaz ${amount.toLocaleString('cs-CZ')} Kč`).trim().slice(0, 120),
+    offer_description: String(selectedOffer?.description || payload.offer_description || '').trim().slice(0, 500),
     buyer_name: buyerName,
     buyer_email: buyerEmail,
     billing_name: String(payload.billing_name || buyerName).trim().slice(0, 255),
@@ -270,12 +343,13 @@ async function createPublicOrder(payload = {}) {
     const { rows } = await client.query(
       `INSERT INTO voucher_orders (
          order_number, public_token, amount, buyer_name, buyer_email,
+         selected_offer_id, offer_title, offer_description,
          billing_name, billing_company, billing_ico, billing_dic, billing_address, billing_email,
          recipient_choice, recipient_name, recipient_email, fulfillment_note,
          delivery_mode, delivery_scheduled_at, payment_iban, payment_variable_symbol,
          payment_message, payment_qr_payload
        )
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
        RETURNING *`,
       [
         identity.orderNumber,
@@ -283,6 +357,9 @@ async function createPublicOrder(payload = {}) {
         normalized.amount,
         normalized.buyer_name,
         normalized.buyer_email,
+        normalized.selected_offer_id,
+        normalized.offer_title,
+        normalized.offer_description || null,
         normalized.billing_name || null,
         normalized.billing_company || null,
         normalized.billing_ico || null,
@@ -312,6 +389,12 @@ async function createPublicOrder(payload = {}) {
 
   const adminEmails = await getAdminNotificationEmails(firma);
   await Promise.allSettled([
+    createNotif({
+      typ: 'voucher',
+      titulek: 'Nová objednávka poukazu',
+      zprava: `${order.order_number} · ${Number(order.amount).toLocaleString('cs-CZ')} Kč · ${order.buyer_name}`,
+      odkaz: '/poukazy',
+    }),
     sendVoucherOrderPaymentInstructions({ to: order.buyer_email, order: enriched, firma }),
     sendVoucherOrderAdminNotification({ to: adminEmails, order: enriched, firma }),
   ]);
@@ -354,9 +437,9 @@ async function createVoucherForPaidOrder(client, order, actorId = null) {
     [
       code,
       publicToken,
-      code,
+      order.offer_title || code,
       order.amount,
-      order.fulfillment_note || null,
+      order.fulfillment_note || order.offer_description || null,
       order.recipient_name || null,
       order.recipient_email || null,
       order.buyer_name || null,
@@ -505,6 +588,7 @@ module.exports = {
   buildSpaydPayload,
   renderPaymentQrDataUrl,
   getVoucherShopConfig,
+  saveVoucherShopOffers,
   createPublicOrder,
   loadOrder,
   listOrders,

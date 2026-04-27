@@ -49,6 +49,7 @@ import VoucherDetailPage from './pages/VoucherDetailPage';
 import PublicVoucherPage from './pages/PublicVoucherPage';
 import VoucherShopPage from './pages/VoucherShopPage';
 import VoucherShopOrderPage from './pages/VoucherShopOrderPage';
+import VoucherShopTermsPage from './pages/VoucherShopTermsPage';
 import FunctionsPage from './pages/FunctionsPage';
 import Layout from './components/Layout';
 import AppErrorBoundary from './components/AppErrorBoundary';
@@ -157,6 +158,7 @@ function App() {
                 <Routes>
                   <Route path="/login" element={<LoginPage />} />
                   <Route path="/shop" element={<VoucherShopPage />} />
+                  <Route path="/shop/obchodni-podminky" element={<VoucherShopTermsPage />} />
                   <Route path="/shop/objednavka/:token" element={<VoucherShopOrderPage />} />
                   <Route path="/nabidka/:token" element={<ClientProposalPage />} />
                   <Route path="/voucher/:token" element={<PublicVoucherPage />} />

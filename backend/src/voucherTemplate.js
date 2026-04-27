@@ -115,6 +115,11 @@ async function buildVoucherHtml({ voucher, firma = {}, qrDataUrl = '' }) {
   const companyLabel = firma.firma_nazev || branding.appTitle || 'Catering CRM';
   const defaultFooter = [companyLabel, firma.firma_email].filter(Boolean).join(' • ');
   const voucherCode = voucher.kod || 'NÁHLED';
+  const voucherKind = String(voucher.title || '').trim();
+  const subtitleParts = [
+    voucherKind && voucherKind !== 'Dárkový poukaz' ? voucherKind : 'Dárkový certifikát',
+    voucherCode,
+  ];
 
   return `<!DOCTYPE html>
 <html lang="cs">
@@ -159,8 +164,8 @@ async function buildVoucherHtml({ voucher, firma = {}, qrDataUrl = '' }) {
         ${branding.logoDataUrl
           ? `<div style="width:92px;height:72px;border-radius:20px;background:rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;overflow:hidden;margin-bottom:16px"><img src="${esc(branding.logoDataUrl)}" alt="${esc(companyLabel)}" style="width:100%;height:100%;object-fit:contain"></div>`
           : `<div class="badge">${esc(companyLabel)}</div>`}
-        <div class="title">${esc(voucher.title)}</div>
-        <div class="subtitle">Dárkový certifikát • ${esc(voucherCode)}</div>
+        <div class="title">Dárkový poukaz</div>
+        <div class="subtitle">${esc(subtitleParts.join(' • '))}</div>
       </div>
     </div>
     <div class="content">

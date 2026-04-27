@@ -105,6 +105,45 @@ function sanitizeSettingValue(key, value) {
     return String(amount);
   }
 
+  if (key === 'voucher_shop_offers') {
+    let parsed;
+    try {
+      parsed = JSON.parse(raw || '[]');
+    } catch {
+      const err = new Error('Nabízené poukazy musí být platný seznam');
+      err.status = 400;
+      throw err;
+    }
+    if (!Array.isArray(parsed)) {
+      const err = new Error('Nabízené poukazy musí být seznam');
+      err.status = 400;
+      throw err;
+    }
+    const offers = parsed
+      .slice(0, 30)
+      .map((offer, index) => {
+        const title = String(offer?.title || '').trim().slice(0, 120);
+        const amount = parseInt(String(offer?.amount || '').replace(/\s+/g, ''), 10);
+        if (!title || Number.isNaN(amount) || amount < 1 || amount > 1000000) return null;
+        const id = String(offer?.id || title || `poukaz-${index + 1}`)
+          .trim()
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '')
+          .slice(0, 80) || `poukaz-${index + 1}`;
+        return {
+          id,
+          title,
+          amount,
+          description: String(offer?.description || '').trim().slice(0, 500),
+        };
+      })
+      .filter(Boolean);
+    return JSON.stringify(offers);
+  }
+
   if (key === 'voucher_shop_validity_months') {
     const months = parseInt(raw, 10);
     if (Number.isNaN(months) || months < 1 || months > 120) {

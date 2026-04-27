@@ -4,6 +4,7 @@ const express = require('express');
 const { auth, requireCapability } = require('../middleware/auth');
 const {
   getVoucherShopConfig,
+  saveVoucherShopOffers,
   createPublicOrder,
   loadOrder,
   listOrders,
@@ -51,6 +52,24 @@ adminRouter.get('/', auth, requireCapability('vouchers.manage'), async (req, res
   try {
     const data = await listOrders(req.query || {});
     res.json({ data });
+  } catch (err) {
+    next(err);
+  }
+});
+
+adminRouter.get('/shop-offers', auth, requireCapability('vouchers.manage'), async (_req, res, next) => {
+  try {
+    const config = await getVoucherShopConfig();
+    res.json({ data: config.offers || [] });
+  } catch (err) {
+    next(err);
+  }
+});
+
+adminRouter.patch('/shop-offers', auth, requireCapability('vouchers.manage'), async (req, res, next) => {
+  try {
+    const offers = await saveVoucherShopOffers(req.body?.offers || []);
+    res.json({ data: offers });
   } catch (err) {
     next(err);
   }

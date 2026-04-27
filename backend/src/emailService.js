@@ -578,6 +578,7 @@ async function sendVoucherOrderPaymentInstructions({ to, order, firma }) {
       Poukaz připravíme po přijetí platby bankovním převodem.
     </p>
     <div style="background:#f5f5f4;border-radius:10px;padding:18px 20px;margin-bottom:22px;">
+      ${order.offer_title ? `<div style="font-size:14px;color:#57534e;margin-bottom:8px;">Poukaz: <strong>${esc(order.offer_title)}</strong></div>` : ''}
       <div style="font-size:14px;color:#57534e;">Částka k úhradě</div>
       <div style="font-size:26px;font-weight:700;color:#1c1917;margin-top:6px;">${czk(order.amount)}</div>
       <div style="font-size:14px;color:#57534e;margin-top:10px;">IBAN: <strong>${esc(order.payment_iban)}</strong></div>
@@ -610,6 +611,7 @@ async function sendVoucherOrderAdminNotification({ to, order, firma }) {
       Ve veřejném shopu vznikla nová objednávka poukazu <strong>${esc(order.order_number)}</strong>.
     </p>
     <div style="background:#f5f5f4;border-radius:10px;padding:18px 20px;margin-bottom:22px;">
+      ${order.offer_title ? `<div style="font-size:14px;color:#57534e;margin-bottom:4px;">Poukaz: <strong>${esc(order.offer_title)}</strong></div>` : ''}
       <div style="font-size:14px;color:#57534e;">Částka: <strong>${czk(order.amount)}</strong></div>
       <div style="font-size:14px;color:#57534e;margin-top:4px;">Kupující: <strong>${esc(order.buyer_name)}</strong> &lt;${esc(order.buyer_email)}&gt;</div>
       ${order.billing_company || order.billing_name || order.billing_address ? `<div style="font-size:14px;color:#57534e;margin-top:4px;">Fakturace: <strong>${esc(order.billing_company || order.billing_name || order.buyer_name)}</strong>${order.billing_ico ? `, IČO ${esc(order.billing_ico)}` : ''}${order.billing_dic ? `, DIČ ${esc(order.billing_dic)}` : ''}${order.billing_address ? `<br>${esc(order.billing_address).replace(/\n/g, '<br>')}` : ''}</div>` : ''}

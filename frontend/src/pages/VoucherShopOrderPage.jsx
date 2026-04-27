@@ -53,6 +53,8 @@ export default function VoucherShopOrderPage() {
         <p className="mt-1 text-sm text-stone-500">Stav: <strong className="text-stone-900">{STATUS_LABELS[order.status] || order.status}</strong></p>
 
         <div className="mt-6 rounded-2xl bg-stone-50 p-5">
+          {order.offer_title && <div className="mb-2 text-lg font-semibold text-stone-900">{order.offer_title}</div>}
+          {order.offer_description && <div className="mb-4 text-sm leading-6 text-stone-500">{order.offer_description}</div>}
           <div className="text-sm text-stone-500">Částka k úhradě</div>
           <div className="mt-1 text-3xl font-bold text-stone-900">{money(order.amount)}</div>
           <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2">

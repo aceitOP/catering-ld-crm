@@ -23,6 +23,24 @@ const VOUCHER_DESIGN_OPTIONS = [
   { value: 'festive', label: 'Slavnostní', description: 'Výraznější dekorativní vzhled pro dárkové použití.' },
 ];
 
+function parseVoucherShopOffers(raw) {
+  try {
+    const parsed = JSON.parse(raw || '[]');
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function serializeVoucherShopOffers(offers) {
+  return JSON.stringify(offers.map((offer, index) => ({
+    id: offer.id || `poukaz-${index + 1}`,
+    title: offer.title || '',
+    amount: offer.amount || '',
+    description: offer.description || '',
+  })));
+}
+
 function formatBackupStatus(status) {
   if (status === 'success') return { label: 'V pořádku', className: 'text-emerald-700' };
   if (status === 'error') return { label: 'Chyba', className: 'text-red-600' };
@@ -548,6 +566,17 @@ export function NastaveniPage() {
     admin:    'Administrátor',
     uzivatel: 'Uživatel',
   };
+  const voucherShopOffers = parseVoucherShopOffers(form.voucher_shop_offers ?? nastavData?.data?.voucher_shop_offers);
+  const setVoucherShopOffers = (offers) => setForm((f) => ({ ...f, voucher_shop_offers: serializeVoucherShopOffers(offers) }));
+  const updateVoucherShopOffer = (index, key, value) => {
+    const next = voucherShopOffers.map((offer, offerIndex) => offerIndex === index ? { ...offer, [key]: value } : offer);
+    setVoucherShopOffers(next);
+  };
+  const addVoucherShopOffer = () => setVoucherShopOffers([
+    ...voucherShopOffers,
+    { id: `poukaz-${Date.now()}`, title: '', amount: '', description: '' },
+  ]);
+  const removeVoucherShopOffer = (index) => setVoucherShopOffers(voucherShopOffers.filter((_, offerIndex) => offerIndex !== index));
 
   return (
     <div>
@@ -735,6 +764,66 @@ export function NastaveniPage() {
                       value={form.voucher_shop_validity_months ?? nastavData?.data?.voucher_shop_validity_months ?? '12'}
                       onChange={(e) => setForm((f) => ({ ...f, voucher_shop_validity_months: e.target.value }))}
                     />
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-medium text-stone-800">Nabízené poukazy ve shopu</div>
+                      <div className="text-xs text-stone-500 mt-1">Dlaždice, které zákazník uvidí na /shop. Například Degustační menu pro dva.</div>
+                    </div>
+                    <button type="button" className="px-3 py-2 text-xs font-medium border border-stone-200 rounded-lg hover:bg-stone-50" onClick={addVoucherShopOffer}>
+                      Přidat poukaz
+                    </button>
+                  </div>
+                  <div className="space-y-3">
+                    {voucherShopOffers.map((offer, index) => (
+                      <div key={offer.id || index} className="rounded-lg border border-stone-200 p-3 space-y-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-[1fr_150px_auto] gap-2">
+                          <div>
+                            <label className="text-xs text-stone-500 block mb-1">Název</label>
+                            <input
+                              className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                              value={offer.title || ''}
+                              onChange={(e) => updateVoucherShopOffer(index, 'title', e.target.value)}
+                              placeholder="Degustační menu pro dva"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs text-stone-500 block mb-1">Hodnota</label>
+                            <input
+                              type="number"
+                              min="1"
+                              max="1000000"
+                              className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                              value={offer.amount || ''}
+                              onChange={(e) => updateVoucherShopOffer(index, 'amount', e.target.value)}
+                              placeholder="2500"
+                            />
+                          </div>
+                          <div className="flex items-end">
+                            <button type="button" className="px-3 py-2 text-xs font-medium border border-stone-200 rounded-lg hover:bg-stone-50" onClick={() => removeVoucherShopOffer(index)}>
+                              Smazat
+                            </button>
+                          </div>
+                        </div>
+                        <div>
+                          <label className="text-xs text-stone-500 block mb-1">Popis</label>
+                          <textarea
+                            className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none resize-y"
+                            rows={2}
+                            value={offer.description || ''}
+                            onChange={(e) => updateVoucherShopOffer(index, 'description', e.target.value)}
+                            placeholder="Krátký popis, který se zobrazí na dlaždici a v náhledu poukazu."
+                          />
+                        </div>
+                      </div>
+                    ))}
+                    {!voucherShopOffers.length && (
+                      <div className="rounded-lg border border-dashed border-stone-200 px-3 py-4 text-xs text-stone-500">
+                        Zatím nejsou nastavené žádné unikátní poukazy. Shop použije hodnotové dlaždice z povolených hodnot.
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div>
@@ -1448,4 +1537,3 @@ export function NastaveniPage() {
 }
 
 export default NastaveniPage;
-

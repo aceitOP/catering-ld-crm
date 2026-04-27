@@ -43,6 +43,24 @@ const ORDER_STATUS_LABELS = {
 
 const QUICK_VOUCHER_VALUES = [1000, 2000, 3000, 5000, 10000];
 
+function parseVoucherShopOffers(raw) {
+  try {
+    const parsed = JSON.parse(raw || '[]');
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function serializeVoucherShopOffers(offers) {
+  return JSON.stringify(offers.map((offer, index) => ({
+    id: offer.id || `poukaz-${index + 1}`,
+    title: offer.title || '',
+    amount: offer.amount || '',
+    description: offer.description || '',
+  })));
+}
+
 function formatVoucherValue(value) {
   return `${Number(value).toLocaleString('cs-CZ')} Kč`;
 }
@@ -66,6 +84,11 @@ export default function VouchersPage() {
   const ordersQuery = useQuery({
     queryKey: ['voucher-orders', orderFilters],
     queryFn: () => voucherOrdersApi.list({ status: orderFilters.status || undefined, q: orderFilters.q || undefined }),
+  });
+  const shopOffersQuery = useQuery({
+    queryKey: ['voucher-shop-offers'],
+    queryFn: voucherOrdersApi.shopOffers,
+    enabled: tab === 'shop-offers',
   });
 
   const createMut = useMutation({
@@ -125,6 +148,14 @@ export default function VouchersPage() {
     },
     onError: (err) => toast.error(err.response?.data?.error || 'Odeslání se nepodařilo.'),
   });
+  const saveShopOffersMut = useMutation({
+    mutationFn: voucherOrdersApi.updateShopOffers,
+    onSuccess: () => {
+      toast.success('Poukazy v prodeji byly uloženy.');
+      qc.invalidateQueries({ queryKey: ['voucher-shop-offers'] });
+    },
+    onError: (err) => toast.error(err?.response?.data?.error || 'Poukazy v prodeji se nepodařilo uložit.'),
+  });
 
   const previewMut = useMutation({
     mutationFn: vouchersApi.preview,
@@ -135,6 +166,7 @@ export default function VouchersPage() {
   const vouchers = data?.data?.data || [];
   const orders = ordersQuery.data?.data?.data || [];
   const klienti = clientsQuery.data?.data?.data || [];
+  const shopOffers = parseVoucherShopOffers(form.voucher_shop_offers ?? JSON.stringify(shopOffersQuery.data?.data?.data || []));
   const selectedQuickValue = QUICK_VOUCHER_VALUES.includes(Number(form.nominal_value))
     ? Number(form.nominal_value)
     : null;
@@ -243,6 +275,13 @@ export default function VouchersPage() {
     }
     sendMut.mutate({ id: voucher.id, email: trimmed });
   };
+  const setShopOffers = (offers) => setForm((f) => ({ ...f, voucher_shop_offers: serializeVoucherShopOffers(offers) }));
+  const addShopOffer = () => setShopOffers([...shopOffers, { id: `poukaz-${Date.now()}`, title: '', amount: '', description: '' }]);
+  const updateShopOffer = (index, key, value) => {
+    setShopOffers(shopOffers.map((offer, offerIndex) => offerIndex === index ? { ...offer, [key]: value } : offer));
+  };
+  const removeShopOffer = (index) => setShopOffers(shopOffers.filter((_, offerIndex) => offerIndex !== index));
+  const saveShopOffers = () => saveShopOffersMut.mutate(shopOffers);
 
   return (
     <div>
@@ -253,7 +292,7 @@ export default function VouchersPage() {
       />
 
       <div className="px-8 pb-4 flex gap-2">
-        {[['vouchers', 'Poukazy'], ['orders', 'Objednávky ze shopu']].map(([value, label]) => (
+        {[['vouchers', 'Poukazy'], ['orders', 'Objednávky ze shopu'], ['shop-offers', 'Poukazy v prodeji']].map(([value, label]) => (
           <button key={value} type="button" onClick={() => setTab(value)} className={`rounded-xl border px-4 py-2 text-sm font-medium ${tab === value ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-stone-200 bg-white text-stone-500 hover:bg-stone-50'}`}>
             {label}
           </button>
@@ -267,7 +306,7 @@ export default function VouchersPage() {
             {statusOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
           </select>
         </div>
-      ) : (
+      ) : tab === 'orders' ? (
         <div className="px-8 pb-4 flex flex-wrap gap-3">
           <input className="w-72 rounded-xl border border-stone-200 px-4 py-2 text-sm focus:outline-none" placeholder="Hledat objednávku, e-mail nebo VS…" value={orderFilters.q} onChange={(e) => setOrderFilters((f) => ({ ...f, q: e.target.value }))} />
           <select className="rounded-xl border border-stone-200 px-4 py-2 text-sm focus:outline-none" value={orderFilters.status} onChange={(e) => setOrderFilters((f) => ({ ...f, status: e.target.value }))}>
@@ -275,10 +314,55 @@ export default function VouchersPage() {
             {Object.entries(ORDER_STATUS_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           </select>
         </div>
-      )}
+      ) : null}
 
       <div className="px-8 pb-8">
-        {tab === 'orders' ? (
+        {tab === 'shop-offers' ? (
+          <div className="rounded-2xl border border-stone-200 bg-white p-5">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="text-sm font-semibold text-stone-800">Poukazy v prodeji</div>
+                <div className="mt-1 text-xs text-stone-500">Tyto položky se zobrazí jako dlaždice na veřejné stránce /shop.</div>
+              </div>
+              <div className="flex gap-2">
+                <Btn size="sm" onClick={addShopOffer}><Plus size={12} /> Přidat poukaz</Btn>
+                <Btn size="sm" variant="primary" onClick={saveShopOffers} disabled={saveShopOffersMut.isPending || shopOffersQuery.isLoading}>
+                  {saveShopOffersMut.isPending ? 'Ukládám...' : 'Uložit'}
+                </Btn>
+              </div>
+            </div>
+            {shopOffersQuery.isLoading ? (
+              <div className="flex justify-center py-16"><Spinner /></div>
+            ) : (
+              <div className="mt-5 space-y-3">
+                {shopOffers.map((offer, index) => (
+                  <div key={offer.id || index} className="rounded-xl border border-stone-200 p-4">
+                    <div className="grid gap-3 md:grid-cols-[1fr_160px_auto]">
+                      <div>
+                        <label className="mb-1 block text-xs text-stone-500">Název</label>
+                        <input className="w-full rounded-xl border border-stone-200 px-3 py-2 text-sm" value={offer.title || ''} onChange={(e) => updateShopOffer(index, 'title', e.target.value)} placeholder="Degustační menu pro dva" />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs text-stone-500">Hodnota</label>
+                        <input type="number" min="1" max="1000000" className="w-full rounded-xl border border-stone-200 px-3 py-2 text-sm" value={offer.amount || ''} onChange={(e) => updateShopOffer(index, 'amount', e.target.value)} placeholder="2500" />
+                      </div>
+                      <div className="flex items-end">
+                        <Btn size="sm" onClick={() => removeShopOffer(index)}>Smazat</Btn>
+                      </div>
+                    </div>
+                    <div className="mt-3">
+                      <label className="mb-1 block text-xs text-stone-500">Popis</label>
+                      <textarea rows={2} className="w-full rounded-xl border border-stone-200 px-3 py-2 text-sm" value={offer.description || ''} onChange={(e) => updateShopOffer(index, 'description', e.target.value)} placeholder="Krátký popis pro dlaždici ve shopu." />
+                    </div>
+                  </div>
+                ))}
+                {!shopOffers.length && (
+                  <EmptyState icon={Gift} title="Zatím žádné poukazy v prodeji" desc="Přidejte první položku, která se zobrazí na veřejném shopu." />
+                )}
+              </div>
+            )}
+          </div>
+        ) : tab === 'orders' ? (
           <div className="rounded-2xl border border-stone-200 bg-white overflow-hidden">
             {ordersQuery.isLoading ? (
               <div className="flex justify-center py-16"><Spinner /></div>
@@ -301,6 +385,7 @@ export default function VouchersPage() {
                     <tr key={order.id}>
                       <td className="px-4 py-3 text-sm">
                         <div className="font-semibold text-stone-800">{order.order_number}</div>
+                        {order.offer_title && <div className="text-xs text-stone-500">{order.offer_title}</div>}
                         <div className="text-xs text-stone-400">VS {order.payment_variable_symbol}</div>
                       </td>
                       <td className="px-4 py-3 text-sm text-stone-600">
