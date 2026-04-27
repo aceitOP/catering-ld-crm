@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -11,7 +11,6 @@ import {
   Search,
   Send,
   ShoppingBag,
-  Star,
   X,
 } from 'lucide-react';
 import { voucherShopApi } from '../api';
@@ -81,7 +80,6 @@ export default function VoucherShopPage() {
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
-  const [time, setTime] = useState('');
 
   const configQuery = useQuery({
     queryKey: ['voucher-shop-config'],
@@ -97,16 +95,6 @@ export default function VoucherShopPage() {
     },
     onError: (err) => toast.error(err.response?.data?.error || 'Objednávku se nepodařilo vytvořit.'),
   });
-
-  useEffect(() => {
-    const tick = () => {
-      const date = new Date();
-      setTime(`${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`);
-    };
-    tick();
-    const id = window.setInterval(tick, 30_000);
-    return () => window.clearInterval(id);
-  }, []);
 
   const config = configQuery.data;
   const values = useMemo(() => config?.values || [], [config?.values]);
@@ -247,8 +235,7 @@ export default function VoucherShopPage() {
               <span>★ Poukazy doručujeme po potvrzení platby</span>
               <span>★ Platnost {validityMonths} měsíců</span>
               <span>★ Personalizace zdarma</span>
-              <span>★ Aktuálně {time}</span>
-              <span>★ Bankovní převod a QR platba</span>
+              <span>★ Náhled poukazu před objednáním</span>
             </span>
           ))}
         </div>
@@ -288,16 +275,12 @@ export default function VoucherShopPage() {
           </h1>
           <div className="ld-hero-grid ld-rise mt-14 grid grid-cols-[1fr_auto_1fr] items-end gap-10">
             <p className="m-0 max-w-[500px] text-[17px] leading-relaxed text-[#4a3f37]">
-              Hodnotové i zážitkové poukazy. Vyberte částku, doplňte jméno a vzkaz, po objednání dostanete platební údaje a QR platbu.
+              Hodnotové i zážitkové poukazy. Vyberte částku, doplňte jméno a vzkaz, náhled poukazu uvidíte ještě před objednáním.
             </p>
             <button className="ld-btn" type="button" onClick={() => document.getElementById('ld-grid')?.scrollIntoView({ behavior: 'smooth' })}>
               Vybrat poukaz <ArrowRight size={15} />
             </button>
-            <div className="text-right">
-              <div className="ld-mono text-[#4a3f37]">Hodnocení 4.9 / 5</div>
-              <div className="mt-2 flex justify-end gap-1">{[0, 1, 2, 3, 4].map((star) => <Star key={star} size={14} fill="currentColor" />)}</div>
-              <div className="ld-mono mt-2 text-[#4a3f37]">Bankovní převod</div>
-            </div>
+            <div />
           </div>
         </div>
       </section>
@@ -312,7 +295,7 @@ export default function VoucherShopPage() {
             {[
               ['01', 'Vyberte poukaz', 'Hodnotový nebo zážitkový poukaz z aktuální nabídky.'],
               ['02', 'Personalizujte', 'Doplňte jméno, e-mail, vzkaz a fakturační údaje.'],
-              ['03', 'Zaplaťte převodem', 'Po objednávce dostanete VS a QR platbu.'],
+              ['03', 'Dokončete objednávku', 'Po odeslání vám přijde potvrzení objednávky.'],
             ].map(([number, title, text]) => (
               <div key={number} className="border-t border-[#16110d] pt-5">
                 <div className="ld-serif-italic mb-2 text-sm text-[#4a3f37]">{number}</div>

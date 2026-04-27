@@ -55,6 +55,7 @@ const NAV = [
       { to: '/faktury',  label: 'Fakturace', icon: Receipt, moduleKey: 'faktury' },
       { to: '/kalendar', label: 'Kalendář',  icon: Calendar, moduleKey: 'kalendar' },
       { to: '/sablony',  label: 'Šablony',   icon: BookCopy, moduleKey: 'sablony' },
+      { to: '/venues', label: 'Prostory', icon: Building2, moduleKey: 'venues' },
     ],
   },
   {
@@ -71,7 +72,6 @@ const NAV = [
       { to: '/suroviny',  label: 'Suroviny',  icon: FlaskConical, moduleKey: 'pro' },
       { to: '/receptury', label: 'Receptury', icon: BookOpenText, moduleKey: 'pro' },
       { to: '/poukazy', label: 'Poukazy', icon: Gift, capability: 'vouchers.manage', moduleKey: 'vouchers' },
-      { to: '/venues', label: 'Prostory', icon: Building2, moduleKey: 'venues' },
     ],
   },
   {

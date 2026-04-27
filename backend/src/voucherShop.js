@@ -12,7 +12,21 @@ function normalizeEmail(value) {
 }
 
 function normalizeIban(value) {
-  return String(value || '').replace(/\s+/g, '').toUpperCase();
+  return String(value || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+}
+
+function isValidIban(value) {
+  const iban = normalizeIban(value);
+  if (!/^[A-Z]{2}\d{2}[A-Z0-9]{10,30}$/.test(iban)) return false;
+  const rearranged = `${iban.slice(4)}${iban.slice(0, 4)}`;
+  let remainder = 0;
+  for (const char of rearranged) {
+    const code = char >= 'A' && char <= 'Z' ? String(char.charCodeAt(0) - 55) : char;
+    for (const digit of code) {
+      remainder = (remainder * 10 + Number(digit)) % 97;
+    }
+  }
+  return remainder === 1;
 }
 
 function parseShopValues(raw) {
@@ -96,22 +110,41 @@ function addMonths(date, months) {
 }
 
 function formatAmount(value) {
-  return Number(value).toFixed(2);
+  const amount = Number(value);
+  if (!Number.isFinite(amount) || amount <= 0) return '';
+  return amount.toFixed(2);
 }
 
 function buildPaymentMessage(orderNumber) {
   return `Poukaz ${orderNumber}`.slice(0, 60);
 }
 
+function sanitizeSpaydMessage(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9 ]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 60);
+}
+
 function buildSpaydPayload({ iban, amount, variableSymbol, message }) {
+  const normalizedIban = normalizeIban(iban);
+  if (!isValidIban(normalizedIban)) return '';
+  const formattedAmount = formatAmount(amount);
+  if (!formattedAmount) return '';
+  const vs = String(variableSymbol || '').replace(/\D/g, '').slice(0, 10);
+  const msg = sanitizeSpaydMessage(message);
   const parts = [
     'SPD*1.0',
-    `ACC:${normalizeIban(iban)}`,
-    `AM:${formatAmount(amount)}`,
+    `ACC:${normalizedIban}`,
+    `AM:${formattedAmount}`,
     'CC:CZK',
-    `X-VS:${String(variableSymbol || '').replace(/\D/g, '')}`,
-    `MSG:${String(message || '').replace(/[*/]/g, ' ').slice(0, 60)}`,
   ];
+  if (vs) parts.push(`X-VS:${vs}`);
+  if (msg) parts.push(`MSG:${msg}`);
   return parts.join('*');
 }
 
@@ -158,7 +191,7 @@ async function getVoucherShopConfig({ includeQr = false } = {}) {
     offers,
     validity_months: parsePositiveInt(firma.voucher_shop_validity_months, 12),
     terms_text: firma.voucher_shop_terms_text || '',
-    bank_ready: Boolean(normalizeIban(firma.firma_iban)),
+    bank_ready: isValidIban(firma.firma_iban),
     iban: normalizeIban(firma.firma_iban),
     currency: 'CZK',
     branding: {
@@ -323,7 +356,7 @@ async function createPublicOrder(payload = {}) {
     throw err;
   }
   if (!config.bank_ready) {
-    const err = new Error('Prodej poukazů není dokončený: chybí firemní IBAN.');
+    const err = new Error('Prodej poukazů není dokončený: chybí platný firemní IBAN.');
     err.status = 409;
     throw err;
   }
@@ -340,6 +373,11 @@ async function createPublicOrder(payload = {}) {
       variableSymbol: identity.variableSymbol,
       message: paymentMessage,
     });
+    if (!spaydPayload) {
+      const err = new Error('Nepodařilo se vytvořit QR platbu. Zkontrolujte prosím firemní IBAN.');
+      err.status = 409;
+      throw err;
+    }
     const { rows } = await client.query(
       `INSERT INTO voucher_orders (
          order_number, public_token, amount, buyer_name, buyer_email,
