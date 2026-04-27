@@ -225,7 +225,7 @@ async function run() {
     }, token, [201]);
 
     const summary = await expectJson(`/api/venues/${venue.id}/summary`, {}, token);
-    assert(summary.venue?.id === venue.id, 'venue summary mismatch');
+    assert(summary.venue_id === venue.id, 'venue summary mismatch');
   });
 
   await logStep('Create zakazka and venue brief flow', async () => {

@@ -77,6 +77,8 @@ CREATE TABLE klienti (
   zdroj       VARCHAR(100),
   poznamka    TEXT,
   obchodnik_id INTEGER REFERENCES uzivatele(id) ON DELETE SET NULL,
+  archivovano BOOLEAN NOT NULL DEFAULT false,
+  pravidelny  BOOLEAN NOT NULL DEFAULT false,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -312,7 +314,17 @@ CREATE TABLE zakazky (
   doplatek      NUMERIC(12,2) DEFAULT 0,
   poznamka_klient TEXT,
   poznamka_interni TEXT,
+  harmonogram TEXT,
+  kontaktni_osoby_misto TEXT,
+  rozsah_sluzeb TEXT,
+  personalni_pozadavky TEXT,
+  logistika TEXT,
+  technicke_pozadavky TEXT,
+  alergeny TEXT,
+  specialni_prani TEXT,
   google_event_id VARCHAR(255),
+  archivovano BOOLEAN NOT NULL DEFAULT false,
+  checklist JSONB NOT NULL DEFAULT '[]',
   created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -492,6 +504,7 @@ CREATE TABLE personal (
   specializace TEXT[], -- pole specializací
   poznamka     TEXT,
   aktivni      BOOLEAN NOT NULL DEFAULT true,
+  archivovano  BOOLEAN NOT NULL DEFAULT false,
   created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -525,11 +538,34 @@ CREATE TABLE personal_absence (
 CREATE INDEX idx_personal_absence_personal_range ON personal_absence(personal_id, datum_od, datum_do);
 CREATE INDEX idx_personal_absence_range ON personal_absence(datum_od, datum_do);
 
+CREATE TABLE followup_ukoly (
+  id            SERIAL PRIMARY KEY,
+  zakazka_id    INTEGER NOT NULL REFERENCES zakazky(id) ON DELETE CASCADE,
+  typ           VARCHAR(50) NOT NULL DEFAULT 'vlastni',
+  titulek       VARCHAR(300) NOT NULL,
+  termin        DATE,
+  splneno       BOOLEAN NOT NULL DEFAULT false,
+  splneno_at    TIMESTAMPTZ,
+  splneno_by    INTEGER REFERENCES uzivatele(id) ON DELETE SET NULL,
+  poznamka      TEXT,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_followup_ukoly_zakazka ON followup_ukoly(zakazka_id);
+CREATE INDEX idx_followup_ukoly_termin ON followup_ukoly(termin);
+
 -- ============================================================
 -- DOKUMENTY A PŘÍLOHY
 -- ============================================================
 CREATE TYPE dokument_kategorie AS ENUM (
   'nabidka', 'kalkulace', 'smlouva', 'poptavka', 'podklady', 'foto', 'interni'
+);
+
+CREATE TABLE dokumenty_slozky (
+  id SERIAL PRIMARY KEY,
+  nazev VARCHAR(255) NOT NULL,
+  vytvoril_id INTEGER REFERENCES uzivatele(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE dokumenty (
@@ -544,12 +580,15 @@ CREATE TABLE dokumenty (
   venue_id     INTEGER REFERENCES venues(id) ON DELETE SET NULL,
   nahral_id    INTEGER REFERENCES uzivatele(id) ON DELETE SET NULL,
   poznamka     TEXT,
+  slozka_id    INTEGER REFERENCES dokumenty_slozky(id) ON DELETE SET NULL,
   created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE INDEX idx_dokumenty_slozky_nazev ON dokumenty_slozky(nazev);
 CREATE INDEX idx_dokumenty_zakazka ON dokumenty(zakazka_id);
 CREATE INDEX idx_dokumenty_klient ON dokumenty(klient_id);
 CREATE INDEX idx_dokumenty_venue ON dokumenty(venue_id);
+CREATE INDEX idx_dokumenty_slozka ON dokumenty(slozka_id);
 
 -- ============================================================
 -- NASTAVENÍ SYSTÉMU

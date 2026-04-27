@@ -557,7 +557,17 @@ async function markOrderPaid(orderId, actorId = null) {
     );
     return updatedRows[0];
   });
-  if (shouldSend) return sendOrderVoucher(orderAfterPayment.id);
+  if (shouldSend) {
+    try {
+      return await sendOrderVoucher(orderAfterPayment.id);
+    } catch (err) {
+      console.warn('[voucher-shop] Poukaz byl vytvořen, ale nepodařilo se ho odeslat:', err.message);
+      return {
+        ...orderAfterPayment,
+        delivery_error: err.message,
+      };
+    }
+  }
   return orderAfterPayment;
 }
 

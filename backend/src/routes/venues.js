@@ -559,7 +559,11 @@ for (const [sectionKey, def] of Object.entries(SECTION_DEFS)) {
         const payload = normalizeSectionPayload(def, req.body);
         if (def.hasSteps) payload.steps = req.body.steps;
         if (!payload.name && sectionKey !== 'access-rules') {
-          const requiredField = sectionKey === 'parking-options' ? 'location_description' : 'name';
+          const requiredField = {
+            restrictions: 'title',
+            'parking-options': 'location_description',
+            'connectivity-zones': 'zone_name',
+          }[sectionKey] || 'name';
           if (!payload[requiredField]) {
             const err = new Error('Chybí povinné pole sekce');
             err.status = 400;
