@@ -47,6 +47,8 @@ import OwnerDashboardPage from './pages/OwnerDashboardPage';
 import VouchersPage from './pages/VouchersPage';
 import VoucherDetailPage from './pages/VoucherDetailPage';
 import PublicVoucherPage from './pages/PublicVoucherPage';
+import VoucherShopPage from './pages/VoucherShopPage';
+import VoucherShopOrderPage from './pages/VoucherShopOrderPage';
 import Layout from './components/Layout';
 import AppErrorBoundary from './components/AppErrorBoundary';
 import ClientPortalLayout from './components/ClientPortalLayout';
@@ -137,6 +139,7 @@ function OwnerRoute({ children }) {
 }
 
 function App() {
+  const isShopHost = typeof window !== 'undefined' && window.location.hostname.startsWith('shop.');
   return (
     <AppErrorBoundary>
       <ThemeProvider>
@@ -152,6 +155,8 @@ function App() {
                 />
                 <Routes>
                   <Route path="/login" element={<LoginPage />} />
+                  <Route path="/shop" element={<VoucherShopPage />} />
+                  <Route path="/shop/objednavka/:token" element={<VoucherShopOrderPage />} />
                   <Route path="/nabidka/:token" element={<ClientProposalPage />} />
                   <Route path="/voucher/:token" element={<PublicVoucherPage />} />
                   <Route path="/portal/login" element={<ClientPortalLoginPage />} />
@@ -170,7 +175,7 @@ function App() {
                     <Route path="faktury" element={<ClientPortalFakturyPage />} />
                   </Route>
                   <Route path="/setup" element={<PrivateRoute><SetupWizardRoute /></PrivateRoute>} />
-                  <Route path="/" element={<PrivateRoute><SetupGuard><Layout /></SetupGuard></PrivateRoute>}>
+                  <Route path="/" element={isShopHost ? <VoucherShopPage /> : <PrivateRoute><SetupGuard><Layout /></SetupGuard></PrivateRoute>}>
                     <Route index element={<Navigate to="/dashboard" replace />} />
                     <Route path="dashboard" element={<DashboardPage />} />
                     <Route path="dashboard/owner" element={<OwnerRoute><OwnerDashboardPage /></OwnerRoute>} />
@@ -180,8 +185,8 @@ function App() {
                     <Route path="zakazky/:id" element={<ZakazkaDetail />} />
                     <Route path="zakazky/:id/vyrobni-list" element={<VyrobniListPage />} />
                     <Route path="klienti" element={<KlientiPage />} />
-                    <Route path="venues" element={<VenuesPage />} />
-                    <Route path="venues/:id" element={<VenueDetailPage />} />
+                    <Route path="venues" element={<ModuleRoute moduleKey="venues"><VenuesPage /></ModuleRoute>} />
+                    <Route path="venues/:id" element={<ModuleRoute moduleKey="venues"><VenueDetailPage /></ModuleRoute>} />
                     <Route path="nabidky" element={<NabidkyPage />} />
                     <Route path="nabidky/nova" element={<NovaNabidka />} />
                     <Route path="nabidky/:id/edit" element={<NabidkaEditor />} />
@@ -189,15 +194,15 @@ function App() {
                     <Route path="personal" element={<ModuleRoute moduleKey="personal"><PersonalPage /></ModuleRoute>} />
                     <Route path="dokumenty" element={<ModuleRoute moduleKey="dokumenty"><DokumentyPage /></ModuleRoute>} />
                     <Route path="cenik" element={<ModuleRoute moduleKey="cenik"><CenikPage /></ModuleRoute>} />
-                    <Route path="suroviny" element={<ModuleRoute moduleKey="cenik"><IngredientsPage /></ModuleRoute>} />
-                    <Route path="receptury" element={<ModuleRoute moduleKey="cenik"><RecipesPage /></ModuleRoute>} />
-                    <Route path="receptury/:id" element={<ModuleRoute moduleKey="cenik"><RecipeDetailPage /></ModuleRoute>} />
+                    <Route path="suroviny" element={<ModuleRoute moduleKey="pro"><IngredientsPage /></ModuleRoute>} />
+                    <Route path="receptury" element={<ModuleRoute moduleKey="pro"><RecipesPage /></ModuleRoute>} />
+                    <Route path="receptury/:id" element={<ModuleRoute moduleKey="pro"><RecipeDetailPage /></ModuleRoute>} />
                     <Route path="reporty" element={<ModuleRoute moduleKey="reporty"><ReportPage /></ModuleRoute>} />
                     <Route path="faktury" element={<ModuleRoute moduleKey="faktury"><FakturyPage /></ModuleRoute>} />
                     <Route path="faktury/nova" element={<ModuleRoute moduleKey="faktury"><NovaFakturaPage /></ModuleRoute>} />
                     <Route path="faktury/:id" element={<ModuleRoute moduleKey="faktury"><FakturaDetail /></ModuleRoute>} />
-                    <Route path="poukazy" element={<VouchersPage />} />
-                    <Route path="poukazy/:id" element={<VoucherDetailPage />} />
+                    <Route path="poukazy" element={<ModuleRoute moduleKey="vouchers"><VouchersPage /></ModuleRoute>} />
+                    <Route path="poukazy/:id" element={<ModuleRoute moduleKey="vouchers"><VoucherDetailPage /></ModuleRoute>} />
                     <Route path="nastaveni" element={<NastaveniPage />} />
                     <Route path="archiv" element={<ModuleRoute moduleKey="archiv"><ArchivPage /></ModuleRoute>} />
                     <Route path="sablony" element={<ModuleRoute moduleKey="sablony"><SablonyPage /></ModuleRoute>} />
@@ -219,5 +224,3 @@ function App() {
 }
 
 export default App;
-
-
