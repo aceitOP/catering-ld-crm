@@ -1,30 +1,61 @@
 // ── Print / PDF utilities ────────────────────────────────────
 // Opens a styled print window; user saves as PDF via browser dialog.
 
-const BRAND_BLUE  = '#262d64';
-const ACCENT      = '#EB5939';
-const FONT_URL    = 'https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700&display=swap';
+const THEME_MAP = {
+  ocean: { primary: '#1d4ed8', accent: '#0f766e' },
+  forest: { primary: '#059669', accent: '#0f766e' },
+  terracotta: { primary: '#c2410c', accent: '#ea580c' },
+  graphite: { primary: '#44403c', accent: '#78716c' },
+};
 
-const BASE_CSS = `
-  @import url('${FONT_URL}');
+const FONT_MAP = {
+  syne: { family: "'Syne', Arial, sans-serif", url: 'https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700&display=swap' },
+  manrope: { family: "'Manrope', Arial, sans-serif", url: 'https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap' },
+  merriweather: { family: "'Merriweather', Georgia, serif", url: 'https://fonts.googleapis.com/css2?family=Merriweather:wght@400;700&display=swap' },
+  source_sans_3: { family: "'Source Sans 3', Arial, sans-serif", url: 'https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&display=swap' },
+};
+
+function getDocumentBranding() {
+  const branding = safeGetJson('app_branding', {}) || {};
+  const theme = THEME_MAP[branding.app_color_theme] || THEME_MAP.ocean;
+  const font = FONT_MAP[branding.app_document_font_family] || FONT_MAP.syne;
+
+  return {
+    appTitle: branding.app_title || 'Catering CRM',
+    logoDataUrl: branding.app_logo_data_url || '',
+    brandBlue: theme.primary,
+    accent: theme.accent,
+    fontFamily: font.family,
+    fontUrl: font.url,
+  };
+}
+
+function buildBaseCss() {
+  const branding = getDocumentBranding();
+  return `
+  @import url('${branding.fontUrl}');
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Syne', Arial, sans-serif; font-size: 11px; color: #333; background: #fff; }
-  h1 { font-size: 18px; font-weight: 700; color: ${BRAND_BLUE}; }
-  h2 { font-size: 13px; font-weight: 600; color: ${BRAND_BLUE}; }
+  body { font-family: ${branding.fontFamily}; font-size: 11px; color: #333; background: #fff; }
+  h1 { font-size: 18px; font-weight: 700; color: ${branding.brandBlue}; }
+  h2 { font-size: 13px; font-weight: 600; color: ${branding.brandBlue}; }
   table { width: 100%; border-collapse: collapse; }
-  thead tr { background: ${BRAND_BLUE}; color: #fff; }
+  thead tr { background: ${branding.brandBlue}; color: #fff; }
   th { padding: 7px 10px; text-align: left; font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
   td { padding: 6px 10px; border-bottom: 1px solid #eee; vertical-align: top; }
   tr:nth-child(even) td { background: #f9f9fb; }
   .label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; color: #888; margin-bottom: 3px; }
-  .value { font-size: 12px; font-weight: 600; color: ${BRAND_BLUE}; }
+  .value { font-size: 12px; font-weight: 600; color: ${branding.brandBlue}; }
   .value-sm { font-size: 11px; color: #555; }
+  .brand-lockup { display:flex; align-items:center; gap:14px; }
+  .brand-logo { width:56px; height:56px; border-radius:18px; overflow:hidden; background:#fff; display:flex; align-items:center; justify-content:center; }
+  .brand-logo img { width:100%; height:100%; object-fit:contain; }
   @media print {
     @page { size: A4; margin: 0; }
     body { margin: 0; }
     .no-print { display: none; }
   }
 `;
+}
 
 function openPrint(html) {
   const w = window.open('', '_blank', 'width=900,height=700');
@@ -45,6 +76,10 @@ function fmtD(d) {
 
 // ── Nabídka PDF ───────────────────────────────────────────────
 export function printNabidkuPdf(n) {
+  const branding = getDocumentBranding();
+  const BASE_CSS = buildBaseCss();
+  const BRAND_BLUE = branding.brandBlue;
+  const ACCENT = branding.accent;
   const klient = n.klient_firma || [n.klient_jmeno, n.klient_prijmeni].filter(Boolean).join(' ') || '—';
   const dnes   = new Date().toLocaleDateString('cs-CZ');
 
@@ -156,6 +191,10 @@ export function printNabidkuPdf(n) {
 
 // ── Faktura PDF ───────────────────────────────────────────────
 export function printFakturuPdf(f) {
+  const branding = getDocumentBranding();
+  const BASE_CSS = buildBaseCss();
+  const BRAND_BLUE = branding.brandBlue;
+  const ACCENT = branding.accent;
   const firma    = f.dodavatel_json || {};
   const klient   = f.klient_firma || [f.klient_jmeno, f.klient_prijmeni].filter(Boolean).join(' ') || '—';
   const dnes     = new Date().toLocaleDateString('cs-CZ');
@@ -290,6 +329,10 @@ export function printFakturuPdf(f) {
 
 // ── Komando PDF ───────────────────────────────────────────────
 export function printKomandoPdf(z) {
+  const branding = getDocumentBranding();
+  const BASE_CSS = buildBaseCss();
+  const BRAND_BLUE = branding.brandBlue;
+  const ACCENT = branding.accent;
   const dnes  = new Date().toLocaleDateString('cs-CZ');
   const klient = z.klient_firma || [z.klient_jmeno, z.klient_prijmeni].filter(Boolean).join(' ') || '—';
 
@@ -430,3 +473,4 @@ export function printKomandoPdf(z) {
 
   openPrint(html);
 }
+import { safeGetJson } from './storage';

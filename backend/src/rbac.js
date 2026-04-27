@@ -16,6 +16,8 @@ const CAPABILITY_MAP = {
     'ingredients.manage': true,
     'recipes.manage': true,
     'recipe_costs.view': true,
+    'owner_dashboard.view': true,
+    'vouchers.manage': true,
   },
   admin: {
     'settings.manage': true,
@@ -32,6 +34,8 @@ const CAPABILITY_MAP = {
     'ingredients.manage': true,
     'recipes.manage': true,
     'recipe_costs.view': true,
+    'owner_dashboard.view': true,
+    'vouchers.manage': true,
   },
   uzivatel: {
     'settings.manage': false,
@@ -48,6 +52,8 @@ const CAPABILITY_MAP = {
     'ingredients.manage': false,
     'recipes.manage': false,
     'recipe_costs.view': false,
+    'owner_dashboard.view': false,
+    'vouchers.manage': false,
   },
   obchodnik: {
     'settings.manage': false,
@@ -64,6 +70,8 @@ const CAPABILITY_MAP = {
     'ingredients.manage': false,
     'recipes.manage': false,
     'recipe_costs.view': false,
+    'owner_dashboard.view': false,
+    'vouchers.manage': true,
   },
   provoz: {
     'settings.manage': false,
@@ -80,6 +88,8 @@ const CAPABILITY_MAP = {
     'ingredients.manage': true,
     'recipes.manage': true,
     'recipe_costs.view': true,
+    'owner_dashboard.view': false,
+    'vouchers.manage': false,
   },
 };
 

@@ -34,6 +34,8 @@ app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 
 // ── Routes ───────────────────────────────────────────────────
 app.use('/api/auth',       require('./routes/auth'));
+app.use('/api/client-auth', require('./routes/clientAuth'));
+app.use('/api/client-portal', require('./routes/clientPortal'));
 app.use('/api/klienti',    require('./routes/klienti'));
 app.use('/api/zakazky',    require('./routes/zakazky'));
 app.use('/api/venues',     require('./routes/venues'));
@@ -44,6 +46,7 @@ app.use('/api/dokumenty',  requireAppModule('dokumenty'), require('./routes/doku
 app.use('/api/cenik',      requireAppModule('cenik'), require('./routes/cenik'));
 app.use('/api/ingredients', requireAppModule('cenik'), require('./routes/ingredients'));
 app.use('/api/recipes', requireAppModule('cenik'), require('./routes/recipes'));
+app.use('/api/vouchers', require('./routes/vouchers'));
 app.use('/api/uzivatele',  require('./routes/uzivatele'));
 app.use('/api/nastaveni',  require('./routes/nastaveni'));
 app.use('/api/kalendar',   requireAppModule('kalendar'), require('./routes/kalendar'));

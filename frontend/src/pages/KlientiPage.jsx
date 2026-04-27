@@ -68,7 +68,7 @@ export default function KlientiPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['klienti', q, typ],
-    queryFn: () => klientiApi.list({ q, typ, limit: 200 }),
+    queryFn: () => klientiApi.list({ q, typ, sort: 'datum', limit: 200 }),
   });
   const { data: detailData } = useQuery({
     queryKey: ['klient', selected],
@@ -78,6 +78,19 @@ export default function KlientiPage() {
 
   const createMut = useMutation({
     mutationFn: klientiApi.create,
+    handleSuccess: (response) => {
+      const created = response?.data;
+      setQ('');
+      setTyp('');
+      setModal(false);
+      setForm(emptyForm);
+      if (created?.id) {
+        setSelected(created.id);
+        qc.invalidateQueries({ queryKey: ['klient', created.id] });
+      }
+      qc.invalidateQueries({ queryKey: ['klienti'] });
+      toast.success('Klient přidán');
+    },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['klienti'] }); toast.success('Klient přidán'); setModal(false); setForm(emptyForm); },
     onError: () => toast.error('Chyba při ukládání'),
   });

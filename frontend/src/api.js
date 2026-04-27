@@ -1,4 +1,4 @@
-import { api, pubApi, downloadBlob } from './api/core';
+import { api, pubApi, clientApi, downloadBlob } from './api/core';
 export { authApi } from './api/auth';
 export { zakazkyApi } from './api/zakazky';
 export { venuesApi } from './api/venues';
@@ -120,6 +120,42 @@ export const kalendarApi = {
 export const reportyApi = {
   get: (params) => api.get('/reporty', { params }),
   dashboardSummary: () => api.get('/reporty/dashboard-summary'),
+  ownerSummary: () => api.get('/reporty/owner-summary'),
+};
+
+export const clientAuthApi = {
+  requestLink: (data) => pubApi.post('/client-auth/request-link', data),
+  consumeLink: (data) => pubApi.post('/client-auth/consume-link', data),
+};
+
+export const clientPortalApi = {
+  me: () => clientApi.get('/client-portal/me'),
+  dashboard: () => clientApi.get('/client-portal/dashboard'),
+  getZakazka: (id) => clientApi.get(`/client-portal/zakazky/${id}`),
+  listDokumenty: () => clientApi.get('/client-portal/dokumenty'),
+  downloadDokument: async (id, fallbackName) => {
+    const res = await clientApi.get(`/client-portal/dokumenty/${id}/download`, { responseType: 'blob' });
+    downloadBlob(res.data, fallbackName || `dokument-${id}`, res.headers['content-type']);
+    return res;
+  },
+  listFaktury: () => clientApi.get('/client-portal/faktury'),
+  getFaktura: (id) => clientApi.get(`/client-portal/faktury/${id}`),
+  uploadDokument: (formData) => clientApi.post('/client-portal/dokumenty/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }),
+};
+
+export const vouchersApi = {
+  list: (params) => api.get('/vouchers', { params }),
+  get: (id) => api.get(`/vouchers/${id}`),
+  create: (data) => api.post('/vouchers', data),
+  update: (id, data) => api.patch(`/vouchers/${id}`, data),
+  send: (id, data) => api.post(`/vouchers/${id}/send`, data),
+  redeem: (id, data) => api.post(`/vouchers/${id}/redeem`, data || {}),
+  expire: (id, data) => api.post(`/vouchers/${id}/expire`, data || {}),
+  history: (id) => api.get(`/vouchers/${id}/history`),
+  print: (id) => api.get(`/vouchers/${id}/print`, { responseType: 'text' }),
+  publicGet: (token) => pubApi.get(`/vouchers/public/${token}`),
 };
 
 export const googleCalendarApi = {

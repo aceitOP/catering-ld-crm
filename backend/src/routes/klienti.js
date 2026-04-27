@@ -15,9 +15,9 @@ router.get('/', auth, async (req, res, next) => {
     const where = []; const params = []; let p = 1;
     if (typ) { where.push(`typ = $${p++}`); params.push(typ); }
     if (q)   { where.push(`(jmeno ILIKE $${p} OR prijmeni ILIKE $${p} OR firma ILIKE $${p} OR email ILIKE $${p})`); params.push(`%${q}%`); p++; }
-    where.push('k.archivovano = false');
+    where.push('COALESCE(k.archivovano, false) = false');
     const wc = 'WHERE ' + where.join(' AND ');
-    const orderMap = { jmeno: 'jmeno ASC', obrat: 'jmeno ASC', datum: 'created_at DESC' };
+    const orderMap = { jmeno: 'k.jmeno ASC, k.prijmeni ASC, k.created_at DESC', obrat: 'k.jmeno ASC, k.prijmeni ASC, k.created_at DESC', datum: 'k.created_at DESC' };
     const order = orderMap[sort] || 'jmeno ASC';
     const offset = (safePage - 1) * safeLimit;
     const { rows } = await query(
@@ -50,7 +50,7 @@ router.get('/pravidelni', auth, async (req, res, next) => {
              (a.posledni_akce + INTERVAL '1 year')::date AS ocekavana_pristi,
              ROUND(EXTRACT(EPOCH FROM ((a.posledni_akce + INTERVAL '1 year')::timestamptz - NOW())) / 86400)::int AS dni_do_pristi
       FROM klienti k JOIN akce a ON a.klient_id = k.id
-      WHERE k.archivovano = false AND (a.pocet_akci >= 2 OR k.pravidelny = true)
+      WHERE COALESCE(k.archivovano, false) = false AND (a.pocet_akci >= 2 OR COALESCE(k.pravidelny, false) = true)
       ORDER BY (a.posledni_akce + INTERVAL '1 year') LIMIT 30
     `);
     res.json({ data: rows });

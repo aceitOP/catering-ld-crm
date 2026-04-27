@@ -13,10 +13,11 @@ const SECRET_KEYS = new Set([
   'email_smtp_pass',
 ]);
 const SUPER_ADMIN_ONLY_SETTING_PREFIXES = ['email_imap_', 'email_smtp_'];
-const PUBLIC_BRANDING_KEYS = ['app_title', 'app_logo_data_url', 'app_color_theme'];
+const PUBLIC_BRANDING_KEYS = ['app_title', 'app_logo_data_url', 'app_color_theme', 'app_document_font_family'];
 const LOGO_DATA_URL_RE = /^data:image\/(?:png|jpeg|jpg|svg\+xml|webp);base64,[A-Za-z0-9+/=]+$/;
 const BACKUP_TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
 const BRAND_THEMES = new Set(['ocean', 'forest', 'terracotta', 'graphite']);
+const DOCUMENT_FONTS = new Set(['syne', 'manrope', 'merriweather', 'source_sans_3']);
 
 function isSuperAdminOnlySettingKey(key) {
   return SUPER_ADMIN_ONLY_SETTING_PREFIXES.some((prefix) => key.startsWith(prefix));
@@ -50,6 +51,16 @@ function sanitizeSettingValue(key, value) {
     const normalized = raw.trim().toLowerCase();
     if (!BRAND_THEMES.has(normalized)) {
       const err = new Error('Neplatna barevna sablona');
+      err.status = 400;
+      throw err;
+    }
+    return normalized;
+  }
+
+  if (key === 'app_document_font_family') {
+    const normalized = raw.trim().toLowerCase();
+    if (!DOCUMENT_FONTS.has(normalized)) {
+      const err = new Error('Neplatne pismo pro dokumenty');
       err.status = 400;
       throw err;
     }
@@ -103,6 +114,7 @@ router.get('/public-branding', async (_req, res, next) => {
       app_title: 'Catering CRM',
       app_logo_data_url: '',
       app_color_theme: 'ocean',
+      app_document_font_family: 'syne',
     };
     rows.forEach((row) => {
       branding[row.klic] = row.hodnota;
@@ -176,6 +188,7 @@ router.post('/setup-wizard', auth, requireMinRole('super_admin'), async (req, re
       'app_title',
       'app_logo_data_url',
       'app_color_theme',
+      'app_document_font_family',
       'firma_nazev',
       'firma_ico',
       'firma_dic',

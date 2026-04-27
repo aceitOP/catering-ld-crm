@@ -20,6 +20,8 @@ const {
   submitVenueDebrief,
 } = require('../venueTwin');
 const { aggregateIngredientsForZakazka } = require('../eventIngredientAggregator');
+const { loadFirmaSettings } = require('../firmaSettings');
+const { resolveDocumentBranding } = require('../documentBranding');
 
 const CRITICAL_EVENT_FIELDS = new Set([
   'datum_akce',
@@ -119,11 +121,6 @@ router.get('/:id', auth, async (req, res, next) => {
       LEFT JOIN venues v ON v.id = z.venue_id
       WHERE z.id = $1`, [req.params.id]);
 
-    
-
-    const hasCriticalChange = fields.some((field) => CRITICAL_EVENT_FIELDS.has(field))
-      && fields.some((field) => previous.rows[0][field] !== rows[0][field]);
-
     // Historie stavĹŻ
     const history = await query(`
       SELECT zh.*, u.jmeno, u.prijmeni FROM zakazky_history zh
@@ -177,6 +174,7 @@ router.post('/', auth, async (req, res, next) => {
     const { nazev, typ, klient_id, obchodnik_id, datum_akce, cas_zacatek, cas_konec,
             misto, venue_id, venue_loading_zone_id, venue_service_area_id, venue_route_id,
             pocet_hostu, rozpocet_klienta, poznamka_klient, poznamka_interni } = req.body;
+    const normalizeNullable = (value) => (value === '' || value === undefined ? null : value);
 
     const newZakazka = await withTransaction(async (client) => {
       const cislo = await genCislo(client);
@@ -186,9 +184,10 @@ router.post('/', auth, async (req, res, next) => {
           cas_zacatek, cas_konec, misto, venue_id, venue_loading_zone_id, venue_service_area_id, venue_route_id,
           pocet_hostu, rozpocet_klienta, poznamka_klient, poznamka_interni, checklist)
         VALUES ($1,$2,$3,'rozpracovano',$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18) RETURNING *`,
-        [cislo, nazev, typ, klient_id, obchodnik_id || req.user.id, datum_akce,
-         cas_zacatek, cas_konec, misto, venue_id || null, venue_loading_zone_id || null, venue_service_area_id || null, venue_route_id || null,
-         pocet_hostu, rozpocet_klienta, poznamka_klient, poznamka_interni, JSON.stringify(checklist)]);
+        [cislo, nazev, typ, normalizeNullable(klient_id), normalizeNullable(obchodnik_id) || req.user.id, normalizeNullable(datum_akce),
+         normalizeNullable(cas_zacatek), normalizeNullable(cas_konec), normalizeNullable(misto),
+         normalizeNullable(venue_id), normalizeNullable(venue_loading_zone_id), normalizeNullable(venue_service_area_id), normalizeNullable(venue_route_id),
+         normalizeNullable(pocet_hostu), normalizeNullable(rozpocet_klienta), normalizeNullable(poznamka_klient), normalizeNullable(poznamka_interni), JSON.stringify(checklist)]);
       await client.query(`INSERT INTO zakazky_history (zakazka_id, stav_po, uzivatel_id, poznamka)
                    VALUES ($1, 'rozpracovano', $2, 'ZakĂˇzka vytvoĹ™ena')`,
         [rows[0].id, req.user.id]);
@@ -787,9 +786,8 @@ router.get('/:id/dodaci-list', auth, async (req, res, next) => {
     const nabidka = nabidkaRows[0] || null;
     const brief = await buildVenueBriefForZakazka(null, req.params.id).catch(() => null);
 
-    const { rows: nastaveni } = await query('SELECT klic, hodnota FROM nastaveni');
-    const firma = {};
-    nastaveni.forEach((row) => { firma[row.klic] = row.hodnota; });
+    const firma = await loadFirmaSettings();
+    const documentBranding = resolveDocumentBranding(firma);
 
     const items = Array.isArray(nabidka?.polozky) ? nabidka.polozky : [];
     const itemsRows = items.length
@@ -827,7 +825,8 @@ router.get('/:id/dodaci-list', auth, async (req, res, next) => {
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>DodacĂ­ list ${esc(z.cislo)}</title>
   <style>
-    body { font-family: Arial, Helvetica, sans-serif; color:#1f2937; margin:0; background:#f5f5f4; }
+    @import url('${esc(documentBranding.fontImportUrl)}');
+    body { font-family: ${documentBranding.fontFamily}; color:#1f2937; margin:0; background:${documentBranding.soft}; }
     .page { max-width: 980px; margin: 24px auto; background:#fff; padding:32px; box-shadow:0 8px 24px rgba(0,0,0,.06); }
     .header { display:flex; justify-content:space-between; gap:24px; align-items:flex-start; margin-bottom:24px; }
     .title { font-size:28px; font-weight:700; margin:0 0 6px; }
@@ -855,6 +854,7 @@ router.get('/:id/dodaci-list', auth, async (req, res, next) => {
   <div class="page">
     <div class="header">
       <div>
+        ${documentBranding.logoDataUrl ? `<div style="width:68px;height:68px;border-radius:20px;overflow:hidden;background:${documentBranding.soft};display:flex;align-items:center;justify-content:center;margin-bottom:12px"><img src="${esc(documentBranding.logoDataUrl)}" alt="Logo" style="width:100%;height:100%;object-fit:contain"></div>` : ''}
         <h1 class="title">DodacĂ­ list</h1>
         <div class="subtitle">ZakĂˇzka ${esc(z.cislo)} | ${esc(z.nazev)}</div>
       </div>

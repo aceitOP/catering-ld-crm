@@ -9,6 +9,13 @@ import { BRAND_THEMES } from '../data/brandThemes';
 import toast from 'react-hot-toast';
 import { Plus, Settings, Trash2 as Trash2NS, Pencil, Download, Database, ShieldCheck, ShieldAlert } from 'lucide-react';
 
+const DOCUMENT_FONT_OPTIONS = [
+  { value: 'syne', label: 'Syne', description: 'Výrazné moderní písmo pro nabídky a promo materiály.' },
+  { value: 'manrope', label: 'Manrope', description: 'Čisté firemní sans-serif písmo pro univerzální použití.' },
+  { value: 'merriweather', label: 'Merriweather', description: 'Serifová varianta pro elegantnější dokumenty.' },
+  { value: 'source_sans_3', label: 'Source Sans 3', description: 'Neutrální čitelné písmo pro faktury a provozní tisk.' },
+];
+
 function formatBackupStatus(status) {
   if (status === 'success') return { label: 'V poĹ™Ăˇdku', className: 'text-emerald-700' };
   if (status === 'error') return { label: 'Chyba', className: 'text-red-600' };
@@ -550,6 +557,28 @@ export function NastaveniPage() {
                         </div>
                         <div className="text-sm font-semibold text-stone-800">{theme.label}</div>
                         <div className="text-xs text-stone-500 mt-1">{theme.description}</div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="rounded-xl border border-stone-200 p-4 space-y-3">
+                <div>
+                  <div className="text-sm font-medium text-stone-800">Písmo pro PDF a tisk</div>
+                  <div className="text-xs text-stone-500 mt-1">Použije se pro nabídky, faktury, komando, dodací listy, poukazy a další výstupy.</div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {DOCUMENT_FONT_OPTIONS.map((font) => {
+                    const selected = (form.app_document_font_family ?? nastavData?.data?.app_document_font_family ?? 'syne') === font.value;
+                    return (
+                      <button
+                        key={font.value}
+                        type="button"
+                        onClick={() => setForm((f) => ({ ...f, app_document_font_family: font.value }))}
+                        className={`rounded-2xl border px-4 py-3 text-left transition-all ${selected ? 'border-brand-500 ring-2 ring-brand-100 bg-brand-50/40' : 'border-stone-200 hover:border-stone-300 hover:bg-stone-50'}`}
+                      >
+                        <div className="text-sm font-semibold text-stone-800">{font.label}</div>
+                        <div className="text-xs text-stone-500 mt-1">{font.description}</div>
                       </button>
                     );
                   })}

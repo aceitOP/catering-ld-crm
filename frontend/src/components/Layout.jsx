@@ -6,7 +6,7 @@ import {
   LayoutDashboard, ClipboardList, Users, FileText, Building2,
   Calendar, UserCheck, FolderOpen, Tag, Settings, LogOut, BarChart2,
   Bell, X, Globe, Info, Trash2, CheckCheck, Inbox, Receipt, Archive,
-  ChevronDown, BookCopy, Mail, Sun, Moon, Clock, ShieldAlert, Bug, FlaskConical, BookOpenText,
+  ChevronDown, BookCopy, Mail, Sun, Moon, Clock, ShieldAlert, Bug, FlaskConical, BookOpenText, Gift, Briefcase,
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { APP_VERSION, CHANGELOG } from '../data/changelog';
@@ -45,6 +45,7 @@ function timeAgo(ts) {
 // ── Nav items (multi-level) ────────────────────────────────────
 const NAV = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { to: '/dashboard/owner', label: 'Majitelský přehled', icon: Briefcase, capability: 'owner_dashboard.view' },
   {
     label: 'Catering', icon: ClipboardList,
     children: [
@@ -73,6 +74,7 @@ const NAV = [
       { to: '/cenik',     label: 'Ceníky',    icon: Tag, moduleKey: 'cenik' },
       { to: '/suroviny',  label: 'Suroviny',  icon: FlaskConical, moduleKey: 'cenik' },
       { to: '/receptury', label: 'Receptury', icon: BookOpenText, moduleKey: 'cenik' },
+      { to: '/poukazy', label: 'Poukazy', icon: Gift, capability: 'vouchers.manage' },
       { to: '/reporty',   label: 'Reporty',   icon: BarChart2, moduleKey: 'reporty' },
       { to: '/error-log', label: 'Error log', icon: ShieldAlert, superAdminOnly: true, moduleKey: 'error_log' },
     ],
@@ -133,7 +135,8 @@ export default function Layout() {
   const location = useLocation();
   const isVisibleItem = (item) => (!item.moduleKey || isModuleEnabled(user?.modules, item.moduleKey))
     && (!item.adminOnly || user?.role === 'admin' || user?.role === 'super_admin')
-    && (!item.superAdminOnly || user?.role === 'super_admin');
+    && (!item.superAdminOnly || user?.role === 'super_admin')
+    && (!item.capability || user?.capabilities?.[item.capability]);
   const visibleNav = NAV
     .map((item) => item.children ? { ...item, children: item.children.filter(isVisibleItem) } : item)
     .filter((item) => (item.children ? item.children.length > 0 : isVisibleItem(item)));
@@ -360,7 +363,6 @@ export default function Layout() {
               title="Zobrazit historii zm?n"
             >
               <span className="text-stone-400 text-xs font-medium group-hover:text-brand-600 transition-colors">v{APP_VERSION}</span>
-              <span className="text-stone-300 text-xs group-hover:text-stone-500 transition-colors">? Co je nov?ho?</span>
             </button>
             <button
               onClick={() => setBugModalOpen(true)}

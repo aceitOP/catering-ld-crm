@@ -1,6 +1,6 @@
 const express = require('express');
 const { query } = require('../db');
-const { auth } = require('../middleware/auth');
+const { auth, requireCapability } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -30,6 +30,119 @@ router.get('/dashboard-summary', auth, async (_req, res, next) => {
     `);
 
     res.json(summary);
+  } catch (err) { next(err); }
+});
+
+router.get('/owner-summary', auth, requireCapability('owner_dashboard.view'), async (_req, res, next) => {
+  try {
+    const [pipelineRes, cashflowRes, profitabilityRes, staffRes, venueRes, notifRes] = await Promise.all([
+      query(`
+        SELECT
+          COUNT(*) FILTER (WHERE archivovano = false) AS total,
+          COUNT(*) FILTER (WHERE stav = 'nova_poptavka' AND archivovano = false) AS nove_poptavky,
+          COUNT(*) FILTER (WHERE stav IN ('nabidka_pripravena','nabidka_odeslana','ceka_na_vyjadreni') AND archivovano = false) AS otevrene_nabidky,
+          COUNT(*) FILTER (WHERE stav IN ('potvrzeno','ve_priprave') AND archivovano = false) AS potvrzene_a_priprava,
+          COUNT(*) FILTER (
+            WHERE archivovano = false
+              AND datum_akce >= CURRENT_DATE
+              AND datum_akce <= CURRENT_DATE + INTERVAL '30 days'
+          ) AS akce_30_dni
+        FROM zakazky
+      `),
+      query(`
+        SELECT
+          COUNT(*) FILTER (WHERE stav IN ('vystavena','odeslana')) AS unpaid_count,
+          COALESCE(SUM(CASE WHEN stav IN ('vystavena','odeslana') THEN cena_celkem ELSE 0 END), 0) AS unpaid_total,
+          COUNT(*) FILTER (
+            WHERE stav IN ('vystavena','odeslana')
+              AND datum_splatnosti < CURRENT_DATE
+          ) AS overdue_count,
+          COALESCE(SUM(
+            CASE
+              WHEN stav IN ('vystavena','odeslana') AND datum_splatnosti < CURRENT_DATE
+              THEN cena_celkem
+              ELSE 0
+            END
+          ), 0) AS overdue_total
+        FROM faktury
+      `),
+      query(`
+        SELECT
+          COALESCE(SUM(cena_celkem), 0) AS obrat,
+          COALESCE(SUM(cena_naklady), 0) AS naklady,
+          COUNT(*) FILTER (
+            WHERE cena_celkem IS NOT NULL
+              AND cena_celkem > 0
+              AND cena_naklady IS NOT NULL
+              AND ((cena_celkem - cena_naklady) / NULLIF(cena_celkem, 0)) < 0.25
+              AND archivovano = false
+          ) AS low_margin_count
+        FROM zakazky
+        WHERE stav NOT IN ('stornovano')
+      `),
+      query(`
+        SELECT
+          COUNT(DISTINCT zp.personal_id) FILTER (
+            WHERE z.datum_akce >= CURRENT_DATE
+              AND z.datum_akce <= CURRENT_DATE + INTERVAL '30 days'
+          ) AS assigned_staff_30_days,
+          COUNT(*) FILTER (
+            WHERE z.stav IN ('potvrzeno','ve_priprave')
+              AND z.archivovano = false
+              AND z.datum_akce >= CURRENT_DATE
+              AND z.datum_akce <= CURRENT_DATE + INTERVAL '30 days'
+              AND NOT EXISTS (
+                SELECT 1 FROM zakazky_personal zp2 WHERE zp2.zakazka_id = z.id
+              )
+          ) AS unstaffed_events
+        FROM zakazky z
+        LEFT JOIN zakazky_personal zp ON zp.zakazka_id = z.id
+      `),
+      query(`
+        SELECT
+          COUNT(DISTINCT z.id) FILTER (
+            WHERE z.datum_akce >= CURRENT_DATE
+              AND z.datum_akce <= CURRENT_DATE + INTERVAL '45 days'
+              AND (
+                ar.last_verified_at IS NULL
+                OR ar.last_verified_at < NOW() - INTERVAL '180 days'
+              )
+          ) AS stale_upcoming_venues,
+          COUNT(DISTINCT o.id) FILTER (
+            WHERE o.created_at >= NOW() - INTERVAL '180 days'
+              AND o.severity IN ('warning', 'critical')
+          ) AS recurring_risk_signals
+        FROM zakazky z
+        LEFT JOIN venue_access_rules ar ON ar.venue_id = z.venue_id
+        LEFT JOIN venue_observations o ON o.venue_id = z.venue_id
+      `),
+      query(`
+        SELECT
+          COUNT(*) FILTER (WHERE procitana = false) AS unread_notifications,
+          COUNT(*) FILTER (
+            WHERE procitana = false
+              AND created_at >= NOW() - INTERVAL '7 days'
+          ) AS unread_last_week
+        FROM notifikace
+      `),
+    ]);
+
+    const profitability = profitabilityRes.rows[0] || {};
+    const obrat = Number(profitability.obrat || 0);
+    const naklady = Number(profitability.naklady || 0);
+    const marze = obrat > 0 ? ((obrat - naklady) / obrat) * 100 : 0;
+
+    res.json({
+      pipeline: pipelineRes.rows[0],
+      cashflow: cashflowRes.rows[0],
+      profitability: {
+        ...profitability,
+        marze_procent: Number(marze.toFixed(1)),
+      },
+      staff: staffRes.rows[0],
+      venue: venueRes.rows[0],
+      notifications: notifRes.rows[0],
+    });
   } catch (err) { next(err); }
 });
 

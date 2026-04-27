@@ -1,9 +1,18 @@
 // Changelog - Catering LD CRM
 // Typy změn: 'new' | 'improvement' | 'fix' | 'security'
 
-export const APP_VERSION = '3.8.0';
+export const APP_VERSION = '3.9.0';
 
 export const CHANGELOG = [
+  {
+    version: '3.9.0',
+    date: '2026-04-27',
+    changes: [
+      { type: 'new', text: 'Klientsky portal s magic link prihlasenim, prehledem zakazek, dokumentu, faktur a navazanych nabidek.' },
+      { type: 'new', text: 'Majitelsky prehled s cashflow, marzemi, kapacitami personalu, venue riziky a urgentnimi upozornenimi.' },
+      { type: 'new', text: 'Poukazy V1: interní CRM modul s generovanim kodu, QR, tiskem, odeslanim a rucnim uplatnenim.' },
+    ],
+  },
   {
     version: '3.8.0',
     date: '2026-04-27',

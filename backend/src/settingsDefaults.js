@@ -2,6 +2,7 @@ const DEFAULT_SETTINGS = [
   ['app_title', 'Catering CRM', 'Titulek aplikace v prohlizeci'],
   ['app_logo_data_url', '', 'Logo aplikace jako data URL'],
   ['app_color_theme', 'ocean', 'Barevna sablona aplikace'],
+  ['app_document_font_family', 'syne', 'Pismo pro tiskove vystupy a PDF materialy'],
   ['app_setup_completed_at', '', 'Cas dokonceni uvodniho setup wizardu'],
   ['app_setup_completed_by', '', 'ID uzivatele, ktery dokoncil uvodni setup wizard'],
   ['backup_auto_enabled', 'true', 'Automaticke denni zalohy zapnute'],

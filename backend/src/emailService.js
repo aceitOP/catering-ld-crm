@@ -448,10 +448,85 @@ async function sendPasswordReset({ to, jmeno, resetUrl, firma }) {
   });
 }
 
+async function sendClientPortalMagicLink({ to, magicUrl, firma, expiresInMinutes = 30 }) {
+  const { transporter, from } = await getMailer();
+  const nazevFirmy = firma?.firma_nazev || 'Catering LD';
+
+  const body = `
+    <p style="font-size:15px;line-height:1.8;margin:0 0 20px;">
+      Dobrý den,<br><br>
+      připravili jsme pro Vás bezpečný odkaz do klientského portálu. Po otevření uvidíte své zakázky, dokumenty, faktury i výběry menu.
+    </p>
+
+    <div style="margin:0 0 24px;">
+      <a href="${esc(magicUrl)}" style="display:inline-block;background:#0f766e;color:#fff;text-decoration:none;padding:14px 22px;border-radius:10px;font-weight:bold;">
+        Otevřít klientský portál
+      </a>
+    </div>
+
+    <p style="font-size:14px;line-height:1.7;color:#57534e;margin:0 0 12px;">
+      Odkaz je platný ${esc(expiresInMinutes)} minut a lze jej použít jen jednou.
+    </p>
+    <p style="font-size:13px;line-height:1.7;word-break:break-word;margin:0;">
+      Pokud tlačítko nefunguje, otevřete ručně tento odkaz:<br>
+      <a href="${esc(magicUrl)}" style="color:#0f766e;">${esc(magicUrl)}</a>
+    </p>
+  `;
+
+  await transporter.sendMail({
+    from: `"${nazevFirmy}" <${from}>`,
+    to,
+    subject: 'Klientský portál - přihlašovací odkaz',
+    html: wrapHtml(firma, 'Klientský portál', body),
+  });
+}
+
+async function sendVoucherEmail({ to, voucher, firma }) {
+  const { transporter, from } = await getMailer();
+  const nazevFirmy = firma?.firma_nazev || 'Catering LD';
+  const amount = voucher.nominal_value != null
+    ? new Intl.NumberFormat('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 }).format(voucher.nominal_value)
+    : 'Plnění dle popisu';
+
+  const body = `
+    <p style="font-size:15px;line-height:1.8;margin:0 0 20px;">
+      Dobrý den,<br><br>
+      zasíláme Vám dárkový poukaz <strong>${esc(voucher.title)}</strong>.
+    </p>
+
+    <div style="background:#f5f5f4;border-radius:10px;padding:18px 20px;margin-bottom:22px;">
+      <div style="font-size:12px;color:#78716c;text-transform:uppercase;letter-spacing:.05em;font-weight:700;">Kód poukazu</div>
+      <div style="font-size:24px;font-weight:700;color:#1c1917;margin-top:6px;">${esc(voucher.kod)}</div>
+      <div style="font-size:14px;color:#57534e;margin-top:8px;">Hodnota / plnění: <strong>${esc(amount)}</strong></div>
+      ${voucher.expires_at ? `<div style="font-size:14px;color:#57534e;margin-top:4px;">Expirace: <strong>${datum(voucher.expires_at)}</strong></div>` : ''}
+    </div>
+
+    ${voucher.fulfillment_note ? `<p style="font-size:15px;line-height:1.7;margin:0 0 20px;">${esc(voucher.fulfillment_note).replace(/\n/g, '<br>')}</p>` : ''}
+
+    ${voucher.verify_url ? `
+      <p style="font-size:14px;line-height:1.7;color:#57534e;margin:0 0 10px;">
+        Ověření poukazu / QR payload:
+      </p>
+      <p style="font-size:13px;line-height:1.7;word-break:break-word;margin:0;">
+        <a href="${esc(voucher.verify_url)}" style="color:#0f766e;">${esc(voucher.verify_url)}</a>
+      </p>
+    ` : ''}
+  `;
+
+  await transporter.sendMail({
+    from: `"${nazevFirmy}" <${from}>`,
+    to,
+    subject: `Dárkový poukaz ${voucher.kod}`,
+    html: wrapHtml(firma, 'Dárkový poukaz', body),
+  });
+}
+
 module.exports = {
   sendNabidka,
   sendKomando,
   sendDekujeme,
   sendPotvrzeniPoptavky,
   sendPasswordReset,
+  sendClientPortalMagicLink,
+  sendVoucherEmail,
 };
