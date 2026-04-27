@@ -68,7 +68,7 @@ const NAV = [
     ],
   },
   {
-    label: 'Pro', icon: FlaskConical, moduleKey: 'pro',
+    label: 'Gastro', icon: FlaskConical, moduleKey: 'pro',
     children: [
       { to: '/suroviny',  label: 'Suroviny',  icon: FlaskConical, moduleKey: 'pro' },
       { to: '/receptury', label: 'Receptury', icon: BookOpenText, moduleKey: 'pro' },
