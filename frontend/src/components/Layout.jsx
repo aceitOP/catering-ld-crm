@@ -46,8 +46,6 @@ function timeAgo(ts) {
 const NAV = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/dashboard/owner', label: 'Majitelský přehled', icon: Briefcase, capability: 'owner_dashboard.view' },
-  { to: '/poukazy', label: 'Poukazy', icon: Gift, capability: 'vouchers.manage', moduleKey: 'vouchers' },
-  { to: '/venues', label: 'Prostory', icon: Building2, moduleKey: 'venues' },
   {
     label: 'Catering', icon: ClipboardList,
     children: [
@@ -72,6 +70,8 @@ const NAV = [
     children: [
       { to: '/suroviny',  label: 'Suroviny',  icon: FlaskConical, moduleKey: 'pro' },
       { to: '/receptury', label: 'Receptury', icon: BookOpenText, moduleKey: 'pro' },
+      { to: '/poukazy', label: 'Poukazy', icon: Gift, capability: 'vouchers.manage', moduleKey: 'vouchers' },
+      { to: '/venues', label: 'Prostory', icon: Building2, moduleKey: 'venues' },
     ],
   },
   {
