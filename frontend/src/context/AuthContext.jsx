@@ -54,8 +54,12 @@ export function AuthProvider({ children }) {
   const login = async (email, heslo) => {
     const response = await authApi.login({ email, heslo });
     safeSetItem('token', response.data.token);
-    setUser(response.data.uzivatel);
-    return response.data.uzivatel;
+    try {
+      return await refreshUser();
+    } catch {
+      setUser(response.data.uzivatel);
+      return response.data.uzivatel;
+    }
   };
 
   const logout = () => {

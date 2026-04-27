@@ -6,7 +6,7 @@ const {
 } = require('../src/venueTwin');
 
 const API_BASE = process.env.VENUE_TEST_API_URL || 'http://localhost:4000';
-const EMAIL = process.env.VENUE_TEST_EMAIL || 'l.dvorackova@catering-ld.cz';
+const EMAIL = process.env.VENUE_TEST_EMAIL || 'pomykal@aceit.cz';
 const PASSWORD = process.env.VENUE_TEST_PASSWORD || 'Demo1234!';
 const SKIP_API = process.env.VENUE_TEST_SKIP_API === 'true';
 

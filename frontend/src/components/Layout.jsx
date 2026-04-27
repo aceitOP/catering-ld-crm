@@ -61,7 +61,7 @@ const NAV = [
     label: 'Správa', icon: Users,
     children: [
       { to: '/klienti',  label: 'Klienti',   icon: Users },
-      { to: '/venues',   label: 'Venue',     icon: Building2 },
+      { to: '/venues',   label: 'Prostory',  icon: Building2 },
       { to: '/personal', label: 'Personál',  icon: UserCheck, moduleKey: 'personal' },
       { to: '/archiv',   label: 'Archiv',    icon: Archive, moduleKey: 'archiv' },
     ],

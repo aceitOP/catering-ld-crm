@@ -19,6 +19,19 @@ const OBSERVATION_CATEGORY_TO_SECTION = {
   other: 'overview',
 };
 
+const SECTION_LABELS = {
+  overview: 'přehled',
+  access: 'přístup a security',
+  loading: 'vykládka',
+  routes: 'trasy',
+  service_areas: 'servisní zóny',
+  restrictions: 'omezení',
+  parking: 'parkování',
+  connectivity: 'konektivita',
+  contacts: 'kontakty',
+  attachments: 'přílohy',
+};
+
 function toDate(value) {
   if (!value) return null;
   const date = value instanceof Date ? value : new Date(value);
@@ -304,7 +317,7 @@ async function buildVenueBriefForZakazka(dbClient, zakazkaId) {
       venue: null,
       summary: null,
       risks: [],
-      stale_warning: 'K zakázce není přiřazené venue.',
+      stale_warning: 'K zakázce není přiřazený prostor.',
     };
   }
 
@@ -379,7 +392,7 @@ async function buildVenueBriefForZakazka(dbClient, zakazkaId) {
     risks,
     freshness: bundle.summary.section_meta,
     stale_warning: staleSections.length
-      ? `Pozor: zastaralé sekce venue (${staleSections.join(', ')}).`
+      ? `Pozor: zastaralé sekce prostoru (${staleSections.map((section) => SECTION_LABELS[section] || section).join(', ')}).`
       : '',
   };
 }
@@ -423,7 +436,7 @@ function buildObservationPayloadsFromDebrief({ body, zakazka, attachmentIds = []
   };
 
   if (body.access_as_expected === false || body.access_as_expected === 'no') {
-    addObservation('access', 'Access neodpovídal očekávání', body.access_notes || 'Přístup na venue se lišil oproti briefu.', 'warning', {
+    addObservation('access', 'Přístup neodpovídal očekávání', body.access_notes || 'Přístup do prostoru se lišil oproti briefu.', 'warning', {
       recurring_key: 'access_unexpected',
       propose_master_update: body.propose_master_update,
       proposed_update_payload: { section: 'access', notes: body.access_notes || '' },
@@ -432,7 +445,7 @@ function buildObservationPayloadsFromDebrief({ body, zakazka, attachmentIds = []
 
   if (body.actual_security_delay_minutes != null && body.actual_security_delay_minutes !== '') {
     const delay = Number(body.actual_security_delay_minutes) || 0;
-    addObservation('security', delay >= 20 ? 'Security check 20+ min' : 'Security check ověřen', `Skutečná bezpečnostní kontrola trvala ${delay} min.`, delay >= 20 ? 'warning' : 'info', {
+    addObservation('security', delay >= 20 ? 'Kontrola security 20+ min' : 'Security ověřena', `Skutečná bezpečnostní kontrola trvala ${delay} min.`, delay >= 20 ? 'warning' : 'info', {
       measured_minutes: delay,
       recurring_key: delay >= 20 ? 'security_delay_20_plus' : 'security_delay_verified',
       propose_master_update: body.propose_master_update,
@@ -442,7 +455,7 @@ function buildObservationPayloadsFromDebrief({ body, zakazka, attachmentIds = []
 
   if (body.actual_unload_to_service_area_minutes != null && body.actual_unload_to_service_area_minutes !== '') {
     const minutes = Number(body.actual_unload_to_service_area_minutes) || 0;
-    addObservation('route', minutes >= 15 ? 'Unload-to-room 15+ min' : 'Unload-to-room time ověřen', `Přesun z vykládky do servisní zóny trval ${minutes} min.`, minutes >= 15 ? 'warning' : 'info', {
+    addObservation('route', minutes >= 15 ? 'Přesun do sálu 15+ min' : 'Čas přesunu do sálu ověřen', `Přesun z vykládky do servisní zóny trval ${minutes} min.`, minutes >= 15 ? 'warning' : 'info', {
       measured_minutes: minutes,
       recurring_key: minutes >= 15 ? 'route_delay_15_plus' : 'route_delay_verified',
       propose_master_update: body.propose_master_update,
@@ -451,8 +464,8 @@ function buildObservationPayloadsFromDebrief({ body, zakazka, attachmentIds = []
   }
 
   const issueConfigs = [
-    ['loading_issue', 'loading', 'Problém s loading dockem', 'loading_issue', body.loading_issue_note],
-    ['route_bottleneck', 'route', 'Bottleneck na trase', 'route_bottleneck', body.route_bottleneck_note],
+    ['loading_issue', 'loading', 'Problém s vykládkou', 'loading_issue', body.loading_issue_note],
+    ['route_bottleneck', 'route', 'Zdržení na trase', 'route_bottleneck', body.route_bottleneck_note],
     ['parking_issue', 'parking', 'Problém s parkováním', 'parking_issue', body.parking_issue_note],
     ['connectivity_issue', 'connectivity', 'Problém s konektivitou', 'connectivity_issue', body.connectivity_issue_note],
     ['restriction_discovered', 'restriction', 'Nově zjištěná restrikce', 'restriction_discovered', body.new_restriction_note],

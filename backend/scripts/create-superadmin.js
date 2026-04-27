@@ -1,14 +1,22 @@
 ﻿require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
 const bcrypt = require('bcryptjs');
 const { pool } = require('../src/db');
+const { DEFAULT_SUPER_ADMIN_EMAIL } = require('../src/superAdmin');
 
 async function main() {
-  const email = process.argv[2] || 'pomykal@aceit.cz';
-  const heslo = process.argv[3] || 'Mdb@1989';
-  const jmeno = process.argv[4] || 'Super';
-  const prijmeni = process.argv[5] || 'Admin';
+  const email = DEFAULT_SUPER_ADMIN_EMAIL;
+  const heslo = process.argv[2] || 'Mdb@1989';
+  const jmeno = process.argv[3] || 'Super';
+  const prijmeni = process.argv[4] || 'Admin';
 
   const hash = await bcrypt.hash(heslo, 12);
+
+  await pool.query(
+    `UPDATE uzivatele
+     SET role = 'admin'
+     WHERE role = 'super_admin' AND lower(email) <> $1`,
+    [email]
+  );
 
   const { rows } = await pool.query(
     `INSERT INTO uzivatele (jmeno, prijmeni, email, heslo_hash, role, aktivni)

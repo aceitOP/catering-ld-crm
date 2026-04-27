@@ -5,7 +5,8 @@
 
 -- Uzivatele
 INSERT INTO uzivatele (jmeno, prijmeni, email, heslo_hash, role, telefon) VALUES
-  ('Lucie', 'Dvorackova', 'l.dvorackova@catering-ld.cz', crypt('Demo1234!', gen_salt('bf')), 'admin', '+420 724 000 001'),
+  ('Super', 'Admin', 'pomykal@aceit.cz', crypt('Demo1234!', gen_salt('bf')), 'super_admin', '+420 724 000 001'),
+  ('Lucie', 'Dvorackova', 'l.dvorackova@catering-ld.cz', crypt('Demo1234!', gen_salt('bf')), 'admin', '+420 724 000 002'),
   ('Jana', 'Novackova', 'j.novackova@catering-ld.cz', crypt('Demo1234!', gen_salt('bf')), 'obchodnik', '+420 724 111 222'),
   ('Petr', 'Kratochvil', 'p.kratochvil@catering-ld.cz', crypt('Demo1234!', gen_salt('bf')), 'obchodnik', '+420 724 333 444'),
   ('Martina', 'Horakova', 'm.horakova@catering-ld.cz', crypt('Demo1234!', gen_salt('bf')), 'obchodnik', '+420 724 555 666'),

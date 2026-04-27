@@ -7,6 +7,7 @@ const { query } = require('../db');
 const { auth }  = require('../middleware/auth');
 const { sendPasswordReset } = require('../emailService');
 const { getModuleState } = require('../moduleAccess');
+const { ensureSuperAdminUser } = require('../superAdmin');
 
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minut
@@ -92,14 +93,24 @@ router.post('/login', loginLimiter, async (req, res, next) => {
       return res.status(401).json({ error: 'Neplatné přihlašovací údaje' });
     }
 
+    // Samooprava role: pokud ve stávající DB chybí super_admin, povýší preferovaný/admin účet při prvním úspěšném loginu.
+    await ensureSuperAdminUser(query);
+
     // Úspěšné přihlášení
-    await query('UPDATE uzivatele SET posledni_prihlaseni = NOW() WHERE id = $1', [uzivatel.id]);
-    await logLogin({ user_id: uzivatel.id, email: emailNorm, uspech: true, ip_adresa: ip, user_agent: ua, duvod: null });
+    const { rows: refreshedRows } = await query(
+      `UPDATE uzivatele
+       SET posledni_prihlaseni = NOW()
+       WHERE id = $1
+       RETURNING id, jmeno, prijmeni, email, role, telefon`,
+      [uzivatel.id]
+    );
+    const aktualniUzivatel = refreshedRows[0] || uzivatel;
+    await logLogin({ user_id: aktualniUzivatel.id, email: emailNorm, uspech: true, ip_adresa: ip, user_agent: ua, duvod: null });
     const modules = await getModuleState();
 
     const token = jwt.sign(
-      { id: uzivatel.id, email: uzivatel.email, role: uzivatel.role,
-        jmeno: uzivatel.jmeno, prijmeni: uzivatel.prijmeni },
+      { id: aktualniUzivatel.id, email: aktualniUzivatel.email, role: aktualniUzivatel.role,
+        jmeno: aktualniUzivatel.jmeno, prijmeni: aktualniUzivatel.prijmeni },
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
     );
@@ -107,12 +118,12 @@ router.post('/login', loginLimiter, async (req, res, next) => {
     res.json({
       token,
       uzivatel: {
-        id: uzivatel.id,
-        jmeno: uzivatel.jmeno,
-        prijmeni: uzivatel.prijmeni,
-        email: uzivatel.email,
-        role: uzivatel.role,
-        telefon: uzivatel.telefon,
+        id: aktualniUzivatel.id,
+        jmeno: aktualniUzivatel.jmeno,
+        prijmeni: aktualniUzivatel.prijmeni,
+        email: aktualniUzivatel.email,
+        role: aktualniUzivatel.role,
+        telefon: aktualniUzivatel.telefon,
         modules,
       }
     });

@@ -57,12 +57,12 @@ export default function VenuesPage() {
     mutationFn: venuesApi.create,
     onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ['venues'] });
-      toast.success('Venue vytvoreno');
+      toast.success('Prostor byl vytvořen');
       setModal(false);
       setForm(emptyForm);
       navigate(`/venues/${res.data.id}`);
     },
-    onError: (err) => toast.error(err.response?.data?.error || 'Venue se nepodarilo vytvorit'),
+    onError: (err) => toast.error(err.response?.data?.error || 'Prostor se nepodařilo vytvořit'),
   });
 
   const items = data?.data?.data || [];
@@ -73,11 +73,11 @@ export default function VenuesPage() {
   return (
     <div className="flex h-full flex-col">
       <PageHeader
-        title="Venue Logistics"
-        subtitle={`${items.length} venue`}
+        title="Prostory"
+        subtitle={`${items.length} prostorů`}
         actions={(
           <Btn variant="primary" size="sm" onClick={() => setModal(true)}>
-            <Plus size={12}/> Nove venue
+            <Plus size={12}/> Nový prostor
           </Btn>
         )}
       />
@@ -89,7 +89,7 @@ export default function VenuesPage() {
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400"/>
               <input
                 className="w-full border border-stone-200 rounded-xl pl-9 pr-3 py-2.5 text-sm focus:outline-none"
-                placeholder="Hledat podle nazvu nebo adresy"
+                placeholder="Hledat podle názvu nebo adresy"
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
               />
@@ -99,23 +99,23 @@ export default function VenuesPage() {
               value={status}
               onChange={(e) => setStatus(e.target.value)}
             >
-              <option value="active">Aktivni</option>
-              <option value="archived">Archivovane</option>
-              <option value="all">Vse</option>
+              <option value="active">Aktivní</option>
+              <option value="archived">Archivované</option>
+              <option value="all">Vše</option>
             </select>
             <input
               className="border border-stone-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none"
-              placeholder="Max security delay (min)"
+              placeholder="Max. zdržení na security (min)"
               value={maxSecurityDelay}
               onChange={(e) => setMaxSecurityDelay(e.target.value)}
             />
           </div>
           <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={() => toggle('has_loading_dock')} className={`px-3 py-1.5 rounded-xl text-xs font-semibold ${filters.has_loading_dock ? 'bg-stone-900 text-white' : 'bg-stone-100 text-stone-600'}`}>Loading dock</button>
-            <button type="button" onClick={() => toggle('security_check_required')} className={`px-3 py-1.5 rounded-xl text-xs font-semibold ${filters.security_check_required ? 'bg-stone-900 text-white' : 'bg-stone-100 text-stone-600'}`}>Security</button>
-            <button type="button" onClick={() => toggle('truck_friendly')} className={`px-3 py-1.5 rounded-xl text-xs font-semibold ${filters.truck_friendly ? 'bg-stone-900 text-white' : 'bg-stone-100 text-stone-600'}`}>Truck-friendly</button>
-            <button type="button" onClick={() => toggle('parking_available')} className={`px-3 py-1.5 rounded-xl text-xs font-semibold ${filters.parking_available ? 'bg-stone-900 text-white' : 'bg-stone-100 text-stone-600'}`}>Parking</button>
-            <button type="button" onClick={() => toggle('mobile_dead_spot_present')} className={`px-3 py-1.5 rounded-xl text-xs font-semibold ${filters.mobile_dead_spot_present ? 'bg-stone-900 text-white' : 'bg-stone-100 text-stone-600'}`}>Dead spot</button>
+            <button type="button" onClick={() => toggle('has_loading_dock')} className={`px-3 py-1.5 rounded-xl text-xs font-semibold ${filters.has_loading_dock ? 'bg-stone-900 text-white' : 'bg-stone-100 text-stone-600'}`}>Vykládka</button>
+            <button type="button" onClick={() => toggle('security_check_required')} className={`px-3 py-1.5 rounded-xl text-xs font-semibold ${filters.security_check_required ? 'bg-stone-900 text-white' : 'bg-stone-100 text-stone-600'}`}>Kontrola security</button>
+            <button type="button" onClick={() => toggle('truck_friendly')} className={`px-3 py-1.5 rounded-xl text-xs font-semibold ${filters.truck_friendly ? 'bg-stone-900 text-white' : 'bg-stone-100 text-stone-600'}`}>Pro kamion / dodávku</button>
+            <button type="button" onClick={() => toggle('parking_available')} className={`px-3 py-1.5 rounded-xl text-xs font-semibold ${filters.parking_available ? 'bg-stone-900 text-white' : 'bg-stone-100 text-stone-600'}`}>Parkování</button>
+            <button type="button" onClick={() => toggle('mobile_dead_spot_present')} className={`px-3 py-1.5 rounded-xl text-xs font-semibold ${filters.mobile_dead_spot_present ? 'bg-stone-900 text-white' : 'bg-stone-100 text-stone-600'}`}>Hluché místo signálu</button>
           </div>
         </div>
       </div>
@@ -124,7 +124,7 @@ export default function VenuesPage() {
         {isLoading ? (
           <div className="flex justify-center py-20"><Spinner/></div>
         ) : items.length === 0 ? (
-          <EmptyState icon={Building2} title="Zadne venue" desc="Zalozte prvni venue a zacnete sbirat provozni know-how." />
+          <EmptyState icon={Building2} title="Žádné prostory" desc="Založte první prostor a začněte sbírat provozní know-how." />
         ) : (
           <div className="grid xl:grid-cols-2 gap-4">
             {items.map((venue) => (
@@ -142,43 +142,43 @@ export default function VenuesPage() {
                       {[venue.address_line_1, venue.city, venue.postal_code].filter(Boolean).join(', ') || 'Bez adresy'}
                     </div>
                   </div>
-                  <SummaryBadge active={venue.status === 'active'} label={venue.status === 'active' ? 'Aktivni' : 'Archiv'} tone={venue.status === 'active' ? 'blue' : 'stone'} />
+                  <SummaryBadge active={venue.status === 'active'} label={venue.status === 'active' ? 'Aktivní' : 'Archiv'} tone={venue.status === 'active' ? 'blue' : 'stone'} />
                 </div>
 
                 <div className="mt-4 flex flex-wrap gap-2">
-                  <SummaryBadge active={venue.badges?.loading_dock} label="Loading dock" />
-                  <SummaryBadge active={venue.badges?.security} label="Security" tone="amber" />
-                  <SummaryBadge active={Number(venue.badges?.restrictions) > 0} label={`${venue.summary?.critical_restrictions_count || 0} restrictions`} tone="red" />
-                  <SummaryBadge active={venue.badges?.stale_data} label="Stale data" tone="red" />
+                  <SummaryBadge active={venue.badges?.loading_dock} label="Vykládka" />
+                  <SummaryBadge active={venue.badges?.security} label="Kontrola security" tone="amber" />
+                  <SummaryBadge active={Number(venue.badges?.restrictions) > 0} label={`${venue.summary?.critical_restrictions_count || 0} omezení`} tone="red" />
+                  <SummaryBadge active={venue.badges?.stale_data} label="Zastaralá data" tone="red" />
                 </div>
 
                 <div className="mt-4 grid grid-cols-2 gap-3">
                   <div className="rounded-xl bg-stone-50 px-3 py-2">
-                    <div className="text-xs text-stone-500">Security buffer</div>
+                    <div className="text-xs text-stone-500">Rezerva na security</div>
                     <div className="text-sm font-semibold text-stone-800 mt-1">{venue.summary?.expected_security_delay_min || 0} min</div>
                   </div>
                   <div className="rounded-xl bg-stone-50 px-3 py-2">
-                    <div className="text-xs text-stone-500">Unload to room</div>
+                    <div className="text-xs text-stone-500">Vykládka do sálu</div>
                     <div className="text-sm font-semibold text-stone-800 mt-1">{venue.summary?.expected_unload_to_room_min || 0} min</div>
                   </div>
                   <div className="rounded-xl bg-stone-50 px-3 py-2">
-                    <div className="text-xs text-stone-500">Recurring issues</div>
+                    <div className="text-xs text-stone-500">Opakující se problémy</div>
                     <div className="text-sm font-semibold text-stone-800 mt-1">{venue.summary?.recurring_issues_count || 0}</div>
                   </div>
                   <div className="rounded-xl bg-stone-50 px-3 py-2">
-                    <div className="text-xs text-stone-500">Stale sections</div>
+                    <div className="text-xs text-stone-500">Zastaralé sekce</div>
                     <div className="text-sm font-semibold text-stone-800 mt-1">{venue.summary?.stale_sections_count || 0}</div>
                   </div>
                 </div>
 
                 <div className="mt-4 flex flex-wrap gap-3 text-xs text-stone-500">
-                  {venue.summary?.parking_available && <span className="inline-flex items-center gap-1"><Truck size={12}/> parking</span>}
-                  {venue.summary?.mobile_dead_spot_present && <span className="inline-flex items-center gap-1"><WifiOff size={12}/> dead spot</span>}
+                  {venue.summary?.parking_available && <span className="inline-flex items-center gap-1"><Truck size={12}/> parkování</span>}
+                  {venue.summary?.mobile_dead_spot_present && <span className="inline-flex items-center gap-1"><WifiOff size={12}/> hluché místo</span>}
                   {venue.summary?.security_check_required && <span className="inline-flex items-center gap-1"><ShieldAlert size={12}/> check-in</span>}
                 </div>
 
                 <div className="mt-4 text-xs text-stone-400">
-                  Posledni update {formatDatum(venue.updated_at)}
+                  Poslední aktualizace {formatDatum(venue.updated_at)}
                 </div>
               </button>
             ))}
@@ -189,19 +189,19 @@ export default function VenuesPage() {
       <Modal
         open={modal}
         onClose={() => setModal(false)}
-        title="Nove venue"
+        title="Nový prostor"
         footer={(
           <>
-            <Btn onClick={() => setModal(false)}>Zrusit</Btn>
+            <Btn onClick={() => setModal(false)}>Zrušit</Btn>
             <Btn variant="primary" onClick={() => createMut.mutate(form)} disabled={!form.name || createMut.isPending}>
-              {createMut.isPending ? 'Ukladam...' : 'Vytvorit'}
+              {createMut.isPending ? 'Ukládám...' : 'Vytvořit'}
             </Btn>
           </>
         )}
       >
         <div className="space-y-3">
           <div>
-            <label className="text-xs text-stone-500 block mb-1">Nazev venue *</label>
+            <label className="text-xs text-stone-500 block mb-1">Název prostoru *</label>
             <input className="w-full border border-stone-200 rounded-xl px-3 py-2 text-sm focus:outline-none" value={form.name} onChange={(e) => setF('name', e.target.value)} />
           </div>
           <div>
@@ -210,16 +210,16 @@ export default function VenuesPage() {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-stone-500 block mb-1">Mesto</label>
+              <label className="text-xs text-stone-500 block mb-1">Město</label>
               <input className="w-full border border-stone-200 rounded-xl px-3 py-2 text-sm focus:outline-none" value={form.city} onChange={(e) => setF('city', e.target.value)} />
             </div>
             <div>
-              <label className="text-xs text-stone-500 block mb-1">PSC</label>
+              <label className="text-xs text-stone-500 block mb-1">PSČ</label>
               <input className="w-full border border-stone-200 rounded-xl px-3 py-2 text-sm focus:outline-none" value={form.postal_code} onChange={(e) => setF('postal_code', e.target.value)} />
             </div>
           </div>
           <div>
-            <label className="text-xs text-stone-500 block mb-1">Obecne poznamky</label>
+            <label className="text-xs text-stone-500 block mb-1">Obecné poznámky</label>
             <textarea className="w-full border border-stone-200 rounded-xl px-3 py-2 text-sm focus:outline-none resize-none" rows={4} value={form.general_notes} onChange={(e) => setF('general_notes', e.target.value)} />
           </div>
         </div>

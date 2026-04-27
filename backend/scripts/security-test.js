@@ -1,8 +1,9 @@
 const { URL } = require('url');
 
 const API_BASE = process.env.SECURITY_TEST_API_URL || 'http://localhost:4000';
-const EMAIL = process.env.SECURITY_TEST_EMAIL || 'l.dvorackova@catering-ld.cz';
+const EMAIL = process.env.SECURITY_TEST_EMAIL || 'pomykal@aceit.cz';
 const PASSWORD = process.env.SECURITY_TEST_PASSWORD || 'Demo1234!';
+const EXPECT_ROLE = process.env.SECURITY_TEST_EXPECT_ROLE || '';
 
 const buildUrl = (path) => new URL(path, API_BASE).toString();
 const normalizedEmail = EMAIL.toLowerCase();
@@ -45,6 +46,9 @@ const run = async () => {
     if (!payload.uzivatel || payload.uzivatel.email.toLowerCase() !== normalizedEmail) {
       throw new Error('unexpected user returned from login');
     }
+    if (EXPECT_ROLE && payload.uzivatel.role !== EXPECT_ROLE) {
+      throw new Error(`expected role ${EXPECT_ROLE} but got ${payload.uzivatel.role}`);
+    }
     token = payload.token;
   });
 
@@ -56,6 +60,9 @@ const run = async () => {
     const body = await res.json();
     if (body.email?.toLowerCase() !== normalizedEmail) {
       throw new Error('response identity does not match test email');
+    }
+    if (EXPECT_ROLE && body.role !== EXPECT_ROLE) {
+      throw new Error(`/api/auth/me expected role ${EXPECT_ROLE} but got ${body.role}`);
     }
   });
 

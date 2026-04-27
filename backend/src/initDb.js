@@ -17,6 +17,58 @@ async function initDb() {
       }
     };
 
+    const ensureSuperAdminUser = async () => {
+      const { rows: existing } = await pool.query(
+        `SELECT id, email FROM uzivatele
+         WHERE role = 'super_admin'
+         ORDER BY created_at ASC, id ASC
+         LIMIT 1`
+      );
+      if (existing[0]) return existing[0];
+
+      const preferredEmails = [
+        process.env.SUPER_ADMIN_EMAIL?.trim().toLowerCase(),
+        'l.dvorackova@catering-ld.cz',
+      ].filter(Boolean);
+
+      for (const email of preferredEmails) {
+        const promoted = await pool.query(
+          `UPDATE uzivatele
+           SET role = 'super_admin'
+           WHERE lower(email) = $1
+           RETURNING id, email`,
+          [email]
+        );
+        if (promoted.rows[0]) {
+          console.log(`✅  Super admin nastaven pro účet ${promoted.rows[0].email}.`);
+          return promoted.rows[0];
+        }
+      }
+
+      const fallback = await pool.query(
+        `WITH candidate AS (
+           SELECT id
+           FROM uzivatele
+           WHERE role = 'admin'
+           ORDER BY created_at ASC NULLS LAST, id ASC
+           LIMIT 1
+         )
+         UPDATE uzivatele u
+         SET role = 'super_admin'
+         FROM candidate
+         WHERE u.id = candidate.id
+         RETURNING u.id, u.email`
+      );
+
+      if (fallback.rows[0]) {
+        console.log(`✅  Žádný super admin nebyl nalezen, povýšen účet ${fallback.rows[0].email}.`);
+        return fallback.rows[0];
+      }
+
+      console.warn('⚠️  Nebyl nalezen žádný účet pro povýšení na super admin.');
+      return null;
+    };
+
     // Zkontroluj jestli tabulky už existují
     const { rows } = await pool.query(`
       SELECT COUNT(*) as cnt FROM information_schema.tables
@@ -562,6 +614,7 @@ async function initDb() {
       await pool.query(`ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'uzivatel'`);
       await pool.query(`UPDATE uzivatele SET role = 'uzivatel' WHERE role IN ('obchodnik', 'provoz')`);
       await ensureDefaultSettings();
+      await ensureSuperAdminUser();
 
       console.log('✅  Migrace OK (google_event_id, faktury, proposals, archivovano, sablony, planovani, pravidelny, followup, password reset, error logs, dokumenty_slozky, email_links, email_sablony, user_roles, venue_twin).');
       return;
@@ -576,6 +629,7 @@ async function initDb() {
 
     const seed = fs.readFileSync(path.join(__dirname, '../db/seed.sql'), 'utf8');
     await pool.query(seed);
+    await ensureSuperAdminUser();
     console.log('✅  Demo data vložena.');
 
   } catch (err) {

@@ -398,8 +398,8 @@ export default function ZakazkaDetail() {
 
   const venueSnapshotMut = useMutation({
     mutationFn: () => zakazkyApi.createVenueSnapshot(id),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['zakazka-venue-brief', id] }); toast.success('Venue snapshot vytvoren'); },
-    onError: (err) => toast.error(err.response?.data?.error || 'Snapshot se nepodarilo vytvorit'),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['zakazka-venue-brief', id] }); toast.success('Snapshot prostoru byl vytvořen'); },
+    onError: (err) => toast.error(err.response?.data?.error || 'Snapshot prostoru se nepodařilo vytvořit'),
   });
 
   const venueDebriefMut = useMutation({
@@ -407,10 +407,10 @@ export default function ZakazkaDetail() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['zakazka', id] });
       qc.invalidateQueries({ queryKey: ['zakazka-venue-brief', id] });
-      toast.success('Venue debrief ulozen');
+      toast.success('Debrief prostoru byl uložen');
       setVenueDebriefModal(false);
     },
-    onError: (err) => toast.error(err.response?.data?.error || 'Debrief se nepodarilo ulozit'),
+    onError: (err) => toast.error(err.response?.data?.error || 'Debrief se nepodařilo uložit'),
   });
 
   const handleFileChange = (e) => {
@@ -538,7 +538,7 @@ export default function ZakazkaDetail() {
       <div className="bg-white border-b border-stone-100 px-6 flex gap-0">
         {[
           ['detaily','Detaily'],
-          ['venue','Venue brief'],
+          ['venue','Brief prostoru'],
           ['planovanÄ‚Â­','PlÄ‚Ë‡novÄ‚Ë‡nÄ‚Â­'],
           ['historie','Historie'],
           ...(personalEnabled ? [['personal','PersonÄŹĹĽËťl']] : []),
@@ -926,13 +926,13 @@ export default function ZakazkaDetail() {
                 <div>
                   <div className="flex items-center gap-2">
                     <MapPin size={16} className="text-stone-400"/>
-                    <h3 className="text-sm font-semibold text-stone-800">Venue brief</h3>
+                    <h3 className="text-sm font-semibold text-stone-800">Brief prostoru</h3>
                   </div>
-                  <p className="text-xs text-stone-500 mt-1">Provozni brief pro den akce s venue snapshot a riziky.</p>
+                  <p className="text-xs text-stone-500 mt-1">Provozní brief pro den akce se snapshotem prostoru a riziky.</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Btn size="sm" onClick={() => venueSnapshotMut.mutate()} disabled={venueSnapshotMut.isPending}>
-                    {venueSnapshotMut.isPending ? 'Ukladam...' : 'Vytvorit snapshot'}
+                    {venueSnapshotMut.isPending ? 'Ukládám...' : 'Vytvořit snapshot'}
                   </Btn>
                   <Btn size="sm" variant="primary" onClick={() => setVenueDebriefModal(true)}>
                     Debrief po akci
@@ -942,18 +942,18 @@ export default function ZakazkaDetail() {
 
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs text-stone-500 block mb-1">Venue</label>
+                  <label className="text-xs text-stone-500 block mb-1">Prostor</label>
                   <select
                     className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
                     value={editForm.venue_id ?? z.venue_id ?? ''}
                     onChange={(e) => setEditForm((f) => ({ ...f, venue_id: e.target.value || null, venue_loading_zone_id: null, venue_service_area_id: null, venue_route_id: null }))}
                   >
-                    <option value="">-- bez venue --</option>
+                    <option value="">-- bez prostoru --</option>
                     {venueOptions.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
                   </select>
                   <div className="mt-2">
                     <Btn size="sm" onClick={() => editMut.mutate({ venue_id: editForm.venue_id || null, venue_loading_zone_id: null, venue_service_area_id: null, venue_route_id: null }, { onSuccess: () => refetchVenueBrief() })}>
-                      Ulozit venue
+                      Uložit prostor
                     </Btn>
                   </div>
                 </div>
@@ -965,7 +965,7 @@ export default function ZakazkaDetail() {
                       {venueBrief.stale_warning && <div className="mt-2 text-xs text-red-600">{venueBrief.stale_warning}</div>}
                     </>
                   ) : (
-                    <div className="text-sm text-stone-400">K zakazce zatim neni prirazene venue.</div>
+                    <div className="text-sm text-stone-400">K zakázce zatím není přiřazený prostor.</div>
                   )}
                 </div>
               </div>
@@ -974,20 +974,20 @@ export default function ZakazkaDetail() {
             {venueBrief?.venue && (
               <>
                 <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-4">
-                  <div className="bg-white rounded-xl border border-stone-200 p-4"><div className="text-xs text-stone-500">Security buffer</div><div className="text-lg font-semibold text-stone-800 mt-1">{venueBrief.summary?.expected_security_delay_min || 0} min</div></div>
-                  <div className="bg-white rounded-xl border border-stone-200 p-4"><div className="text-xs text-stone-500">Unload to room</div><div className="text-lg font-semibold text-stone-800 mt-1">{venueBrief.summary?.expected_unload_to_room_min || 0} min</div></div>
-                  <div className="bg-white rounded-xl border border-stone-200 p-4"><div className="text-xs text-stone-500">Restrictions</div><div className="text-lg font-semibold text-stone-800 mt-1">{venueBrief.summary?.critical_restrictions_count || 0}</div></div>
-                  <div className="bg-white rounded-xl border border-stone-200 p-4"><div className="text-xs text-stone-500">Recurring issues</div><div className="text-lg font-semibold text-stone-800 mt-1">{venueBrief.summary?.recurring_issues_count || 0}</div></div>
+                  <div className="bg-white rounded-xl border border-stone-200 p-4"><div className="text-xs text-stone-500">Rezerva na security</div><div className="text-lg font-semibold text-stone-800 mt-1">{venueBrief.summary?.expected_security_delay_min || 0} min</div></div>
+                  <div className="bg-white rounded-xl border border-stone-200 p-4"><div className="text-xs text-stone-500">Vykládka do sálu</div><div className="text-lg font-semibold text-stone-800 mt-1">{venueBrief.summary?.expected_unload_to_room_min || 0} min</div></div>
+                  <div className="bg-white rounded-xl border border-stone-200 p-4"><div className="text-xs text-stone-500">Omezení</div><div className="text-lg font-semibold text-stone-800 mt-1">{venueBrief.summary?.critical_restrictions_count || 0}</div></div>
+                  <div className="bg-white rounded-xl border border-stone-200 p-4"><div className="text-xs text-stone-500">Opakující se problémy</div><div className="text-lg font-semibold text-stone-800 mt-1">{venueBrief.summary?.recurring_issues_count || 0}</div></div>
                 </div>
 
                 <div className="grid xl:grid-cols-2 gap-4">
                   <div className="bg-white rounded-xl border border-stone-200 p-5 space-y-3">
-                    <h4 className="text-sm font-semibold text-stone-800">Operativni instrukce</h4>
+                    <h4 className="text-sm font-semibold text-stone-800">Operativní instrukce</h4>
                     <div className="text-sm text-stone-700 space-y-2">
-                      <div><span className="text-stone-500">Check-in:</span> {venueBrief.access_rule?.check_in_point || 'n/a'}</div>
-                      <div><span className="text-stone-500">Loading zone:</span> {venueBrief.loading_zone?.name || 'n/a'}</div>
-                      <div><span className="text-stone-500">Service area:</span> {venueBrief.service_area?.name || 'n/a'}</div>
-                      <div><span className="text-stone-500">Route:</span> {venueBrief.route?.name || 'n/a'}</div>
+                      <div><span className="text-stone-500">Check-in:</span> {venueBrief.access_rule?.check_in_point || 'neuvedeno'}</div>
+                      <div><span className="text-stone-500">Loading zóna:</span> {venueBrief.loading_zone?.name || 'neuvedeno'}</div>
+                      <div><span className="text-stone-500">Servisní zóna:</span> {venueBrief.service_area?.name || 'neuvedeno'}</div>
+                      <div><span className="text-stone-500">Trasa:</span> {venueBrief.route?.name || 'neuvedeno'}</div>
                     </div>
                     {(venueBrief.route_steps || []).length > 0 && (
                       <div className="space-y-2">
@@ -1012,7 +1012,7 @@ export default function ZakazkaDetail() {
                           </div>
                         ))}
                       </div>
-                    ) : <div className="text-sm text-stone-400">Bez vyraznych rizik.</div>}
+                    ) : <div className="text-sm text-stone-400">Bez výrazných rizik.</div>}
                     {(venueBrief.contacts || []).map((contact) => (
                       <div key={contact.id} className="rounded-xl bg-stone-50 px-3 py-2">
                         <div className="text-sm font-medium text-stone-800">{contact.name}</div>
@@ -1380,31 +1380,31 @@ export default function ZakazkaDetail() {
       </Modal>
 
       {/* Modal: Upravit zakÄ‚Ë‡zku */}
-      <Modal open={venueDebriefModal} onClose={() => setVenueDebriefModal(false)} title="Venue debrief"
+      <Modal open={venueDebriefModal} onClose={() => setVenueDebriefModal(false)} title="Debrief prostoru"
         footer={<>
-          <Btn onClick={() => setVenueDebriefModal(false)}>Zrusit</Btn>
+          <Btn onClick={() => setVenueDebriefModal(false)}>Zrušit</Btn>
           <Btn variant="primary" onClick={() => venueDebriefMut.mutate(venueDebriefForm)} disabled={venueDebriefMut.isPending}>
-            {venueDebriefMut.isPending ? 'Ukladam...' : 'Ulozit debrief'}
+            {venueDebriefMut.isPending ? 'Ukládám...' : 'Uložit debrief'}
           </Btn>
         </>}>
         <div className="space-y-3">
           <div>
-            <label className="text-xs text-stone-500 block mb-1">Byl access podle ocekavani?</label>
+            <label className="text-xs text-stone-500 block mb-1">Byl přístup podle očekávání?</label>
             <select className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm" value={venueDebriefForm.access_as_expected} onChange={e => setVenueDebriefForm(f => ({ ...f, access_as_expected: e.target.value }))}>
               <option value="yes">Ano</option>
               <option value="no">Ne</option>
             </select>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <input className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm" placeholder="Actual security delay" value={venueDebriefForm.actual_security_delay_minutes} onChange={e => setVenueDebriefForm(f => ({ ...f, actual_security_delay_minutes: e.target.value }))} />
-            <input className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm" placeholder="Unload -> service area" value={venueDebriefForm.actual_unload_to_service_area_minutes} onChange={e => setVenueDebriefForm(f => ({ ...f, actual_unload_to_service_area_minutes: e.target.value }))} />
+            <input className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm" placeholder="Skutečné zdržení na security" value={venueDebriefForm.actual_security_delay_minutes} onChange={e => setVenueDebriefForm(f => ({ ...f, actual_security_delay_minutes: e.target.value }))} />
+            <input className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm" placeholder="Vykládka -> servisní zóna" value={venueDebriefForm.actual_unload_to_service_area_minutes} onChange={e => setVenueDebriefForm(f => ({ ...f, actual_unload_to_service_area_minutes: e.target.value }))} />
           </div>
           {[
-            ['loading_issue', 'loading_issue_note', 'Loading issue'],
-            ['route_bottleneck', 'route_bottleneck_note', 'Route bottleneck'],
-            ['parking_issue', 'parking_issue_note', 'Parking issue'],
-            ['connectivity_issue', 'connectivity_issue_note', 'Connectivity issue'],
-            ['restriction_discovered', 'new_restriction_note', 'New restriction'],
+            ['loading_issue', 'loading_issue_note', 'Problém s vykládkou'],
+            ['route_bottleneck', 'route_bottleneck_note', 'Zdržení na trase'],
+            ['parking_issue', 'parking_issue_note', 'Problém s parkováním'],
+            ['connectivity_issue', 'connectivity_issue_note', 'Problém s konektivitou'],
+            ['restriction_discovered', 'new_restriction_note', 'Nově zjištěné omezení'],
           ].map(([flag, note, label]) => (
             <div key={flag} className="rounded-xl bg-stone-50 px-3 py-3">
               <label className="flex items-center gap-2 text-sm font-medium text-stone-700">
@@ -1416,7 +1416,7 @@ export default function ZakazkaDetail() {
           ))}
           <label className="flex items-center gap-2 text-sm text-stone-700">
             <input type="checkbox" checked={!!venueDebriefForm.propose_master_update} onChange={e => setVenueDebriefForm(f => ({ ...f, propose_master_update: e.target.checked }))} />
-            Navrhnout update venue master data
+            Navrhnout promítnutí do master dat prostoru
           </label>
         </div>
       </Modal>
