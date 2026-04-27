@@ -1,4 +1,5 @@
 import React from 'react';
+import { captureFrontendException } from '../sentry';
 
 function resetLocalAppState() {
   try {
@@ -24,6 +25,10 @@ export default class AppErrorBoundary extends React.Component {
 
   componentDidCatch(error, errorInfo) {
     console.error('AppErrorBoundary caught a render error:', error, errorInfo);
+    captureFrontendException(error, {
+      componentStack: errorInfo?.componentStack || null,
+      boundary: 'AppErrorBoundary',
+    });
   }
 
   render() {

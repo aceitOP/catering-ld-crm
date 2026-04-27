@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { authApi, nastaveniApi } from '../api';
 import { isModuleEnabled } from '../data/moduleConfig';
 import { safeGetItem, safeRemoveItem, safeSetItem } from '../utils/storage';
+import { clearFrontendSentryUser, setFrontendSentryUser } from '../sentry';
 
 const AuthContext = createContext(null);
 const DEFAULT_BRANDING = {
@@ -32,6 +33,7 @@ export function AuthProvider({ children }) {
   const refreshUser = async () => {
     const response = await authApi.me();
     setUser(response.data);
+    setFrontendSentryUser(response.data);
     return response.data;
   };
 
@@ -50,6 +52,7 @@ export function AuthProvider({ children }) {
       token ? refreshUser().catch(() => {
         safeRemoveItem('token');
         setUser(null);
+        clearFrontendSentryUser();
       }) : Promise.resolve(null),
     ]).finally(() => setLoading(false));
   }, []);
@@ -61,6 +64,7 @@ export function AuthProvider({ children }) {
       return await refreshUser();
     } catch {
       setUser(response.data.uzivatel);
+      setFrontendSentryUser(response.data.uzivatel);
       return response.data.uzivatel;
     }
   };
@@ -68,6 +72,7 @@ export function AuthProvider({ children }) {
   const logout = () => {
     safeRemoveItem('token');
     setUser(null);
+    clearFrontendSentryUser();
   };
 
   const hasModule = (moduleKey) => isModuleEnabled(user?.modules, moduleKey);

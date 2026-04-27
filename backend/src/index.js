@@ -20,7 +20,15 @@ const { requireAppModule } = require('./moduleAccess');
 const { getBuildInfo } = require('./buildInfo');
 const { getInitState } = require('./initState');
 const { query } = require('./db');
+const {
+  initSentry,
+  registerSentryProcessHandlers,
+  captureBackendException,
+  isSentryEnabled,
+} = require('./sentry');
 
+initSentry();
+registerSentryProcessHandlers();
 const app = express();
 
 // ── Middleware ───────────────────────────────────────────────
@@ -31,6 +39,10 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '10mb' }));
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
+app.use((req, _res, next) => {
+  req.monitoring = { sentryEnabled: isSentryEnabled() };
+  next();
+});
 
 // ── Routes ───────────────────────────────────────────────────
 app.use('/api/auth',       require('./routes/auth'));
@@ -91,6 +103,9 @@ app.get('/api/health', async (_req, res) => {
     environment: build.node_env,
     render_service: build.render_service,
     render_git_commit: build.render_git_commit,
+    monitoring: {
+      sentry_enabled: isSentryEnabled(),
+    },
     init,
     db,
     ready,
@@ -121,6 +136,7 @@ app.use((err, _req, res, _next) => {
   console.error(err);
   const status = err.status || 500;
   if (status >= 500) {
+    captureBackendException(err, _req, { status });
     logAppError(err, _req);
   }
   res.status(status).json({

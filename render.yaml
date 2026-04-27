@@ -26,6 +26,12 @@ services:
         generateValue: true
       - key: FRONTEND_URL
         value: https://catering-ld-frontend.onrender.com
+      - key: SENTRY_DSN
+        value: https://e88e0972ff604a64a74e09c206ae1fb8@sentry.dev01.aceit.dev/2
+      - key: SENTRY_ENVIRONMENT
+        value: production
+      - key: SENTRY_TRACES_SAMPLE_RATE
+        value: 0.1
       - key: DB_SEED_MODE
         value: empty
       - key: SUPER_ADMIN_EMAIL
@@ -52,3 +58,9 @@ services:
     envVars:
       - key: VITE_API_URL
         value: https://catering-ld-backend.onrender.com/api
+      - key: VITE_SENTRY_DSN
+        value: https://e88e0972ff604a64a74e09c206ae1fb8@sentry.dev01.aceit.dev/2
+      - key: VITE_SENTRY_ENVIRONMENT
+        value: production
+      - key: VITE_SENTRY_TRACES_SAMPLE_RATE
+        value: 0.1

@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { clientAuthApi, clientPortalApi } from '../api';
 import { CLIENT_PORTAL_TOKEN_KEY } from '../api/core';
 import { safeGetItem, safeRemoveItem, safeSetItem } from '../utils/storage';
+import { clearFrontendSentryUser, setFrontendSentryUser } from '../sentry';
 
 const ClientPortalContext = createContext(null);
 
@@ -12,6 +13,12 @@ export function ClientPortalAuthProvider({ children }) {
   const refreshClientUser = async () => {
     const response = await clientPortalApi.me();
     setClientUser(response.data);
+    setFrontendSentryUser({
+      id: response.data?.id || response.data?.email,
+      email: response.data?.email,
+      role: 'client_portal',
+      name: response.data?.jmeno || response.data?.nazev || response.data?.email,
+    });
     return response.data;
   };
 
@@ -26,6 +33,7 @@ export function ClientPortalAuthProvider({ children }) {
       .catch(() => {
         safeRemoveItem(CLIENT_PORTAL_TOKEN_KEY);
         setClientUser(null);
+        clearFrontendSentryUser();
       })
       .finally(() => setLoading(false));
   }, []);
@@ -41,6 +49,7 @@ export function ClientPortalAuthProvider({ children }) {
   const logout = () => {
     safeRemoveItem(CLIENT_PORTAL_TOKEN_KEY);
     setClientUser(null);
+    clearFrontendSentryUser();
   };
 
   return (
