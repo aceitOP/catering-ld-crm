@@ -4,7 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { klientiApi } from '../api';
 import { PageHeader, KlientTypBadge, StavBadge, formatCena, formatDatum, Spinner, EmptyState, Btn, Modal, ExportMenu } from '../components/ui';
 import toast from 'react-hot-toast';
-import { Plus, Pencil, Search, Users, X, RefreshCw, Archive, Star, Upload } from 'lucide-react';
+import { Plus, Pencil, Search, Users, X, RefreshCw, Archive, Star, Upload, Link as LinkIcon } from 'lucide-react';
 import { ImportModal } from '../components/ImportModal';
 
 async function fetchAres(ico) {
@@ -129,6 +129,16 @@ export default function KlientiPage() {
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
+  const copyClientPortalUrl = async () => {
+    const url = `${window.location.origin}/portal/login`;
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success('URL klientské sekce zkopírována');
+    } catch {
+      window.prompt('URL klientské sekce:', url);
+    }
+  };
+
   const [sel, setSel] = useState(new Set());
   const toggleSel = (id, e) => { e.stopPropagation(); setSel(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; }); };
   const allChecked = klienti.length > 0 && klienti.every(k => sel.has(k.id));
@@ -244,6 +254,10 @@ export default function KlientiPage() {
               </div>
               <div className="flex gap-2 items-center">
                 <Btn size="sm" onClick={() => navigate('/zakazky/nova')}>+ Zakázka</Btn>
+                <Btn size="sm" onClick={copyClientPortalUrl}>
+                  <LinkIcon size={12} />
+                  Portál
+                </Btn>
                 <button
                   onClick={() => pravidelnyMut.mutate({ id: selected, value: !detail.pravidelny })}
                   disabled={pravidelnyMut.isPending}

@@ -57,7 +57,6 @@ const NAV = [
       { to: '/sablony',  label: 'Šablony',   icon: BookCopy, moduleKey: 'sablony' },
     ],
   },
-  { to: '/email', label: 'E-mail', icon: Mail, moduleKey: 'email' },
   {
     label: 'Správa', icon: Users,
     children: [
@@ -79,6 +78,7 @@ const NAV = [
       { to: '/error-log', label: 'Error log', icon: ShieldAlert, superAdminOnly: true, moduleKey: 'error_log' },
     ],
   },
+  { to: '/email', label: 'E-mail', icon: Mail, moduleKey: 'email' },
   { to: '/nastaveni', label: 'Nastavení', icon: Settings },
 ];
 
@@ -193,10 +193,10 @@ export default function Layout() {
   const reportBugMut = useMutation({
     mutationFn: (payload) => errorLogApi.report(payload),
     onSuccess: () => {
-      toast.success('Hlaseni chyby bylo odeslano');
+      toast.success('Hlášení chyby bylo odesláno');
       closeBugModal();
     },
-    onError: (err) => toast.error(err.response?.data?.error || 'Hlaseni chyby se nepodarilo odeslat'),
+    onError: (err) => toast.error(err.response?.data?.error || 'Hlášení chyby se nepodařilo odeslat'),
   });
 
   const closeBugModal = () => {
@@ -382,7 +382,7 @@ export default function Layout() {
         title="Nahlasit chybu"
         footer={(
           <>
-            <Btn onClick={closeBugModal}>Zrusit</Btn>
+            <Btn onClick={closeBugModal}>Zrušit</Btn>
             <Btn variant="primary" onClick={submitBugReport} disabled={reportBugMut.isPending || !canSubmitBugReport}>
               {reportBugMut.isPending ? 'Odesilam...' : 'Odeslat hlaseni'}
             </Btn>
@@ -391,11 +391,11 @@ export default function Layout() {
       >
         <div className="space-y-4">
           <div className="rounded-2xl bg-stone-50 border border-stone-200 px-4 py-3 text-xs text-stone-500">
-            Odesleme hlaseni spolu s aktualni URL stranky a verzi aplikace.
+            Odešleme hlášení spolu s aktuální URL stránky a verzí aplikace.
           </div>
           <div>
-            <label className="block text-xs text-stone-500 font-semibold mb-1.5">Strucny popis chyby *</label>
-            <input className="w-full border border-stone-200 rounded-xl px-4 py-3 text-sm focus:outline-none" placeholder="Napriklad: Pri ulozeni zakazky se nic nestane" value={bugForm.message} maxLength={500} onChange={(e) => setBugForm((f) => ({ ...f, message: e.target.value }))} autoFocus />
+            <label className="block text-xs text-stone-500 font-semibold mb-1.5">Stručný popis chyby *</label>
+            <input className="w-full border border-stone-200 rounded-xl px-4 py-3 text-sm focus:outline-none" placeholder="Například: Při uložení zakázky se nic nestane" value={bugForm.message} maxLength={500} onChange={(e) => setBugForm((f) => ({ ...f, message: e.target.value }))} autoFocus />
             <div className="mt-1 text-[11px] text-stone-400 text-right">
               {bugForm.message.trim().length}/500
             </div>

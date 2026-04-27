@@ -7,6 +7,7 @@ const DEFAULT_KEYS = [
   'app_logo_data_url',
   'app_color_theme',
   'app_document_font_family',
+  'voucher_design_style',
   'firma_nazev',
   'firma_email',
   'firma_telefon',

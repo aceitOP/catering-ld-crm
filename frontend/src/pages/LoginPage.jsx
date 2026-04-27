@@ -197,7 +197,7 @@ export default function LoginPage() {
                     type="password"
                     required
                     className="w-full border border-stone-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100 transition-all"
-                    placeholder="â€˘â€˘â€˘â€˘â€˘â€˘â€˘â€˘"
+                    placeholder="••••••••"
                     value={form.heslo}
                     onChange={e => setForm(f => ({ ...f, heslo: e.target.value }))}
                   />

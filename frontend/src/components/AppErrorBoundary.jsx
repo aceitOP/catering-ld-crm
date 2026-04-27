@@ -36,10 +36,10 @@ export default class AppErrorBoundary extends React.Component {
       return (
         <div className="min-h-screen bg-stone-50 flex items-center justify-center p-6">
           <div className="w-full max-w-md bg-white border border-stone-200 rounded-3xl shadow-card p-7 text-center">
-            <div className="text-lg font-bold text-stone-900">Aplikaci se nepodarilo nacist</div>
+            <div className="text-lg font-bold text-stone-900">Aplikaci se nepodařilo načíst</div>
             <p className="text-sm text-stone-500 mt-2">
-              Zkuste obnovit stranku. Pokud problem pretrvava, muzete resetovat lokalni data
-              prohlizece pro tuto aplikaci a prihlasit se znovu.
+              Zkuste obnovit stránku. Pokud problém přetrvává, můžete resetovat lokální data
+              prohlížeče pro tuto aplikaci a přihlásit se znovu.
             </p>
             <div className="mt-5 flex items-center justify-center gap-3">
               <button
@@ -47,14 +47,14 @@ export default class AppErrorBoundary extends React.Component {
                 onClick={() => window.location.reload()}
                 className="px-4 py-2 rounded-xl border border-stone-200 text-sm font-semibold text-stone-700 hover:bg-stone-50"
               >
-                Obnovit stranku
+                Obnovit stránku
               </button>
               <button
                 type="button"
                 onClick={resetLocalAppState}
                 className="px-4 py-2 rounded-xl bg-brand-600 text-white text-sm font-semibold hover:bg-brand-700"
               >
-                Resetovat lokalni data
+                Resetovat lokální data
               </button>
             </div>
           </div>

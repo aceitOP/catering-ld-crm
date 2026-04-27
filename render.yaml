@@ -10,12 +10,14 @@ services:
     name: catering-ld-backend
     runtime: node
     rootDir: backend
-    buildCommand: npm install
+    buildCommand: npm install && npx playwright install chromium
     startCommand: node src/index.js
     plan: free
     envVars:
       - key: NODE_ENV
         value: production
+      - key: NODE_VERSION
+        value: 20.19.0
       - key: PORT
         value: 10000
       - key: DATABASE_URL
@@ -56,6 +58,8 @@ services:
     startCommand: npx serve dist -s -l 10000
     plan: free
     envVars:
+      - key: NODE_VERSION
+        value: 20.19.0
       - key: VITE_API_URL
         value: https://catering-ld-backend.onrender.com/api
       - key: VITE_SENTRY_DSN

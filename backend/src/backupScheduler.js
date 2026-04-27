@@ -78,7 +78,7 @@ async function startBackupScheduler() {
   try {
     await refreshBackupScheduler();
   } catch (err) {
-    console.error('Nepodarilo se spustit planovac zaloh:', err.message);
+    console.error('Nepodařilo se spustit plánovač záloh:', err.message);
   }
 }
 

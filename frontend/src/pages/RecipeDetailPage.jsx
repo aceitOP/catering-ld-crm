@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { ArrowLeft, FileText, Plus, Printer, Save } from 'lucide-react';
+import { ArrowLeft, FileDown, FileText, ImagePlus, Plus, Printer, Save, X } from 'lucide-react';
 import { dokumentyApi, ingredientsApi, recipesApi } from '../api';
 import { Btn, Modal, PageHeader, Spinner } from '../components/ui';
 
@@ -11,7 +11,7 @@ function blankItem() {
 }
 
 function blankStep(index = 1) {
-  return { krok_index: index, nazev: '', instrukce: '', pracoviste: '', cas_min: '', kriticky_bod: false, poznamka: '' };
+  return { krok_index: index, nazev: '', instrukce: '', pracoviste: '', cas_min: '', kriticky_bod: false, photo_document_id: '', photo_nazev: '', poznamka: '' };
 }
 
 export default function RecipeDetailPage() {
@@ -23,6 +23,7 @@ export default function RecipeDetailPage() {
   const [versionModal, setVersionModal] = useState(false);
   const [uploadModal, setUploadModal] = useState(false);
   const [uploadForm, setUploadForm] = useState({ soubor: null, poznamka: '' });
+  const [photoUploadingIndex, setPhotoUploadingIndex] = useState(null);
 
   const detailQuery = useQuery({
     queryKey: ['recipe-detail', id],
@@ -87,6 +88,8 @@ export default function RecipeDetailPage() {
         pracoviste: step.pracoviste || '',
         cas_min: step.cas_min || '',
         kriticky_bod: step.kriticky_bod || false,
+        photo_document_id: step.photo_document_id || '',
+        photo_nazev: step.photo_nazev || '',
         poznamka: step.poznamka || '',
       })),
     });
@@ -151,6 +154,43 @@ export default function RecipeDetailPage() {
     onError: (err) => toast.error(err.response?.data?.error || 'Nahrání dokumentu se nepodařilo.'),
   });
 
+  const handleStepPhotoUpload = async (stepIndex, file) => {
+    if (!file) return;
+    if (!file.type?.startsWith('image/')) {
+      toast.error('Vyberte fotku ve formátu PNG, JPG, GIF nebo WebP.');
+      return;
+    }
+    if (!activeVersionId) {
+      toast.error('Nejdřív vyberte nebo vytvořte verzi receptury.');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('soubor', file);
+    formData.append('recipe_id', id);
+    formData.append('recipe_version_id', activeVersionId);
+    formData.append('kategorie', 'foto');
+    formData.append('poznamka', `Fotka ke kroku ${stepIndex + 1}`);
+
+    setPhotoUploadingIndex(stepIndex);
+    try {
+      const res = await dokumentyApi.upload(formData);
+      const doc = res.data;
+      setVersionDraft((prev) => ({
+        ...prev,
+        steps: prev.steps.map((row, rowIndex) => rowIndex === stepIndex
+          ? { ...row, photo_document_id: doc.id, photo_nazev: doc.nazev || doc.filename || file.name }
+          : row),
+      }));
+      qc.invalidateQueries({ queryKey: ['recipe-detail', id] });
+      toast.success('Fotka kroku byla nahrána. Nezapomeňte uložit verzi.');
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Nahrání fotky se nepodařilo.');
+    } finally {
+      setPhotoUploadingIndex(null);
+    }
+  };
+
   const saveVersion = () => {
     updateVersionMut.mutate({
       items: versionDraft.items.map((item, index) => ({ ...item, poradi: index })),
@@ -166,6 +206,17 @@ export default function RecipeDetailPage() {
       win.document.close();
     } catch (err) {
       toast.error(err.response?.data?.error || 'Tisk receptury se nepodařil.');
+    }
+  };
+
+  const openStaffProcedure = async () => {
+    try {
+      const response = await recipesApi.staffProcedure(id, activeVersionId ? { version_id: activeVersionId } : undefined);
+      const win = window.open('', '_blank', 'width=980,height=720');
+      win.document.write(response.data);
+      win.document.close();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Export postupu se nepodařil.');
     }
   };
 
@@ -187,6 +238,7 @@ export default function RecipeDetailPage() {
             <Btn size="sm" onClick={() => setVersionModal(true)}><Plus size={14} /> Nová verze</Btn>
             <Btn size="sm" onClick={() => setUploadModal(true)}><FileText size={14} /> Dokument</Btn>
             <Btn size="sm" onClick={openPrint}><Printer size={14} /> Tisk</Btn>
+            <Btn size="sm" variant="primary" onClick={openStaffProcedure}><FileDown size={14} /> Postup PDF</Btn>
           </div>
         }
       />
@@ -295,6 +347,46 @@ export default function RecipeDetailPage() {
                             <button className="text-xs text-red-500" onClick={() => setVersionDraft((prev) => ({ ...prev, steps: prev.steps.filter((_, rowIndex) => rowIndex !== index) }))}>Odebrat</button>
                           </div>
                           <textarea rows={3} className="w-full border border-stone-200 rounded-xl px-3 py-2 text-sm resize-none" placeholder="Instrukce" value={step.instrukce} onChange={(e) => setVersionDraft((prev) => ({ ...prev, steps: prev.steps.map((row, rowIndex) => rowIndex === index ? { ...row, instrukce: e.target.value } : row) }))} />
+                          <div className="rounded-xl border border-dashed border-stone-200 bg-stone-50 px-3 py-2 flex flex-wrap items-center justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="text-xs font-semibold text-stone-700">Fotka ke kroku</div>
+                              <div className="text-xs text-stone-500 truncate">
+                                {step.photo_document_id ? (step.photo_nazev || `Dokument #${step.photo_document_id}`) : 'Volitelné. Hodí se pro foto manuál s popisem.'}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {step.photo_document_id && (
+                                <>
+                                  <Btn size="sm" onClick={() => dokumentyApi.download(step.photo_document_id, step.photo_nazev || `foto-kroku-${index + 1}`)}>Stáhnout</Btn>
+                                  <button
+                                    type="button"
+                                    className="inline-flex items-center gap-1 text-xs text-red-500 hover:text-red-700"
+                                    onClick={() => setVersionDraft((prev) => ({
+                                      ...prev,
+                                      steps: prev.steps.map((row, rowIndex) => rowIndex === index ? { ...row, photo_document_id: '', photo_nazev: '' } : row),
+                                    }))}
+                                  >
+                                    <X size={13} /> Odebrat
+                                  </button>
+                                </>
+                              )}
+                              <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-stone-200 bg-white px-3 py-2 text-xs font-medium text-stone-700 hover:bg-stone-50">
+                                <ImagePlus size={13} />
+                                {photoUploadingIndex === index ? 'Nahrávám…' : 'Nahrát fotku'}
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  className="hidden"
+                                  disabled={photoUploadingIndex === index}
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    e.target.value = '';
+                                    handleStepPhotoUpload(index, file);
+                                  }}
+                                />
+                              </label>
+                            </div>
+                          </div>
                           <div className="grid grid-cols-[120px_auto_1fr] gap-3 items-center">
                             <input type="number" className="border border-stone-200 rounded-xl px-3 py-2 text-sm" placeholder="Čas (min)" value={step.cas_min} onChange={(e) => setVersionDraft((prev) => ({ ...prev, steps: prev.steps.map((row, rowIndex) => rowIndex === index ? { ...row, cas_min: e.target.value } : row) }))} />
                             <label className="inline-flex items-center gap-2 text-sm text-stone-600"><input type="checkbox" checked={step.kriticky_bod} onChange={(e) => setVersionDraft((prev) => ({ ...prev, steps: prev.steps.map((row, rowIndex) => rowIndex === index ? { ...row, kriticky_bod: e.target.checked } : row) }))} /> Kritický bod</label>

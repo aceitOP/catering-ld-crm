@@ -57,7 +57,17 @@ async function loadRecipeVersion(client, recipeId, versionId = null) {
   );
 
   const { rows: stepRows } = await client.query(
-    'SELECT * FROM recipe_steps WHERE recipe_version_id = $1 ORDER BY krok_index, id',
+    `
+      SELECT rs.*,
+             d.nazev AS photo_nazev,
+             d.filename AS photo_filename,
+             d.mime_type AS photo_mime_type,
+             d.velikost AS photo_velikost
+      FROM recipe_steps rs
+      LEFT JOIN dokumenty d ON d.id = rs.photo_document_id
+      WHERE rs.recipe_version_id = $1
+      ORDER BY rs.krok_index, rs.id
+    `,
     [version.id]
   );
 

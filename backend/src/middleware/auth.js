@@ -8,7 +8,7 @@ const ROLE_LEVEL = {
   super_admin: 3,
   admin: 2,
   uzivatel: 1,
-  // Zpetna kompatibilita - stare role maji level uzivatel
+  // Zpětná kompatibilita - staré role mají level uživatel
   obchodnik: 1,
   provoz: 1,
 };
@@ -55,7 +55,7 @@ const auth = async (req, res, next) => {
   }
 };
 
-// Middleware: uzivatel musi mit minimalne danou roli (nebo vyssi)
+// Middleware: uživatel musí mít minimálně danou roli (nebo vyšší)
 // requireMinRole('admin') -> projde admin i super_admin
 // requireMinRole('super_admin') -> projde pouze super_admin
 const requireMinRole = (minRole) => (req, res, next) => {

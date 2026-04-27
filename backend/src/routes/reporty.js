@@ -35,7 +35,7 @@ router.get('/dashboard-summary', auth, async (_req, res, next) => {
 
 router.get('/owner-summary', auth, requireCapability('owner_dashboard.view'), async (_req, res, next) => {
   try {
-    const [pipelineRes, cashflowRes, profitabilityRes, staffRes, venueRes, notifRes] = await Promise.all([
+    const [pipelineRes, cashflowRes, profitabilityRes, staffRes, notifRes] = await Promise.all([
       query(`
         SELECT
           COUNT(*) FILTER (WHERE archivovano = false) AS total,
@@ -100,24 +100,6 @@ router.get('/owner-summary', auth, requireCapability('owner_dashboard.view'), as
       `),
       query(`
         SELECT
-          COUNT(DISTINCT z.id) FILTER (
-            WHERE z.datum_akce >= CURRENT_DATE
-              AND z.datum_akce <= CURRENT_DATE + INTERVAL '45 days'
-              AND (
-                ar.last_verified_at IS NULL
-                OR ar.last_verified_at < NOW() - INTERVAL '180 days'
-              )
-          ) AS stale_upcoming_venues,
-          COUNT(DISTINCT o.id) FILTER (
-            WHERE o.created_at >= NOW() - INTERVAL '180 days'
-              AND o.severity IN ('warning', 'critical')
-          ) AS recurring_risk_signals
-        FROM zakazky z
-        LEFT JOIN venue_access_rules ar ON ar.venue_id = z.venue_id
-        LEFT JOIN venue_observations o ON o.venue_id = z.venue_id
-      `),
-      query(`
-        SELECT
           COUNT(*) FILTER (WHERE procitana = false) AS unread_notifications,
           COUNT(*) FILTER (
             WHERE procitana = false
@@ -140,7 +122,6 @@ router.get('/owner-summary', auth, requireCapability('owner_dashboard.view'), as
         marze_procent: Number(marze.toFixed(1)),
       },
       staff: staffRes.rows[0],
-      venue: venueRes.rows[0],
       notifications: notifRes.rows[0],
     });
   } catch (err) { next(err); }

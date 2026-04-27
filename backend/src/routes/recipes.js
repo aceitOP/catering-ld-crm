@@ -1,12 +1,18 @@
 'use strict';
 
 const express = require('express');
+const fs = require('fs');
+const path = require('path');
 const { query, withTransaction } = require('../db');
 const { auth, requireCapability } = require('../middleware/auth');
 const { computeRecipeCostWithClient, loadRecipeVersion } = require('../recipeCostEngine');
 const { escapeHtml, parseNumeric, slugify } = require('../recipeUtils');
+const { loadFirmaSettings } = require('../firmaSettings');
+const { resolveDocumentBranding } = require('../documentBranding');
+const { isPdfRequested, sendPdfResponse } = require('../pdfService');
 
 const router = express.Router();
+const uploadDir = process.env.UPLOAD_DIR || './uploads';
 
 function normalizeRecipePayload(payload = {}) {
   return {
@@ -44,8 +50,17 @@ function normalizeRecipeStep(step = {}, index = 0) {
     pracoviste: step.pracoviste?.trim() || null,
     cas_min: Object.prototype.hasOwnProperty.call(step, 'cas_min') ? parseNumeric(step.cas_min, null) : null,
     kriticky_bod: Boolean(step.kriticky_bod),
+    photo_document_id: step.photo_document_id ? Number(step.photo_document_id) : null,
     poznamka: step.poznamka?.trim() || null,
   };
+}
+
+function documentImageDataUrl(doc = {}) {
+  if (!doc.photo_document_id || !doc.photo_filename || !doc.photo_mime_type?.startsWith('image/')) return null;
+  const filePath = path.join(uploadDir, doc.photo_filename);
+  if (!fs.existsSync(filePath)) return null;
+  const raw = fs.readFileSync(filePath);
+  return `data:${doc.photo_mime_type};base64,${raw.toString('base64')}`;
 }
 
 async function ensureRecipeSlug(client, rawSlug) {
@@ -92,10 +107,10 @@ async function replaceVersionCollections(client, versionId, items = null, steps 
       if (!step.instrukce) continue;
       await client.query(
         `
-          INSERT INTO recipe_steps (recipe_version_id, krok_index, nazev, instrukce, pracoviste, cas_min, kriticky_bod, poznamka)
-          VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+          INSERT INTO recipe_steps (recipe_version_id, krok_index, nazev, instrukce, pracoviste, cas_min, kriticky_bod, photo_document_id, poznamka)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
         `,
-        [versionId, step.krok_index || index + 1, step.nazev, step.instrukce, step.pracoviste, step.cas_min, step.kriticky_bod, step.poznamka]
+        [versionId, step.krok_index || index + 1, step.nazev, step.instrukce, step.pracoviste, step.cas_min, step.kriticky_bod, step.photo_document_id, step.poznamka]
       );
     }
   }
@@ -494,11 +509,11 @@ router.post('/:id/versions/:versionId/steps', auth, requireCapability('recipes.m
 
     const { rows } = await query(
       `
-        INSERT INTO recipe_steps (recipe_version_id, krok_index, nazev, instrukce, pracoviste, cas_min, kriticky_bod, poznamka)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+        INSERT INTO recipe_steps (recipe_version_id, krok_index, nazev, instrukce, pracoviste, cas_min, kriticky_bod, photo_document_id, poznamka)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
         RETURNING *
       `,
-      [req.params.versionId, step.krok_index, step.nazev, step.instrukce, step.pracoviste, step.cas_min, step.kriticky_bod, step.poznamka]
+      [req.params.versionId, step.krok_index, step.nazev, step.instrukce, step.pracoviste, step.cas_min, step.kriticky_bod, step.photo_document_id, step.poznamka]
     );
     res.status(201).json(rows[0]);
   } catch (err) { next(err); }
@@ -530,6 +545,8 @@ router.get('/:id/print-card', auth, requireCapability('recipe_costs.view'), asyn
       recipeId,
       recipeVersionId: version.id,
     });
+    const firma = await loadFirmaSettings(['app_title', 'app_logo_data_url', 'app_color_theme', 'app_document_font_family', 'firma_nazev']);
+    const documentBranding = resolveDocumentBranding(firma);
 
     const itemRows = cost.items.map((item) => `
       <tr>
@@ -565,8 +582,12 @@ router.get('/:id/print-card', auth, requireCapability('recipe_costs.view'), asyn
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${escapeHtml(detail.nazev)} – receptura</title>
   <style>
-    body { font-family: Arial, Helvetica, sans-serif; background:#f5f5f4; color:#1f2937; margin:0; }
+    @import url('${documentBranding.fontImportUrl}');
+    body { font-family:${documentBranding.fontFamily}; background:#f5f5f4; color:#1f2937; margin:0; }
     .page { max-width: 960px; margin: 24px auto; background:#fff; padding:32px; box-shadow:0 8px 24px rgba(0,0,0,.06); }
+    .header { display:flex; justify-content:space-between; gap:24px; align-items:flex-start; margin-bottom:18px; }
+    .brand-logo { width:68px; height:68px; border-radius:20px; overflow:hidden; background:${documentBranding.soft}; display:flex; align-items:center; justify-content:center; margin-bottom:10px; }
+    .brand-logo img { width:100%; height:100%; object-fit:contain; }
     .grid { display:grid; grid-template-columns:repeat(4, 1fr); gap:12px; margin:18px 0 20px; }
     .card { border:1px solid #e7e5e4; border-radius:14px; padding:14px; }
     h1 { margin:0 0 6px; font-size:28px; }
@@ -584,10 +605,16 @@ router.get('/:id/print-card', auth, requireCapability('recipe_costs.view'), asyn
 </head>
 <body>
   <div class="page">
-    <div>
-      <div class="muted">${escapeHtml(detail.typ === 'component' ? 'Komponenta' : 'Finální receptura')} · verze ${escapeHtml(version.verze)}</div>
-      <h1>${escapeHtml(detail.nazev)}</h1>
-      <div class="muted">${escapeHtml(detail.interni_nazev || '')}</div>
+    <div class="header">
+      <div>
+        ${documentBranding.logoDataUrl ? `<div class="brand-logo"><img src="${escapeHtml(documentBranding.logoDataUrl)}" alt="Logo"></div>` : ''}
+        <div class="muted">${escapeHtml(firma.firma_nazev || documentBranding.appTitle)}</div>
+      </div>
+      <div style="text-align:right">
+        <div class="muted">${escapeHtml(detail.typ === 'component' ? 'Komponenta' : 'Finální receptura')} · verze ${escapeHtml(version.verze)}</div>
+        <h1>${escapeHtml(detail.nazev)}</h1>
+        <div class="muted">${escapeHtml(detail.interni_nazev || '')}</div>
+      </div>
     </div>
 
     <div class="grid">
@@ -621,6 +648,139 @@ router.get('/:id/print-card', auth, requireCapability('recipe_costs.view'), asyn
   </div>
 </body>
 </html>`;
+
+    if (isPdfRequested(req)) {
+      return sendPdfResponse(res, html, `receptura-${detail.slug || detail.id}.pdf`);
+    }
+
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(html);
+  } catch (err) { next(err); }
+});
+
+router.get('/:id/staff-procedure', auth, requireCapability('recipe_costs.view'), async (req, res, next) => {
+  try {
+    const recipeId = req.params.id;
+    const versionId = req.query.version_id || null;
+    const detail = await loadRecipeDetail({ query }, recipeId);
+    if (!detail) return res.status(404).json({ error: 'Receptura nenalezena' });
+
+    const version = versionId
+      ? await loadRecipeVersion({ query }, recipeId, versionId)
+      : detail.active_version;
+    if (!version) return res.status(404).json({ error: 'Verze receptury nenalezena' });
+
+    const cost = await computeRecipeCostWithClient({ query }, {
+      recipeId,
+      recipeVersionId: version.id,
+    });
+    const firma = await loadFirmaSettings(['app_title', 'app_logo_data_url', 'app_color_theme', 'app_document_font_family', 'firma_nazev']);
+    const documentBranding = resolveDocumentBranding(firma);
+
+    const stepRows = (cost.steps || []).map((step, index) => {
+      const imageDataUrl = documentImageDataUrl(step);
+      return `
+        <article class="step">
+          <div class="step-number">${index + 1}</div>
+          <div class="step-body">
+            <div class="step-head">
+              <h2>${escapeHtml(step.nazev || `Krok ${step.krok_index || index + 1}`)}</h2>
+              <div class="meta">${[
+                step.pracoviste ? `Pracoviště: ${step.pracoviste}` : null,
+                step.cas_min ? `${step.cas_min} min` : null,
+                step.kriticky_bod ? 'Kritický bod' : null,
+              ].filter(Boolean).map(escapeHtml).join(' · ')}</div>
+            </div>
+            ${imageDataUrl ? `<img class="step-photo" src="${imageDataUrl}" alt="${escapeHtml(step.photo_nazev || step.nazev || 'Fotka kroku')}">` : ''}
+            <p class="instruction">${escapeHtml(step.instrukce)}</p>
+            ${step.poznamka ? `<div class="note"><strong>Poznámka:</strong> ${escapeHtml(step.poznamka)}</div>` : ''}
+          </div>
+        </article>
+      `;
+    }).join('');
+
+    const html = `<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${escapeHtml(detail.nazev)} - postup pro personál</title>
+  <style>
+    @import url('${documentBranding.fontImportUrl}');
+    @page { size: A4; margin: 14mm; }
+    * { box-sizing: border-box; }
+    body { margin:0; background:#f4f1eb; color:#1f2937; font-family:${documentBranding.fontFamily}; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    .print-btn { position:fixed; top:16px; right:16px; border:0; border-radius:999px; padding:10px 16px; background:${documentBranding.primary}; color:#fff; font-weight:700; cursor:pointer; box-shadow:0 10px 30px rgba(0,0,0,.18); z-index:10; }
+    .page { max-width:980px; margin:28px auto; background:#fff; border-radius:26px; padding:34px; box-shadow:0 16px 60px rgba(31,41,55,.12); }
+    .header { display:flex; justify-content:space-between; gap:24px; align-items:flex-start; padding-bottom:20px; border-bottom:2px solid ${documentBranding.soft}; }
+    .brand { display:flex; align-items:center; gap:12px; color:#6b7280; font-size:13px; }
+    .brand-logo { width:58px; height:58px; border-radius:18px; background:${documentBranding.soft}; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+    .brand-logo img { width:100%; height:100%; object-fit:contain; }
+    h1 { margin:0 0 8px; font-size:30px; line-height:1.12; }
+    .subtitle { color:#6b7280; font-size:14px; }
+    .summary { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin:22px 0; }
+    .summary-card { border:1px solid #e5e7eb; border-radius:16px; padding:13px; background:#fafaf9; }
+    .summary-card span { display:block; color:#78716c; font-size:11px; text-transform:uppercase; letter-spacing:.08em; font-weight:800; margin-bottom:5px; }
+    .summary-card strong { font-size:16px; }
+    .section-title { margin:28px 0 14px; color:${documentBranding.primary}; font-size:12px; text-transform:uppercase; letter-spacing:.1em; font-weight:900; }
+    .step { display:grid; grid-template-columns:52px 1fr; gap:16px; padding:18px 0; border-top:1px solid #e7e5e4; break-inside:avoid; page-break-inside:avoid; }
+    .step:first-of-type { border-top:0; }
+    .step-number { width:44px; height:44px; border-radius:50%; background:${documentBranding.primary}; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:18px; }
+    .step-head { display:flex; justify-content:space-between; gap:16px; align-items:flex-start; margin-bottom:8px; }
+    .step h2 { margin:0; font-size:20px; }
+    .meta { color:#78716c; font-size:12px; text-align:right; min-width:160px; }
+    .instruction { white-space:pre-wrap; font-size:15px; line-height:1.65; margin:10px 0 0; }
+    .note { margin-top:10px; padding:10px 12px; border-radius:14px; background:${documentBranding.soft}; font-size:13px; line-height:1.5; }
+    .step-photo { width:100%; max-height:360px; object-fit:cover; border-radius:18px; border:1px solid #e7e5e4; margin:8px 0 10px; display:block; }
+    .empty { padding:28px; border:1px dashed #d6d3d1; border-radius:18px; color:#78716c; text-align:center; }
+    .footer { margin-top:24px; padding-top:14px; border-top:1px solid #e7e5e4; color:#78716c; font-size:11px; display:flex; justify-content:space-between; gap:12px; }
+    @media print {
+      body { background:#fff; }
+      .print-btn { display:none; }
+      .page { margin:0; max-width:none; border-radius:0; padding:0; box-shadow:none; }
+      .step-photo { max-height:300px; }
+    }
+  </style>
+</head>
+<body>
+  <button class="print-btn" onclick="window.print()">Tisk / uložit PDF</button>
+  <main class="page">
+    <section class="header">
+      <div class="brand">
+        ${documentBranding.logoDataUrl ? `<div class="brand-logo"><img src="${escapeHtml(documentBranding.logoDataUrl)}" alt="Logo"></div>` : ''}
+        <div>
+          <strong>${escapeHtml(firma.firma_nazev || documentBranding.appTitle)}</strong><br>
+          Interní pracovní postup pro personál
+        </div>
+      </div>
+      <div style="text-align:right">
+        <h1>${escapeHtml(detail.nazev)}</h1>
+        <div class="subtitle">${escapeHtml(detail.typ === 'component' ? 'Komponenta' : 'Finální receptura')} · verze ${escapeHtml(version.verze)} · ${escapeHtml(detail.kategorie || 'bez kategorie')}</div>
+      </div>
+    </section>
+
+    <section class="summary">
+      <div class="summary-card"><span>Vydatnost</span><strong>${parseNumeric(cost.output_amount, 0).toLocaleString('cs-CZ')} ${escapeHtml(cost.output_unit)}</strong></div>
+      <div class="summary-card"><span>Porce</span><strong>${parseNumeric(cost.default_portion_amount, 0).toLocaleString('cs-CZ')} ${escapeHtml(cost.default_portion_unit)}</strong></div>
+      <div class="summary-card"><span>Čas</span><strong>${detail.cas_pripravy_min ? `${escapeHtml(detail.cas_pripravy_min)} min` : 'není zadán'}</strong></div>
+      <div class="summary-card"><span>Alergeny</span><strong>${cost.allergens.length ? escapeHtml(cost.allergens.join(', ')) : 'nezadány'}</strong></div>
+    </section>
+
+    <div class="section-title">Postup krok za krokem</div>
+    ${stepRows || '<div class="empty">Technologický postup zatím není vyplněný.</div>'}
+
+    <section class="footer">
+      <span>Vygenerováno z CRM receptur.</span>
+      <span>${new Date().toLocaleString('cs-CZ')}</span>
+    </section>
+  </main>
+  <script>window.onload = () => setTimeout(() => window.print(), 250);</script>
+</body>
+</html>`;
+
+    if (isPdfRequested(req)) {
+      return sendPdfResponse(res, html, `postup-receptura-${detail.slug || detail.id}.pdf`);
+    }
 
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.send(html);

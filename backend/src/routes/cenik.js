@@ -117,9 +117,9 @@ router.get('/', auth, async (req, res, next) => {
   try {
     const { kategorie, aktivni, q } = req.query;
     const where = []; const params = []; let p = 1;
-    if (kategorie) { where.push(`kategorie = $${p++}`); params.push(kategorie); }
-    if (aktivni !== undefined) { where.push(`aktivni = $${p++}`); params.push(aktivni === 'true'); }
-    if (q) { where.push(`nazev ILIKE $${p++}`); params.push(`%${q}%`); }
+    if (kategorie) { where.push(`c.kategorie = $${p++}`); params.push(kategorie); }
+    if (aktivni !== undefined) { where.push(`c.aktivni = $${p++}`); params.push(aktivni === 'true'); }
+    if (q) { where.push(`c.nazev ILIKE $${p++}`); params.push(`%${q}%`); }
     const wc = where.length ? 'WHERE ' + where.join(' AND ') : '';
     const { rows } = await query(
       `

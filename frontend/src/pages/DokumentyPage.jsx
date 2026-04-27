@@ -118,7 +118,7 @@ export function DokumentyPage() {
       qc.invalidateQueries({ queryKey: ['dokumenty-slozky'] });
       toast.success('Soubor nahrán');
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Chyba pYi nahr�v�n�');
+      toast.error(err.response?.data?.error || 'Chyba při nahrávání');
     }
     setUploading(false);
     e.target.value = '';
@@ -130,17 +130,17 @@ export function DokumentyPage() {
     try {
       await dokumentyApi.download(doc.id, doc.nazev || doc.filename);
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Dokument se nepodaYilo st�hnout');
+      toast.error(err.response?.data?.error || 'Dokument se nepodařilo stáhnout');
     }
   };
 
   const totalDocs = slozky.reduce((s, f) => s + (f.pocet_dokumentu || 0), 0);
 
   const selectedFolderName = selectedFolder === null
-    ? 'Vaechny dokumenty'
+    ? 'Všechny dokumenty'
     : selectedFolder === 'none'
-      ? 'Bez slo~ky'
-      : slozky.find(s => s.id === selectedFolder)?.nazev || 'Slo~ka';
+      ? 'Bez složky'
+      : slozky.find(s => s.id === selectedFolder)?.nazev || 'Složka';
 
   return (
     <div className="flex flex-col h-full min-h-0">
@@ -152,7 +152,7 @@ export function DokumentyPage() {
         </div>
         <div className="flex items-center gap-2">
           <label className="inline-flex items-center gap-1.5 bg-stone-900 text-white text-xs font-medium px-3 py-2 rounded-lg hover:bg-stone-800 cursor-pointer transition-colors">
-            <Plus size={12} /> {uploading ? 'Nahr�v�m&' : 'Nahr�t soubor'}
+            <Plus size={12} /> {uploading ? 'Nahrávám…' : 'Nahrát soubor'}
             <input ref={fileInputRef} type="file" className="hidden" onChange={handleUpload} disabled={uploading} />
           </label>
         </div>
@@ -229,7 +229,7 @@ export function DokumentyPage() {
                           <Pencil size={11} />
                         </button>
                         <button
-                          onClick={e => { e.stopPropagation(); if (window.confirm(`Smazat slo~ku ${s.nazev}"? Dokumenty budou pYesunuty do koYene.`)) deleteSlozkaM.mutate(s.id); }}
+                          onClick={e => { e.stopPropagation(); if (window.confirm(`Smazat složku „${s.nazev}”? Dokumenty budou přesunuty do kořene.`)) deleteSlozkaM.mutate(s.id); }}
                           className={`p-1 rounded hover:bg-black/10 ${selectedFolder === s.id ? 'text-stone-300 hover:text-red-300' : 'text-stone-400 hover:text-red-500'}`}
                           title="Smazat složku"
                         >
@@ -317,7 +317,7 @@ export function DokumentyPage() {
                             <span className="text-xs text-stone-300">—</span>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-xs text-stone-500">{d.velikost ? formatSize(d.velikost) : ''}</td>
+                        <td className="px-4 py-3 text-xs text-stone-500">{d.velikost ? formatSize(d.velikost) : '—'}</td>
                         <td className="px-4 py-3 text-xs text-stone-500">{formatDatum(d.created_at)}</td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">

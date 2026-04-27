@@ -7,6 +7,7 @@ const { auth, requireCapability } = require('../middleware/auth');
 const { loadFirmaSettings } = require('../firmaSettings');
 const { resolveDocumentBranding } = require('../documentBranding');
 const { sendVoucherEmail } = require('../emailService');
+const { isPdfRequested, sendPdfResponse } = require('../pdfService');
 
 const router = express.Router();
 
@@ -303,7 +304,7 @@ router.post('/:id/send', auth, requireCapability('vouchers.manage'), async (req,
     if (!to) return res.status(400).json({ error: 'Chybí e-mail příjemce poukazu.' });
 
     const firma = await loadFirmaSettings();
-    await sendVoucherEmail({ to, voucher, firma });
+    await sendVoucherEmail({ to, voucher, firma, attachPdf: true });
 
     await logVoucherEvent(query, req.params.id, 'sent', {
       previousStatus: voucher.status,
@@ -382,7 +383,7 @@ router.get('/:id/print', auth, requireCapability('vouchers.manage'), async (req,
   try {
     const voucher = await loadVoucher(req.params.id);
     if (!voucher) return res.status(404).json({ error: 'Poukaz nebyl nalezen.' });
-    const firma = await loadFirmaSettings(['app_title', 'app_logo_data_url', 'app_color_theme', 'app_document_font_family']);
+    const firma = await loadFirmaSettings(['app_title', 'app_logo_data_url', 'app_color_theme', 'app_document_font_family', 'voucher_design_style']);
     const documentBranding = resolveDocumentBranding(firma);
 
     const esc = (value) => String(value ?? '')
@@ -392,6 +393,46 @@ router.get('/:id/print', auth, requireCapability('vouchers.manage'), async (req,
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#039;');
 
+    const voucherStyles = {
+      classic: {
+        bodyBg: documentBranding.soft,
+        cardRadius: '28px',
+        heroBg: `linear-gradient(135deg,${documentBranding.primaryDark},${documentBranding.primary})`,
+        heroColor: '#fff',
+        titleTransform: 'none',
+        border: 'none',
+        decoration: '',
+      },
+      minimal: {
+        bodyBg: '#f8fafc',
+        cardRadius: '18px',
+        heroBg: '#ffffff',
+        heroColor: documentBranding.primaryDark,
+        titleTransform: 'none',
+        border: `1px solid ${documentBranding.primary}`,
+        decoration: '',
+      },
+      premium: {
+        bodyBg: '#111827',
+        cardRadius: '30px',
+        heroBg: 'linear-gradient(135deg,#111827,#44403c)',
+        heroColor: '#fff7ed',
+        titleTransform: 'uppercase',
+        border: '1px solid rgba(255,255,255,.18)',
+        decoration: '<div class="ornament">GIFT CERTIFICATE</div>',
+      },
+      festive: {
+        bodyBg: '#fff7ed',
+        cardRadius: '34px',
+        heroBg: `radial-gradient(circle at top left,rgba(255,255,255,.35),transparent 34%),linear-gradient(135deg,${documentBranding.primary},${documentBranding.accent})`,
+        heroColor: '#fff',
+        titleTransform: 'none',
+        border: `2px solid ${documentBranding.accent}`,
+        decoration: '<div class="ornament">✦ ✦ ✦</div>',
+      },
+    };
+    const voucherStyle = voucherStyles[firma.voucher_design_style] || voucherStyles.classic;
+
     const html = `<!DOCTYPE html>
 <html lang="cs">
 <head>
@@ -400,12 +441,13 @@ router.get('/:id/print', auth, requireCapability('vouchers.manage'), async (req,
   <title>Poukaz ${esc(voucher.kod)}</title>
   <style>
     @import url('${esc(documentBranding.fontImportUrl)}');
-    body { font-family: ${documentBranding.fontFamily}; background:${documentBranding.soft}; margin:0; padding:24px; color:#1c1917; }
-    .card { max-width: 880px; margin: 0 auto; background:#fff; border-radius:28px; overflow:hidden; box-shadow:0 18px 44px rgba(0,0,0,.08); }
-    .hero { padding:32px; background:linear-gradient(135deg,${documentBranding.primaryDark},${documentBranding.primary}); color:#fff; }
+    body { font-family: ${documentBranding.fontFamily}; background:${voucherStyle.bodyBg}; margin:0; padding:24px; color:#1c1917; }
+    .card { max-width: 880px; margin: 0 auto; background:#fff; border-radius:${voucherStyle.cardRadius}; overflow:hidden; box-shadow:0 18px 44px rgba(0,0,0,.08); border:${voucherStyle.border}; }
+    .hero { position:relative; padding:32px; background:${voucherStyle.heroBg}; color:${voucherStyle.heroColor}; }
     .badge { display:inline-block; padding:6px 12px; border-radius:999px; background:rgba(255,255,255,.14); font-size:12px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; }
-    .title { font-size:34px; font-weight:700; margin:18px 0 8px; }
-    .subtitle { color:#e2e8f0; font-size:14px; }
+    .title { font-size:34px; font-weight:700; margin:18px 0 8px; text-transform:${voucherStyle.titleTransform}; letter-spacing:${firma.voucher_design_style === 'premium' ? '.08em' : '0'}; }
+    .subtitle { color:currentColor; opacity:.76; font-size:14px; }
+    .ornament { position:absolute; right:28px; top:28px; opacity:.18; font-size:13px; letter-spacing:.18em; font-weight:800; }
     .content { padding:32px; display:grid; grid-template-columns:1.1fr .9fr; gap:28px; }
     .info-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:20px; }
     .info-box { background:#fafaf9; border:1px solid #e7e5e4; border-radius:18px; padding:14px 16px; }
@@ -424,6 +466,7 @@ router.get('/:id/print', auth, requireCapability('vouchers.manage'), async (req,
 <body>
   <div class="card">
     <div class="hero">
+      ${voucherStyle.decoration}
       ${documentBranding.logoDataUrl ? `<div style="width:72px;height:72px;border-radius:24px;background:rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;overflow:hidden;margin-bottom:16px"><img src="${esc(documentBranding.logoDataUrl)}" alt="Logo" style="width:100%;height:100%;object-fit:contain"></div>` : ''}
       <div class="badge">${esc(firma.app_title || firma.firma_nazev || 'Catering CRM')}</div>
       <div class="title">${esc(voucher.title)}</div>
@@ -478,6 +521,10 @@ router.get('/:id/print', auth, requireCapability('vouchers.manage'), async (req,
   </script>
 </body>
 </html>`;
+
+    if (isPdfRequested(req)) {
+      return sendPdfResponse(res, html, `poukaz-${voucher.kod}.pdf`, { waitUntil: 'load' });
+    }
 
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.send(html);

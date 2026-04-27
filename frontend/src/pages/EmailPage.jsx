@@ -8,7 +8,7 @@ import {
   Loader2, AlertCircle, FolderOpen, ClipboardList, X, Check,
   ArrowRight, MoreHorizontal,
 } from 'lucide-react';
-import { emailApi } from '../api';
+import { emailApi, zakazkyApi } from '../api';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function formatDate(d) {
@@ -249,7 +249,7 @@ function ZakazkaModal({ uid, folder, onClose, onCreated }) {
 function FollowupModal({ uid, subject, onClose }) {
   const [form, setForm] = useState({ zakazka_id: '', titulek: subject || '', termin: '', poznamka: '' });
   const [submitting, setSubmitting] = useState(false);
-  const { data: zakazkyRaw } = useQuery({ queryKey: ['zakazky-list'], queryFn: () => import('../api').then(m => m.zakazkyApi.list({ limit: 100 })) });
+  const { data: zakazkyRaw } = useQuery({ queryKey: ['zakazky-list'], queryFn: () => zakazkyApi.list({ limit: 100 }) });
   const zakazky = zakazkyRaw?.data?.data || zakazkyRaw?.data || [];
 
   const submit = async () => {
@@ -303,7 +303,7 @@ function FollowupModal({ uid, subject, onClose }) {
 function LinkModal({ uid, folder, subject, onClose }) {
   const [search, setSearch] = useState('');
   const [linking, setLinking] = useState(null);
-  const { data: zakazkyRaw } = useQuery({ queryKey: ['zakazky-list'], queryFn: () => import('../api').then(m => m.zakazkyApi.list({ limit: 100 })) });
+  const { data: zakazkyRaw } = useQuery({ queryKey: ['zakazky-list'], queryFn: () => zakazkyApi.list({ limit: 100 }) });
   const zakazky = (zakazkyRaw?.data?.data || zakazkyRaw?.data || []).filter(z =>
     !search || `${z.cislo} ${z.nazev}`.toLowerCase().includes(search.toLowerCase())
   );
@@ -353,7 +353,7 @@ function AttachmentsModal({ uid, folder, attachments, onClose }) {
   const [saving, setSaving] = useState({});
   const [saved,  setSaved]  = useState({});
   const [zakazkaId, setZakazkaId] = useState('');
-  const { data: zakazkyRaw } = useQuery({ queryKey: ['zakazky-list'], queryFn: () => import('../api').then(m => m.zakazkyApi.list({ limit: 100 })) });
+  const { data: zakazkyRaw } = useQuery({ queryKey: ['zakazky-list'], queryFn: () => zakazkyApi.list({ limit: 100 }) });
   const zakazky = zakazkyRaw?.data?.data || zakazkyRaw?.data || [];
 
   const save = async (idx, filename) => {

@@ -13,12 +13,12 @@ router.get('/', auth, async (req, res, next) => {
     const safeLimit = Math.min(Math.max(parseInt(limit) || 50, 1), 200);
     const safePage  = Math.max(parseInt(page) || 1, 1);
     const where = []; const params = []; let p = 1;
-    if (typ) { where.push(`typ = $${p++}`); params.push(typ); }
-    if (q)   { where.push(`(jmeno ILIKE $${p} OR prijmeni ILIKE $${p} OR firma ILIKE $${p} OR email ILIKE $${p})`); params.push(`%${q}%`); p++; }
+    if (typ) { where.push(`k.typ = $${p++}`); params.push(typ); }
+    if (q)   { where.push(`(k.jmeno ILIKE $${p} OR k.prijmeni ILIKE $${p} OR k.firma ILIKE $${p} OR k.email ILIKE $${p})`); params.push(`%${q}%`); p++; }
     where.push('COALESCE(k.archivovano, false) = false');
     const wc = 'WHERE ' + where.join(' AND ');
     const orderMap = { jmeno: 'k.jmeno ASC, k.prijmeni ASC, k.created_at DESC', obrat: 'k.jmeno ASC, k.prijmeni ASC, k.created_at DESC', datum: 'k.created_at DESC' };
-    const order = orderMap[sort] || 'jmeno ASC';
+    const order = orderMap[sort] || orderMap.jmeno;
     const offset = (safePage - 1) * safeLimit;
     const { rows } = await query(
       `SELECT k.*, u.jmeno AS obchodnik_jmeno, u.prijmeni AS obchodnik_prijmeni,

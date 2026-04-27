@@ -77,7 +77,7 @@ async function logAppError(err, req) {
       ]
     );
   } catch (logErr) {
-    console.error('[error-log] Nepodarilo se ulozit chybu:', logErr.message);
+    console.error('[error-log] Nepodařilo se uložit chybu:', logErr.message);
   }
 }
 
@@ -93,7 +93,7 @@ async function logUserReport(payload = {}) {
         'REPORT',
         payload.path || null,
         0,
-        truncate(payload.message || 'Uzivatel nahlasil chybu', 1000),
+        truncate(payload.message || 'Uživatel nahlásil chybu', 1000),
         null,
         payload.userId || null,
         payload.ipAddress || null,
@@ -102,7 +102,7 @@ async function logUserReport(payload = {}) {
       ]
     );
   } catch (logErr) {
-    console.error('[error-log] Nepodarilo se ulozit hlaseni uzivatele:', logErr.message);
+    console.error('[error-log] Nepodařilo se uložit hlášení uživatele:', logErr.message);
   }
 }
 

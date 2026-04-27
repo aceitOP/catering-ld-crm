@@ -9,13 +9,13 @@ router.post('/report', auth, async (req, res, next) => {
     const description = String(req.body?.description || '').trim();
 
     if (message.length < 5) {
-      return res.status(400).json({ error: 'Popis chyby musi mit alespon 5 znaku' });
+      return res.status(400).json({ error: 'Popis chyby musí mít alespoň 5 znaků' });
     }
     if (message.length > 500) {
-      return res.status(400).json({ error: 'Strucny popis chyby muze mit maximalne 500 znaku' });
+      return res.status(400).json({ error: 'Stručný popis chyby může mít maximálně 500 znaků' });
     }
     if (description.length > 5000) {
-      return res.status(400).json({ error: 'Detailni popis chyby muze mit maximalne 5000 znaku' });
+      return res.status(400).json({ error: 'Detailní popis chyby může mít maximálně 5000 znaků' });
     }
 
     await logUserReport({
@@ -33,7 +33,7 @@ router.post('/report', auth, async (req, res, next) => {
       },
     });
 
-    res.status(201).json({ message: 'Hlaseni chyby bylo odeslano' });
+    res.status(201).json({ message: 'Hlášení chyby bylo odesláno' });
   } catch (err) { next(err); }
 });
 

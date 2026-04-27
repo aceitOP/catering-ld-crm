@@ -1,13 +1,13 @@
 const MODULE_DEFINITIONS = [
-  { key: 'kalendar', label: 'Kalendar', settingKey: 'modul_kalendar', enabledByDefault: true },
+  { key: 'kalendar', label: 'Kalendář', settingKey: 'modul_kalendar', enabledByDefault: true },
   { key: 'reporty', label: 'Reporty', settingKey: 'modul_reporty', enabledByDefault: true },
   { key: 'faktury', label: 'Fakturace', settingKey: 'modul_faktury', enabledByDefault: true },
   { key: 'archiv', label: 'Archiv', settingKey: 'modul_archiv', enabledByDefault: true },
   { key: 'error_log', label: 'Error log', settingKey: 'modul_error_log', enabledByDefault: true },
   { key: 'email', label: 'E-mail', settingKey: 'modul_email', enabledByDefault: true },
-  { key: 'sablony', label: 'Sablony', settingKey: 'modul_sablony', enabledByDefault: true },
-  { key: 'cenik', label: 'Cenik', settingKey: 'modul_cenik', enabledByDefault: true },
-  { key: 'personal', label: 'Personal', settingKey: 'modul_personal', enabledByDefault: true },
+  { key: 'sablony', label: 'Šablony', settingKey: 'modul_sablony', enabledByDefault: true },
+  { key: 'cenik', label: 'Ceník', settingKey: 'modul_cenik', enabledByDefault: true },
+  { key: 'personal', label: 'Personál', settingKey: 'modul_personal', enabledByDefault: true },
   { key: 'dokumenty', label: 'Dokumenty', settingKey: 'modul_dokumenty', enabledByDefault: true },
 ];
 

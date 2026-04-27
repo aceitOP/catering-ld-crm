@@ -52,6 +52,9 @@ function registerSentryProcessHandlers() {
 
   process.on('uncaughtException', (error) => {
     captureBackendException(error, null, { source: 'uncaughtException' });
+    Sentry.flush(2000)
+      .catch(() => {})
+      .finally(() => process.exit(1));
   });
 
   processHandlersRegistered = true;

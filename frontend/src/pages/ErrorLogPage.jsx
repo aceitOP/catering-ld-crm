@@ -5,7 +5,7 @@ import toast from 'react-hot-toast';
 import { errorLogApi } from '../api';
 
 function formatDateTime(value) {
-  if (!value) return 'â€”';
+  if (!value) return '—';
   return new Date(value).toLocaleString('cs-CZ', {
     day: '2-digit',
     month: '2-digit',
@@ -31,18 +31,18 @@ export default function ErrorLogPage() {
     mutationFn: ({ id, resolved }) => errorLogApi.setResolved(id, resolved),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['error-log'] });
-      toast.success('Stav zĂˇznamu byl upraven');
+      toast.success('Stav záznamu byl upraven');
     },
-    onError: (err) => toast.error(err.response?.data?.error || 'ZmÄ›na stavu se nezdaĹ™ila'),
+    onError: (err) => toast.error(err.response?.data?.error || 'Změna stavu se nezdařila'),
   });
 
   const deleteResolvedMut = useMutation({
     mutationFn: errorLogApi.deleteResolved,
     onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ['error-log'] });
-      toast.success(`SmazĂˇno vyĹ™eĹˇenĂ˝ch zĂˇznamĹŻ: ${res.data.deleted ?? 0}`);
+      toast.success(`Smazáno vyřešených záznamů: ${res.data.deleted ?? 0}`);
     },
-    onError: (err) => toast.error(err.response?.data?.error || 'MazĂˇnĂ­ se nezdaĹ™ilo'),
+    onError: (err) => toast.error(err.response?.data?.error || 'Mazání se nezdařilo'),
   });
 
   const logs = data?.data || [];
@@ -50,7 +50,7 @@ export default function ErrorLogPage() {
 
   const summary = useMemo(() => ([
     {
-      label: 'NevyĹ™eĹˇenĂ©',
+      label: 'Nevyřešené',
       value: stats.unresolved ?? 0,
       icon: AlertTriangle,
       tone: 'bg-red-50 text-red-700 border-red-100',
@@ -69,7 +69,7 @@ export default function ErrorLogPage() {
         <div>
           <h1 className="text-2xl font-bold text-stone-900">Error log</h1>
           <p className="text-sm text-stone-500 mt-1">
-            Prehled systemovych chyb a uzivatelskych hlaseni v CRM. Pristup ma pouze super admin.
+            Přehled systémových chyb a uživatelských hlášení v CRM. Přístup má pouze super admin.
           </p>
         </div>
 
@@ -83,7 +83,7 @@ export default function ErrorLogPage() {
                 : 'bg-stone-100 text-stone-700'
             }`}
           >
-            {unresolvedOnly ? 'Jen nevyĹ™eĹˇenĂ©' : 'VĹˇechny zĂˇznamy'}
+            {unresolvedOnly ? 'Jen nevyřešené' : 'Všechny záznamy'}
           </button>
           <button
             type="button"
@@ -101,7 +101,7 @@ export default function ErrorLogPage() {
             disabled={deleteResolvedMut.isPending}
             className="px-4 py-2 rounded-xl text-sm font-semibold bg-stone-900 text-white hover:bg-stone-800 disabled:opacity-50 transition-colors"
           >
-            Smazat vyĹ™eĹˇenĂ©
+            Smazat vyřešené
           </button>
         </div>
       </div>
@@ -134,9 +134,9 @@ export default function ErrorLogPage() {
         </div>
 
         {isLoading ? (
-          <div className="p-10 text-center text-sm text-stone-400">NaÄŤĂ­tĂˇm error logâ€¦</div>
+          <div className="p-10 text-center text-sm text-stone-400">Načítám error log…</div>
         ) : logs.length === 0 ? (
-          <div className="p-10 text-center text-sm text-stone-400">Ĺ˝ĂˇdnĂ© zĂˇznamy k zobrazenĂ­.</div>
+          <div className="p-10 text-center text-sm text-stone-400">Žádné záznamy k zobrazení.</div>
         ) : (
           <div className="divide-y divide-stone-100">
             {logs.map((log) => {
@@ -150,11 +150,11 @@ export default function ErrorLogPage() {
                           log.resolved ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'
                         }`}>
                           {log.resolved ? <CheckCircle2 size={13} /> : <AlertTriangle size={13} />}
-                          {log.resolved ? 'VyĹ™eĹˇeno' : 'OtevĹ™enĂ©'}
+                          {log.resolved ? 'Vyřešeno' : 'Otevřené'}
                         </span>
                         {log.source === 'user_report' ? (
                           <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-sky-100 text-sky-700">
-                            Hlaseni uzivatele
+                            Hlášení uživatele
                           </span>
                         ) : (
                           <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-stone-100 text-stone-700">
@@ -181,7 +181,7 @@ export default function ErrorLogPage() {
                         onClick={() => setExpandedId(expanded ? null : log.id)}
                         className="px-3 py-2 rounded-xl text-xs font-semibold bg-stone-100 text-stone-700 hover:bg-stone-200 transition-colors"
                       >
-                        {expanded ? 'SkrĂ˝t detail' : 'Zobrazit detail'}
+                        {expanded ? 'Skrýt detail' : 'Zobrazit detail'}
                       </button>
                       <button
                         type="button"
@@ -193,7 +193,7 @@ export default function ErrorLogPage() {
                             : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
                         }`}
                       >
-                        {log.resolved ? 'Znovu otevĹ™Ă­t' : 'OznaÄŤit vyĹ™eĹˇenĂ©'}
+                        {log.resolved ? 'Znovu otevřít' : 'Označit vyřešené'}
                       </button>
                     </div>
                   </div>
@@ -203,11 +203,11 @@ export default function ErrorLogPage() {
                       <div className="rounded-2xl bg-stone-50 p-4 border border-stone-200/60">
                         <div className="text-xs font-semibold uppercase tracking-wide text-stone-500 mb-2">Kontext</div>
                         <div className="space-y-2 text-sm text-stone-700 break-words">
-                          <div><span className="font-semibold">Zdroj:</span> {log.source || 'â€”'}</div>
-                          <div><span className="font-semibold">IP:</span> {log.ip_address || 'â€”'}</div>
-                          <div><span className="font-semibold">User-Agent:</span> {log.user_agent || 'â€”'}</div>
-                          <div><span className="font-semibold">VyĹ™eĹˇil:</span> {log.resolved_by_email || 'â€”'}</div>
-                          <div><span className="font-semibold">VyĹ™eĹˇeno:</span> {formatDateTime(log.resolved_at)}</div>
+                          <div><span className="font-semibold">Zdroj:</span> {log.source || '—'}</div>
+                          <div><span className="font-semibold">IP:</span> {log.ip_address || '—'}</div>
+                          <div><span className="font-semibold">User-Agent:</span> {log.user_agent || '—'}</div>
+                          <div><span className="font-semibold">Vyřešil:</span> {log.resolved_by_email || '—'}</div>
+                          <div><span className="font-semibold">Vyřešeno:</span> {formatDateTime(log.resolved_at)}</div>
                         </div>
                         {log.source === 'user_report' && log.meta?.description && (
                           <div className="mt-4 rounded-xl bg-white border border-stone-200 p-3">

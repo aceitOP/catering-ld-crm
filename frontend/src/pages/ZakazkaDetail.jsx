@@ -26,6 +26,10 @@ const TYP_OPTIONS = [
 ];
 const MAX_FILE_SIZE_MB = 15;
 
+function renderEmailTemplateText(template = '', context = {}) {
+  return String(template || '').replace(/\{([a-zA-Z0-9_]+)\}/g, (_match, key) => context[key] ?? '');
+}
+
 function normalizeChecklist(items = []) {
   if (!Array.isArray(items)) return [];
   return items
@@ -189,7 +193,7 @@ export default function ZakazkaDetail() {
       toast.error(err.response?.data?.error || 'Dokument se nepodařilo stáhnout');
     }
   };
-  const [dekujemeForm, setDekujemeForm] = useState({ to: '', text: '' });
+  const [dekujemeForm, setDekujemeForm] = useState({ to: '', subject: '', text: '', template_id: '' });
 
   // Klientský výběr (proposals)
   const [proposalModal, setProposalModal] = useState(false);
@@ -245,6 +249,11 @@ export default function ZakazkaDetail() {
     queryKey: ['venues-lite'],
     queryFn: () => venuesApi.list({ limit: 200, status: 'active' }),
     enabled: editModal || tab === 'venue',
+  });
+  const { data: thankYouTemplatesData } = useQuery({
+    queryKey: ['email-sablony', 'thank_you'],
+    queryFn: () => emailApi.listSablony({ use_case: 'thank_you', aktivni: 'true' }),
+    enabled: dekujemeModal,
   });
   const { data: venueBriefData, refetch: refetchVenueBrief } = useQuery({
     queryKey: ['zakazka-venue-brief', id],
@@ -454,6 +463,16 @@ export default function ZakazkaDetail() {
 
   const venueOptions = venuesData?.data?.data || [];
   const venueBrief = venueBriefData?.data;
+  const thankYouTemplates = thankYouTemplatesData?.data?.data || [];
+  const emailTemplateContext = {
+    cislo: z.cislo || '',
+    nazev: z.nazev || '',
+    datum_akce: z.datum_akce ? formatDatum(z.datum_akce) : '',
+    misto: z.misto || '',
+    pocet_hostu: z.pocet_hostu || '',
+    cena_celkem: z.cena_celkem ? formatCena(z.cena_celkem) : '',
+    klient_jmeno: [z.klient_jmeno, z.klient_prijmeni].filter(Boolean).join(' ') || z.klient_firma || '',
+  };
   const curIdx = WORKFLOW.findIndex(s => s.stav === z.stav);
   const checklistTemplate = Array.isArray(z.checklist_template) ? z.checklist_template : [];
   const suggestedChecklist = mergeChecklistTemplate(z.checklist, checklistTemplate);
@@ -662,7 +681,7 @@ export default function ZakazkaDetail() {
                 <h3 className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-3">Akce</h3>
                 <div className="flex flex-col gap-2">
                   {emailEnabled && (
-                    <Btn size="sm" onClick={() => { setDekujemeForm({ to: z.klient_email || '', text: '' }); setDekujemeModal(true); }}>
+                    <Btn size="sm" onClick={() => { setDekujemeForm({ to: z.klient_email || '', subject: '', text: '', template_id: '' }); setDekujemeModal(true); }}>
                       <Heart size={12}/> Děkovací e-mail
                     </Btn>
                   )}
@@ -1363,11 +1382,38 @@ export default function ZakazkaDetail() {
           </Btn>
         </>}>
         <div className="space-y-3">
+          {thankYouTemplates.length > 0 && (
+            <div>
+              <label className="text-xs text-stone-500 block mb-1">Šablona</label>
+              <select
+                className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                value={dekujemeForm.template_id}
+                onChange={e => {
+                  const template = thankYouTemplates.find(t => String(t.id) === e.target.value);
+                  setDekujemeForm(f => ({
+                    ...f,
+                    template_id: e.target.value,
+                    subject: template ? renderEmailTemplateText(template.subject_template || template.predmet_prefix || '', emailTemplateContext) : '',
+                    text: template ? renderEmailTemplateText(template.body_template || template.telo || '', emailTemplateContext) : f.text,
+                  }));
+                }}
+              >
+                <option value="">Bez šablony / výchozí text</option>
+                {thankYouTemplates.map(template => <option key={template.id} value={template.id}>{template.nazev}</option>)}
+              </select>
+            </div>
+          )}
           <div>
             <label className="text-xs text-stone-500 block mb-1">E-mail příjemce *</label>
             <input type="email" className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
               value={dekujemeForm.to} onChange={e => setDekujemeForm(f => ({ ...f, to: e.target.value }))}
               placeholder="klient@email.cz" autoFocus/>
+          </div>
+          <div>
+            <label className="text-xs text-stone-500 block mb-1">Předmět</label>
+            <input className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+              placeholder="Děkujeme za spolupráci"
+              value={dekujemeForm.subject} onChange={e => setDekujemeForm(f => ({ ...f, subject: e.target.value }))}/>
           </div>
           <div>
             <label className="text-xs text-stone-500 block mb-1">Text e-mailu (volitelný)</label>
@@ -1613,7 +1659,7 @@ export default function ZakazkaDetail() {
           <Btn variant="primary"
             onClick={() => addPersonalMut.mutate(personalForm)}
             disabled={!personalForm.personal_id || addPersonalMut.isPending}>
-            {addPersonalMut.isPending ? 'PYiYazuji&' : 'PYiYadit'}
+            {addPersonalMut.isPending ? 'Přiřazuji…' : 'Přiřadit'}
           </Btn>
         </>}>
         <div className="space-y-3">

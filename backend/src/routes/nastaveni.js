@@ -14,10 +14,11 @@ const SECRET_KEYS = new Set([
 ]);
 const SUPER_ADMIN_ONLY_SETTING_PREFIXES = ['email_imap_', 'email_smtp_'];
 const PUBLIC_BRANDING_KEYS = ['app_title', 'app_logo_data_url', 'app_color_theme', 'app_document_font_family'];
-const LOGO_DATA_URL_RE = /^data:image\/(?:png|jpeg|jpg|svg\+xml|webp);base64,[A-Za-z0-9+/=]+$/;
+const LOGO_DATA_URL_RE = /^data:image\/(?:png|svg\+xml);base64,[A-Za-z0-9+/=]+$/;
 const BACKUP_TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
 const BRAND_THEMES = new Set(['ocean', 'forest', 'terracotta', 'graphite']);
 const DOCUMENT_FONTS = new Set(['syne', 'manrope', 'merriweather', 'source_sans_3']);
+const VOUCHER_DESIGN_STYLES = new Set(['classic', 'minimal', 'premium', 'festive']);
 
 function isSuperAdminOnlySettingKey(key) {
   return SUPER_ADMIN_ONLY_SETTING_PREFIXES.some((prefix) => key.startsWith(prefix));
@@ -35,12 +36,12 @@ function sanitizeSettingValue(key, value) {
     const trimmed = raw.trim();
     if (!trimmed) return '';
     if (!LOGO_DATA_URL_RE.test(trimmed)) {
-      const err = new Error('Logo musi byt PNG, JPG, SVG nebo WEBP obrazek');
+      const err = new Error('Logo musí být PNG nebo SVG obrázek');
       err.status = 400;
       throw err;
     }
     if (trimmed.length > 1024 * 1024) {
-      const err = new Error('Logo je prilis velke');
+      const err = new Error('Logo je příliš velké');
       err.status = 400;
       throw err;
     }
@@ -67,10 +68,20 @@ function sanitizeSettingValue(key, value) {
     return normalized;
   }
 
+  if (key === 'voucher_design_style') {
+    const normalized = raw.trim().toLowerCase();
+    if (!VOUCHER_DESIGN_STYLES.has(normalized)) {
+      const err = new Error('Neplatný vzhled poukazu');
+      err.status = 400;
+      throw err;
+    }
+    return normalized;
+  }
+
   if (key === 'backup_auto_time') {
     const normalized = raw.trim();
     if (!BACKUP_TIME_RE.test(normalized)) {
-      const err = new Error('Cas automaticke zalohy musi byt ve formatu HH:MM');
+      const err = new Error('Čas automatické zálohy musí být ve formátu HH:MM');
       err.status = 400;
       throw err;
     }
@@ -80,7 +91,7 @@ function sanitizeSettingValue(key, value) {
   if (key === 'backup_retention_count') {
     const count = parseInt(raw, 10);
     if (Number.isNaN(count) || count < 1 || count > 90) {
-      const err = new Error('Retence zaloh musi byt cislo od 1 do 90');
+      const err = new Error('Retence záloh musí být číslo od 1 do 90');
       err.status = 400;
       throw err;
     }
@@ -154,10 +165,10 @@ router.patch('/', auth, requireMinRole('admin'), async (req, res, next) => {
     }, {});
     const keys = Object.keys(req.body || {});
     if (keys.some(isModuleSettingKey) && req.user?.role !== 'super_admin') {
-      return res.status(403).json({ error: 'Moduly muze menit pouze super admin' });
+      return res.status(403).json({ error: 'Moduly může měnit pouze super admin' });
     }
     if (keys.some(isSuperAdminOnlySettingKey) && req.user?.role !== 'super_admin') {
-      return res.status(403).json({ error: 'Toto nastaveni muze menit pouze super admin' });
+      return res.status(403).json({ error: 'Toto nastavení může měnit pouze super admin' });
     }
 
     const safeEntries = Object.fromEntries(
@@ -189,6 +200,7 @@ router.post('/setup-wizard', auth, requireMinRole('super_admin'), async (req, re
       'app_logo_data_url',
       'app_color_theme',
       'app_document_font_family',
+      'voucher_design_style',
       'firma_nazev',
       'firma_ico',
       'firma_dic',
@@ -230,18 +242,18 @@ router.post('/setup-wizard', auth, requireMinRole('super_admin'), async (req, re
       const telefon = String(additionalUser.telefon || '').trim();
 
       if (!email || !email.includes('@')) {
-        return res.status(400).json({ error: 'Dalsi uzivatel musi mit platny e-mail' });
+        return res.status(400).json({ error: 'Další uživatel musí mít platný e-mail' });
       }
       if (heslo.length < 8) {
-        return res.status(400).json({ error: 'Heslo dalsiho uzivatele musi mit alespon 8 znaku' });
+        return res.status(400).json({ error: 'Heslo dalšího uživatele musí mít alespoň 8 znaků' });
       }
       if (!jmeno || !prijmeni) {
-        return res.status(400).json({ error: 'Dalsi uzivatel musi mit jmeno i prijmeni' });
+        return res.status(400).json({ error: 'Další uživatel musí mít jméno i příjmení' });
       }
 
       const { rows: existing } = await query('SELECT id FROM uzivatele WHERE lower(email) = $1 LIMIT 1', [email]);
       if (existing[0]) {
-        return res.status(409).json({ error: 'Uzivatel s timto e-mailem uz existuje' });
+        return res.status(409).json({ error: 'Uživatel s tímto e-mailem už existuje' });
       }
 
       const hesloHash = await bcrypt.hash(heslo, 12);

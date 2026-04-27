@@ -771,18 +771,44 @@ router.post('/check-inbox', async (req, res, next) => {
 // ── Šablony odpovědí CRUD ─────────────────────────────────────────────────────
 router.get('/sablony', async (req, res, next) => {
   try {
-    const { rows } = await query('SELECT * FROM email_sablony ORDER BY poradi, id');
+    const params = [];
+    const where = [];
+    if (req.query.use_case) {
+      params.push(req.query.use_case);
+      where.push(`use_case = $${params.length}`);
+    }
+    if (req.query.aktivni !== undefined) {
+      params.push(req.query.aktivni === 'true');
+      where.push(`aktivni = $${params.length}`);
+    }
+    const { rows } = await query(
+      `SELECT * FROM email_sablony ${where.length ? `WHERE ${where.join(' AND ')}` : ''} ORDER BY use_case, poradi, id`,
+      params
+    );
     res.json({ data: rows });
   } catch (err) { next(err); }
 });
 
 router.post('/sablony', requireCapability('email.templates.manage'), async (req, res, next) => {
   try {
-    const { nazev, predmet_prefix, telo, poradi } = req.body;
+    const { nazev, predmet_prefix, telo, poradi, template_key, use_case, subject_template, body_template, popis, aktivni } = req.body;
     if (!nazev) return res.status(400).json({ error: 'Chybí název' });
     const { rows: [r] } = await query(
-      `INSERT INTO email_sablony (nazev, predmet_prefix, telo, poradi) VALUES ($1,$2,$3,$4) RETURNING *`,
-      [nazev, predmet_prefix || '', telo || '', parseInt(poradi) || 0]
+      `INSERT INTO email_sablony (
+        nazev, predmet_prefix, telo, poradi, template_key, use_case, subject_template, body_template, popis, aktivni
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+      [
+        nazev,
+        predmet_prefix || subject_template || '',
+        telo || body_template || '',
+        parseInt(poradi, 10) || 0,
+        template_key || null,
+        use_case || 'reply',
+        subject_template || predmet_prefix || '',
+        body_template || telo || '',
+        popis || null,
+        aktivni !== false,
+      ]
     );
     res.status(201).json(r);
   } catch (err) { next(err); }
@@ -790,11 +816,34 @@ router.post('/sablony', requireCapability('email.templates.manage'), async (req,
 
 router.patch('/sablony/:id', requireCapability('email.templates.manage'), async (req, res, next) => {
   try {
-    const { nazev, predmet_prefix, telo, poradi } = req.body;
+    const { nazev, predmet_prefix, telo, poradi, template_key, use_case, subject_template, body_template, popis, aktivni } = req.body;
     const { rows: [r] } = await query(
-      `UPDATE email_sablony SET nazev=$1, predmet_prefix=$2, telo=$3, poradi=$4
-       WHERE id=$5 RETURNING *`,
-      [nazev, predmet_prefix || '', telo || '', parseInt(poradi) || 0, req.params.id]
+      `UPDATE email_sablony
+       SET nazev=$1,
+           predmet_prefix=$2,
+           telo=$3,
+           poradi=$4,
+           template_key=$5,
+           use_case=$6,
+           subject_template=$7,
+           body_template=$8,
+           popis=$9,
+           aktivni=$10,
+           updated_at=NOW()
+       WHERE id=$11 RETURNING *`,
+      [
+        nazev,
+        predmet_prefix || subject_template || '',
+        telo || body_template || '',
+        parseInt(poradi, 10) || 0,
+        template_key || null,
+        use_case || 'reply',
+        subject_template || predmet_prefix || '',
+        body_template || telo || '',
+        popis || null,
+        aktivni !== false,
+        req.params.id,
+      ]
     );
     if (!r) return res.status(404).json({ error: 'Šablona nenalezena' });
     res.json(r);

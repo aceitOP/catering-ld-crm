@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { Gift, Plus } from 'lucide-react';
+import { Gift, Mail, Plus, Printer } from 'lucide-react';
 import { klientiApi, vouchersApi, zakazkyApi } from '../api';
 import { Btn, EmptyState, Modal, PageHeader, Spinner, formatDatum } from '../components/ui';
 
@@ -60,6 +60,15 @@ export default function VouchersPage() {
     onError: (err) => toast.error(err.response?.data?.error || 'Uložení změn se nepodařilo.'),
   });
 
+  const sendMut = useMutation({
+    mutationFn: ({ id, email }) => vouchersApi.send(id, { email }),
+    onSuccess: (res) => {
+      toast.success(res.data?.message || 'Poukaz byl odeslán.');
+      qc.invalidateQueries({ queryKey: ['vouchers'] });
+    },
+    onError: (err) => toast.error(err.response?.data?.error || 'Odeslání poukazu se nepodařilo.'),
+  });
+
   const vouchers = data?.data?.data || [];
   const klienti = clientsQuery.data?.data?.data || [];
   const zakazky = zakazkyQuery.data?.data?.data || [];
@@ -110,6 +119,33 @@ export default function VouchersPage() {
     else createMut.mutate(payload);
   };
 
+  const printVoucher = async (voucher) => {
+    try {
+      const res = await vouchersApi.print(voucher.id);
+      const win = window.open('', '_blank', 'width=960,height=800');
+      if (!win) {
+        toast.error('Povolte vyskakovací okna pro tisk poukazu.');
+        return;
+      }
+      win.document.write(res.data);
+      win.document.close();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Tisk poukazu se nepodařil.');
+    }
+  };
+
+  const sendVoucher = (voucher) => {
+    const defaultEmail = voucher.recipient_email || voucher.buyer_email || '';
+    const email = window.prompt('E-mail pro odeslání poukazu:', defaultEmail);
+    if (email === null) return;
+    const trimmed = email.trim();
+    if (!trimmed) {
+      toast.error('Zadejte e-mail příjemce.');
+      return;
+    }
+    sendMut.mutate({ id: voucher.id, email: trimmed });
+  };
+
   return (
     <div>
       <PageHeader
@@ -154,7 +190,19 @@ export default function VouchersPage() {
                     <td className="px-4 py-3 text-sm text-stone-600">{voucher.recipient_name || voucher.klient_firma || '—'}</td>
                     <td className="px-4 py-3 text-sm text-stone-600">{voucher.status}</td>
                     <td className="px-4 py-3 text-sm text-stone-600">{voucher.expires_at ? formatDatum(voucher.expires_at) : 'Bez expirace'}</td>
-                    <td className="px-4 py-3 text-right"><Btn size="sm" onClick={() => openEdit(voucher)}>Upravit</Btn></td>
+                    <td className="px-4 py-3">
+                      <div className="flex justify-end gap-2">
+                        <Btn size="sm" onClick={() => printVoucher(voucher)}>
+                          <Printer size={12} />
+                          PDF
+                        </Btn>
+                        <Btn size="sm" onClick={() => sendVoucher(voucher)} disabled={sendMut.isPending}>
+                          <Mail size={12} />
+                          Poslat
+                        </Btn>
+                        <Btn size="sm" onClick={() => openEdit(voucher)}>Upravit</Btn>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>

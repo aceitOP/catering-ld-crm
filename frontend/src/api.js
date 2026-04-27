@@ -38,6 +38,11 @@ export const nabidkyApi = {
   update: (id, d) => api.patch(`/nabidky/${id}`, d),
   setStav: (id, d) => api.patch(`/nabidky/${id}/stav`, d),
   odeslat: (id, d) => api.post(`/nabidky/${id}/odeslat`, d),
+  downloadPdf: async (id, fallbackName) => {
+    const res = await api.get(`/nabidky/${id}/pdf`, { responseType: 'blob' });
+    downloadBlob(res.data, fallbackName || `nabidka-${id}.pdf`, res.headers['content-type']);
+    return res;
+  },
 };
 
 export const kalkulaceApi = {
@@ -67,6 +72,12 @@ export const recipesApi = {
   addStep: (id, versionId, data) => api.post(`/recipes/${id}/versions/${versionId}/steps`, data),
   cost: (id, params) => api.get(`/recipes/${id}/cost`, { params }),
   printCard: (id, params) => api.get(`/recipes/${id}/print-card`, { params, responseType: 'text' }),
+  staffProcedure: (id, params) => api.get(`/recipes/${id}/staff-procedure`, { params, responseType: 'text' }),
+  staffProcedurePdf: async (id, params, fallbackName) => {
+    const res = await api.get(`/recipes/${id}/staff-procedure`, { params: { ...(params || {}), format: 'pdf' }, responseType: 'blob' });
+    downloadBlob(res.data, fallbackName || `postup-receptura-${id}.pdf`, res.headers['content-type']);
+    return res;
+  },
 };
 
 export const cenikApi = {
@@ -155,6 +166,11 @@ export const vouchersApi = {
   expire: (id, data) => api.post(`/vouchers/${id}/expire`, data || {}),
   history: (id) => api.get(`/vouchers/${id}/history`),
   print: (id) => api.get(`/vouchers/${id}/print`, { responseType: 'text' }),
+  downloadPdf: async (id, fallbackName) => {
+    const res = await api.get(`/vouchers/${id}/print`, { params: { format: 'pdf' }, responseType: 'blob' });
+    downloadBlob(res.data, fallbackName || `poukaz-${id}.pdf`, res.headers['content-type']);
+    return res;
+  },
   publicGet: (token) => pubApi.get(`/vouchers/public/${token}`),
 };
 
@@ -169,6 +185,12 @@ export const fakturyApi = {
   create: (data) => api.post('/faktury', data),
   update: (id, d) => api.patch(`/faktury/${id}`, d),
   setStav: (id, d) => api.patch(`/faktury/${id}/stav`, d),
+  send: (id, d) => api.post(`/faktury/${id}/send`, d),
+  downloadPdf: async (id, fallbackName) => {
+    const res = await api.get(`/faktury/${id}/pdf`, { responseType: 'blob' });
+    downloadBlob(res.data, fallbackName || `faktura-${id}.pdf`, res.headers['content-type']);
+    return res;
+  },
   delete: (id) => api.delete(`/faktury/${id}`),
 };
 
@@ -238,7 +260,7 @@ export const emailApi = {
   unlinkZakazka: (uid, zakazka_id) => api.delete(`/email/messages/${uid}/link`, { params: { zakazka_id } }),
   getLinks: (zakazka_id) => api.get('/email/links', { params: { zakazka_id } }),
   checkInbox: (folder) => api.post('/email/check-inbox', { folder }),
-  listSablony: () => api.get('/email/sablony'),
+  listSablony: (params) => api.get('/email/sablony', { params }),
   createSablona: (data) => api.post('/email/sablony', data),
   updateSablona: (id, data) => api.patch(`/email/sablony/${id}`, data),
   deleteSablona: (id) => api.delete(`/email/sablony/${id}`),

@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { X, Loader2, Download, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
-import * as XLSX from 'xlsx';
+import { safeGetJson } from '../utils/storage';
 
 // Stavové badge – zakázky
 const STAV_STYLES = {
@@ -289,28 +289,38 @@ export function ExportMenu({ data = [], columns = [], filename = 'export' }) {
   };
 
   const exportXls = () => {
-    const ws = XLSX.utils.aoa_to_sheet([headers, ...toRows()]);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Export');
-    XLSX.writeFile(wb, `${filename}.xlsx`);
+    const rows = [headers, ...toRows()];
+    const tsv = rows.map(r => r.map(c => String(c).replace(/\t/g, ' ').replace(/\r?\n/g, ' ')).join('\t')).join('\r\n');
+    const blob = new Blob(['\uFEFF' + tsv], { type: 'application/vnd.ms-excel;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = Object.assign(document.createElement('a'), { href: url, download: `${filename}.xls` });
+    a.click();
+    URL.revokeObjectURL(url);
     setOpen(false);
   };
 
   const exportPdf = () => {
+    const branding = safeGetJson('app_branding', {}) || {};
+    const logo = branding.app_logo_data_url
+      ? `<img src="${branding.app_logo_data_url}" alt="Logo" style="width:48px;height:48px;object-fit:contain;border-radius:14px;margin-right:12px;">`
+      : '';
+    const appTitle = branding.app_title || 'Catering CRM';
     const rows = toRows();
     const thCells = headers.map(h => `<th>${h}</th>`).join('');
     const tbRows  = rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('');
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${filename}</title>
       <style>
         body{font-family:Inter,Arial,sans-serif;font-size:10px;margin:1cm}
-        h2{font-size:13px;margin-bottom:8px;color:#1c1917}
+        h2{font-size:13px;margin:0;color:#1c1917}
+        .brand-header{display:flex;align-items:center;margin-bottom:14px}
+        .brand-sub{font-size:9px;color:#78716c;margin-top:2px}
         table{width:100%;border-collapse:collapse}
         th{background:#4c1d95;color:#fff;padding:5px 7px;text-align:left;font-size:9px;white-space:nowrap;border-radius:0}
         td{padding:4px 7px;border-bottom:1px solid #e7e5e4;vertical-align:top}
         tr:nth-child(even) td{background:#f4f7fe}
         @media print{@page{size:A4 landscape;margin:1cm}}
       </style></head><body>
-      <h2>${filename}</h2>
+      <div class="brand-header">${logo}<div><h2>${filename}</h2><div class="brand-sub">${appTitle}</div></div></div>
       <table><thead><tr>${thCells}</tr></thead><tbody>${tbRows}</tbody></table>
       <script>window.onload=()=>{window.print();}<\/script>
       </body></html>`;

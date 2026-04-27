@@ -142,9 +142,9 @@ async function getWorkflowBlockers(dbClient, zakazka, targetStatus) {
     if (condition) blockers.push(message);
   };
 
-  add(!zakazka.datum_akce && isStatusAtLeast(targetStatus, 'nabidka_pripravena'), 'Chybi datum akce.');
-  add(!zakazka.misto && isStatusAtLeast(targetStatus, 'nabidka_pripravena'), 'Chybi misto konani.');
-  add(!(Number(zakazka.pocet_hostu) > 0) && isStatusAtLeast(targetStatus, 'nabidka_pripravena'), 'Chybi pocet hostu.');
+  add(!zakazka.datum_akce && isStatusAtLeast(targetStatus, 'nabidka_pripravena'), 'Chybí datum akce.');
+  add(!zakazka.misto && isStatusAtLeast(targetStatus, 'nabidka_pripravena'), 'Chybí místo konání.');
+  add(!(Number(zakazka.pocet_hostu) > 0) && isStatusAtLeast(targetStatus, 'nabidka_pripravena'), 'Chybí počet hostů.');
 
   if (isStatusAtLeast(targetStatus, 'nabidka_odeslana')) {
     const nabidkaRes = await dbClient.query(
@@ -153,12 +153,12 @@ async function getWorkflowBlockers(dbClient, zakazka, targetStatus) {
        WHERE zakazka_id = $1 AND aktivni = true`,
       [zakazka.id]
     );
-    add((nabidkaRes.rows[0]?.count || 0) === 0, 'Chybi aktivni nabidka.');
+    add((nabidkaRes.rows[0]?.count || 0) === 0, 'Chybí aktivní nabídka.');
   }
 
-  add(!(Number(zakazka.cena_celkem) > 0) && isStatusAtLeast(targetStatus, 'potvrzeno'), 'Chybi finalni cena zakazky.');
-  add(!zakazka.harmonogram && isStatusAtLeast(targetStatus, 've_priprave'), 'Chybi harmonogram realizace.');
-  add(!zakazka.logistika && isStatusAtLeast(targetStatus, 've_priprave'), 'Chybi logisticke informace.');
+  add(!(Number(zakazka.cena_celkem) > 0) && isStatusAtLeast(targetStatus, 'potvrzeno'), 'Chybí finální cena zakázky.');
+  add(!zakazka.harmonogram && isStatusAtLeast(targetStatus, 've_priprave'), 'Chybí harmonogram realizace.');
+  add(!zakazka.logistika && isStatusAtLeast(targetStatus, 've_priprave'), 'Chybí logistické informace.');
 
   if (isStatusAtLeast(targetStatus, 've_priprave')) {
     const personalRes = await dbClient.query(

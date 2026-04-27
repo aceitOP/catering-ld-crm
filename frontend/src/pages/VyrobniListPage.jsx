@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { productionApi } from '../api';
 import { formatDatum } from '../components/ui';
+import { safeGetJson } from '../utils/storage';
 import { ArrowLeft, Printer, ChefHat, AlertTriangle, Package, Users, Truck, Zap } from 'lucide-react';
 
 const TYP_LABEL_VL = {
@@ -45,6 +46,7 @@ export function VyrobniListPage() {
   });
 
   const sheet = data?.data;
+  const branding = safeGetJson('app_branding', {}) || {};
 
   if (isLoading) {
     return (
@@ -104,7 +106,15 @@ export function VyrobniListPage() {
 
       {/* Print title */}
       <div className="hidden print:block px-6 pt-4 pb-2 border-b border-stone-300">
-        <div className="text-lg font-bold">Výrobní list – {sheet.cislo}</div>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="text-lg font-bold">Výrobní list – {sheet.cislo}</div>
+            <div className="text-xs text-stone-500 mt-0.5">{branding.app_title || 'Catering CRM'}</div>
+          </div>
+          {branding.app_logo_data_url && (
+            <img src={branding.app_logo_data_url} alt="Logo" className="w-16 h-16 object-contain rounded-2xl" />
+          )}
+        </div>
         <div className="text-sm text-stone-600">
           {sheet.nazev} · {formatDatum(sheet.datum_akce)}
           {sheet.cas_zacatek && ` · ${sheet.cas_zacatek}–${sheet.cas_konec || ''}`}

@@ -561,7 +561,7 @@ for (const [sectionKey, def] of Object.entries(SECTION_DEFS)) {
         if (!payload.name && sectionKey !== 'access-rules') {
           const requiredField = sectionKey === 'parking-options' ? 'location_description' : 'name';
           if (!payload[requiredField]) {
-            const err = new Error('Chybi povinne pole sekce');
+            const err = new Error('Chybí povinné pole sekce');
             err.status = 400;
             throw err;
           }

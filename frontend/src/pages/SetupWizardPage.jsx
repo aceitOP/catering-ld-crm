@@ -210,10 +210,10 @@ export default function SetupWizardPage() {
                 {recommendations.map((item) => (
                   <li key={item} className="flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-amber-400" />
-                    {item === 'company' && 'Doplnit firemni identitu pro PDF, nabidky a faktury'}
-                    {item === 'branding' && 'Nastavit nazev aplikace a barevnou sablonu'}
-                    {item === 'smtp' && 'Nastavit SMTP, aby sla odesilat posta primo z CRM'}
-                    {item === 'team' && 'Volitelne pridat dalsiho uzivatele nebo admina'}
+                    {item === 'company' && 'Doplnit firemní identitu pro PDF, nabídky a faktury'}
+                    {item === 'branding' && 'Nastavit název aplikace a barevnou šablonu'}
+                    {item === 'smtp' && 'Nastavit SMTP, aby šla odesílat pošta přímo z CRM'}
+                    {item === 'team' && 'Volitelně přidat dalšího uživatele nebo admina'}
                   </li>
                 ))}
               </ul>
@@ -293,7 +293,7 @@ export default function SetupWizardPage() {
                 <div className="text-xs uppercase tracking-[0.2em] text-stone-400 font-semibold">E-mail</div>
                 <h2 className="mt-2 text-2xl font-bold text-stone-900">SMTP a IMAP nastaveni</h2>
                 <p className="mt-2 text-sm text-stone-500">
-                  SMTP doporucuji nastavit hned, IMAP je volitelny. Pokud to chces dodelat pozdeji, tento krok muze zustat i prazdny.
+                  SMTP doporučuji nastavit hned, IMAP je volitelný. Pokud to chceš dodělat později, tento krok může zůstat i prázdný.
                 </p>
               </div>
 
@@ -302,7 +302,7 @@ export default function SetupWizardPage() {
                 <div className="grid gap-4 md:grid-cols-2">
                   <Field label="SMTP server" value={form.email_smtp_host} onChange={(e) => setForm((f) => ({ ...f, email_smtp_host: e.target.value }))} />
                   <Field label="Port" value={form.email_smtp_port} onChange={(e) => setForm((f) => ({ ...f, email_smtp_port: e.target.value }))} />
-                  <Field label="Uzivatel" value={form.email_smtp_user} onChange={(e) => setForm((f) => ({ ...f, email_smtp_user: e.target.value }))} />
+                  <Field label="Uživatel" value={form.email_smtp_user} onChange={(e) => setForm((f) => ({ ...f, email_smtp_user: e.target.value }))} />
                   <Field label="Odesilaci adresa" value={form.email_smtp_from} onChange={(e) => setForm((f) => ({ ...f, email_smtp_from: e.target.value }))} />
                   <Field label="Heslo" type="password" value={form.email_smtp_pass} onChange={(e) => setForm((f) => ({ ...f, email_smtp_pass: e.target.value }))} />
                   <label className="block">
@@ -324,7 +324,7 @@ export default function SetupWizardPage() {
                 <div className="grid gap-4 md:grid-cols-2">
                   <Field label="IMAP server" value={form.email_imap_host} onChange={(e) => setForm((f) => ({ ...f, email_imap_host: e.target.value }))} />
                   <Field label="Port" value={form.email_imap_port} onChange={(e) => setForm((f) => ({ ...f, email_imap_port: e.target.value }))} />
-                  <Field label="Uzivatel" value={form.email_imap_user} onChange={(e) => setForm((f) => ({ ...f, email_imap_user: e.target.value }))} />
+                  <Field label="Uživatel" value={form.email_imap_user} onChange={(e) => setForm((f) => ({ ...f, email_imap_user: e.target.value }))} />
                   <Field label="Heslo" type="password" value={form.email_imap_pass} onChange={(e) => setForm((f) => ({ ...f, email_imap_pass: e.target.value }))} />
                   <label className="block md:col-span-2">
                     <div className="text-xs font-semibold text-stone-500 mb-1.5">TLS</div>
@@ -346,9 +346,9 @@ export default function SetupWizardPage() {
             <div className="space-y-6">
               <div>
                 <div className="text-xs uppercase tracking-[0.2em] text-stone-400 font-semibold">Tým</div>
-                <h2 className="mt-2 text-2xl font-bold text-stone-900">Prvni dalsi uzivatel</h2>
+                <h2 className="mt-2 text-2xl font-bold text-stone-900">První další uživatel</h2>
                 <p className="mt-2 text-sm text-stone-500">
-                  Tento krok je volitelny. Klidne nech zatim jen super admin ucet a dalsi lidi pridej az pozdeji v Nastaveni.
+                  Tento krok je volitelný. Klidně nech zatím jen super admin účet a další lidi přidej až později v Nastavení.
                 </p>
               </div>
 
@@ -360,15 +360,15 @@ export default function SetupWizardPage() {
                   className="h-4 w-4 rounded border-stone-300 text-brand-600 focus:ring-brand-500"
                 />
                 <div>
-                  <div className="text-sm font-semibold text-stone-800">Vytvorit dalsi ucet hned ted</div>
-                  <div className="text-xs text-stone-500">Treba pro admina, event managera nebo obchodnika.</div>
+                  <div className="text-sm font-semibold text-stone-800">Vytvořit další účet hned teď</div>
+                  <div className="text-xs text-stone-500">Třeba pro admina, event managera nebo obchodníka.</div>
                 </div>
               </label>
 
               {additionalUser.enabled && (
                 <div className="grid gap-4 md:grid-cols-2">
-                  <Field label="Jmeno *" value={additionalUser.jmeno} onChange={(e) => setAdditionalUser((u) => ({ ...u, jmeno: e.target.value }))} />
-                  <Field label="Prijmeni *" value={additionalUser.prijmeni} onChange={(e) => setAdditionalUser((u) => ({ ...u, prijmeni: e.target.value }))} />
+                  <Field label="Jméno *" value={additionalUser.jmeno} onChange={(e) => setAdditionalUser((u) => ({ ...u, jmeno: e.target.value }))} />
+                  <Field label="Příjmení *" value={additionalUser.prijmeni} onChange={(e) => setAdditionalUser((u) => ({ ...u, prijmeni: e.target.value }))} />
                   <Field label="E-mail *" type="email" value={additionalUser.email} onChange={(e) => setAdditionalUser((u) => ({ ...u, email: e.target.value }))} />
                   <Field label="Telefon" value={additionalUser.telefon} onChange={(e) => setAdditionalUser((u) => ({ ...u, telefon: e.target.value }))} />
                   <label className="block">
@@ -379,15 +379,15 @@ export default function SetupWizardPage() {
                       className="w-full rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm text-stone-800 focus:outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
                     >
                       <option value="admin">Admin</option>
-                      <option value="uzivatel">Uzivatel</option>
+                      <option value="uzivatel">Uživatel</option>
                     </select>
                   </label>
-                  <Field label="Docasne heslo *" type="password" value={additionalUser.heslo} onChange={(e) => setAdditionalUser((u) => ({ ...u, heslo: e.target.value }))} />
+                  <Field label="Dočasné heslo *" type="password" value={additionalUser.heslo} onChange={(e) => setAdditionalUser((u) => ({ ...u, heslo: e.target.value }))} />
                 </div>
               )}
 
               <div className="rounded-3xl bg-emerald-50 border border-emerald-100 px-5 py-4 text-sm text-emerald-800">
-                Po dokonceni se aplikace odemkne do bezneho provozu. Vse dalsi potom nastavite standardne v modulu Nastaveni.
+                Po dokončení se aplikace odemkne do běžného provozu. Vše další potom nastavíte standardně v modulu Nastavení.
               </div>
             </div>
           )}
@@ -395,18 +395,18 @@ export default function SetupWizardPage() {
           <div className="mt-10 flex items-center justify-between border-t border-stone-100 pt-6">
             <Btn onClick={() => setStepIndex((i) => Math.max(0, i - 1))} disabled={stepIndex === 0}>
               <ChevronLeft size={15} />
-              Zpet
+              Zpět
             </Btn>
 
             <div className="flex items-center gap-3">
               {stepIndex < STEPS.length - 1 ? (
                 <Btn variant="primary" onClick={() => setStepIndex((i) => i + 1)} disabled={!canContinue}>
-                  Pokracovat
+                  Pokračovat
                   <ChevronRight size={15} />
                 </Btn>
               ) : (
                 <Btn variant="primary" onClick={finishSetup} disabled={!canContinue || submitMut.isPending}>
-                  {submitMut.isPending ? 'Ukladam...' : 'Dokoncit setup'}
+                  {submitMut.isPending ? 'Ukládám…' : 'Dokončit setup'}
                 </Btn>
               )}
             </div>

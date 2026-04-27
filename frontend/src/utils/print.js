@@ -57,6 +57,20 @@ function buildBaseCss() {
 `;
 }
 
+function brandLockupHtml({ branding, title, subtitle = '', dark = false }) {
+  const logo = branding.logoDataUrl
+    ? `<div class="brand-logo ${dark ? 'brand-logo-dark' : ''}"><img src="${branding.logoDataUrl}" alt="Logo"></div>`
+    : '';
+  return `
+    <div class="brand-lockup">
+      ${logo}
+      <div>
+        <div class="header-logo">${title || branding.appTitle}</div>
+        ${subtitle ? `<div class="header-sub">${subtitle}</div>` : ''}
+      </div>
+    </div>`;
+}
+
 function openPrint(html) {
   const w = window.open('', '_blank', 'width=900,height=700');
   if (!w) { alert('Povolte vyskakovací okna pro tisk.'); return; }
@@ -80,6 +94,7 @@ export function printNabidkuPdf(n) {
   const BASE_CSS = buildBaseCss();
   const BRAND_BLUE = branding.brandBlue;
   const ACCENT = branding.accent;
+  const brandName = branding.appTitle || 'Catering CRM';
   const klient = n.klient_firma || [n.klient_jmeno, n.klient_prijmeni].filter(Boolean).join(' ') || '—';
   const dnes   = new Date().toLocaleDateString('cs-CZ');
 
@@ -100,6 +115,7 @@ export function printNabidkuPdf(n) {
       .header { background:${BRAND_BLUE}; color:#fff; padding:22px 30px; display:flex; justify-content:space-between; align-items:flex-start; }
       .header-logo { font-size:22px; font-weight:800; letter-spacing:-0.5px; }
       .header-sub { font-size:11px; opacity:0.7; margin-top:3px; }
+      .brand-logo { width:58px; height:58px; border-radius:18px; }
       .header-badge { background:${ACCENT}; color:#fff; font-size:11px; font-weight:700; padding:4px 12px; border-radius:20px; margin-top:6px; display:inline-block; }
       .content { padding:25px 30px; }
       .info-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:18px; margin-bottom:22px; }
@@ -117,8 +133,7 @@ export function printNabidkuPdf(n) {
 
   <div class="header">
     <div>
-      <div class="header-logo">Catering Landa &amp; Dvořák</div>
-      <div class="header-sub">Profesionální catering &amp; event management</div>
+      ${brandLockupHtml({ branding, title: brandName, subtitle: 'Profesionální catering & event management', dark: true })}
       <div class="header-badge">NABÍDKA</div>
     </div>
     <div style="text-align:right;font-size:11px;opacity:0.85;line-height:1.8">
@@ -171,14 +186,14 @@ export function printNabidkuPdf(n) {
     ${n.zaverecny_text ? `<div class="text-block" style="margin-top:20px">${n.zaverecny_text}</div>` : ''}
 
     <div class="signature">
-      <div><div class="sig-line">Vystavil / Catering Landa &amp; Dvořák</div></div>
+      <div><div class="sig-line">Vystavil / ${brandName}</div></div>
       <div><div class="sig-line">Potvrdil / Klient</div></div>
     </div>
   </div>
 
   <div style="padding:0 30px 20px">
     <div class="footer">
-      <span>Catering Landa &amp; Dvořák – www.cateringld.cz</span>
+      <span>${brandName}</span>
       <span>Vytištěno: ${dnes}</span>
     </div>
   </div>
@@ -196,6 +211,7 @@ export function printFakturuPdf(f) {
   const BRAND_BLUE = branding.brandBlue;
   const ACCENT = branding.accent;
   const firma    = f.dodavatel_json || {};
+  const brandName = firma.firma_nazev || branding.appTitle || 'Catering CRM';
   const klient   = f.klient_firma || [f.klient_jmeno, f.klient_prijmeni].filter(Boolean).join(' ') || '—';
   const dnes     = new Date().toLocaleDateString('cs-CZ');
 
@@ -225,6 +241,7 @@ export function printFakturuPdf(f) {
       .header { background:${BRAND_BLUE}; color:#fff; padding:22px 30px; display:flex; justify-content:space-between; align-items:flex-start; }
       .header-logo { font-size:20px; font-weight:800; letter-spacing:-0.5px; }
       .header-sub { font-size:10px; opacity:0.7; margin-top:3px; }
+      .brand-logo { width:56px; height:56px; border-radius:18px; }
       .header-right { text-align:right; }
       .header-badge { background:${ACCENT}; color:#fff; font-size:13px; font-weight:800; padding:5px 16px; border-radius:20px; display:inline-block; letter-spacing:1px; margin-bottom:6px; }
       .content { padding:22px 30px; }
@@ -248,8 +265,7 @@ export function printFakturuPdf(f) {
 
   <div class="header">
     <div>
-      <div class="header-logo">${firma.firma_nazev || 'Catering Landa &amp; Dvořák'}</div>
-      <div class="header-sub">${firma.firma_adresa || ''}</div>
+      ${brandLockupHtml({ branding, title: brandName, subtitle: firma.firma_adresa || '', dark: true })}
       ${firma.firma_web ? `<div class="header-sub">${firma.firma_web}</div>` : ''}
     </div>
     <div class="header-right">
@@ -316,7 +332,7 @@ export function printFakturuPdf(f) {
 
   <div style="padding:0 30px 20px">
     <div class="footer">
-      <span>${firma.firma_nazev || 'Catering Landa &amp; Dvořák'} · IČO: ${firma.firma_ico || '—'} · DIČ: ${firma.firma_dic || '—'}</span>
+      <span>${brandName} · IČO: ${firma.firma_ico || '—'} · DIČ: ${firma.firma_dic || '—'}</span>
       <span>Vytištěno: ${dnes}</span>
     </div>
   </div>
@@ -333,6 +349,7 @@ export function printKomandoPdf(z) {
   const BASE_CSS = buildBaseCss();
   const BRAND_BLUE = branding.brandBlue;
   const ACCENT = branding.accent;
+  const brandName = branding.appTitle || 'Catering CRM';
   const dnes  = new Date().toLocaleDateString('cs-CZ');
   const klient = z.klient_firma || [z.klient_jmeno, z.klient_prijmeni].filter(Boolean).join(' ') || '—';
 
@@ -362,6 +379,7 @@ export function printKomandoPdf(z) {
       .header { background:${BRAND_BLUE}; color:#fff; padding:20px 30px; display:flex; justify-content:space-between; align-items:center; }
       .header-title { font-size:26px; font-weight:800; letter-spacing:3px; }
       .header-sub { font-size:12px; opacity:0.75; margin-top:2px; }
+      .brand-logo { width:58px; height:58px; border-radius:18px; }
       .content { padding:22px 30px; }
       .event-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:22px; }
       .event-box { background:#f4f5fb; border-radius:6px; padding:10px 14px; border-left:3px solid ${BRAND_BLUE}; }
@@ -383,7 +401,7 @@ export function printKomandoPdf(z) {
 
   <div class="header">
     <div>
-      <div style="font-size:11px;opacity:0.7;margin-bottom:3px">Catering Landa &amp; Dvořák</div>
+      ${brandLockupHtml({ branding, title: brandName, dark: true })}
       <div class="header-title">KOMANDO</div>
       <div class="header-sub">${z.cislo} · ${z.nazev}</div>
     </div>
@@ -463,7 +481,7 @@ export function printKomandoPdf(z) {
 
   <div style="padding:0 30px 20px">
     <div class="footer">
-      <span>Catering Landa &amp; Dvořák – interní dokument</span>
+      <span>${brandName} – interní dokument</span>
       <span>www.cateringld.cz · Vytištěno: ${dnes}</span>
     </div>
   </div>
