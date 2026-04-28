@@ -1,7 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const { query } = require('../db');
-const { auth, requireMinRole, userLevel } = require('../middleware/auth');
+const { auth, requireCapability, requireMinRole, userLevel } = require('../middleware/auth');
 const { isModuleSettingKey } = require('../moduleConfig');
 const { refreshBackupScheduler } = require('../backupScheduler');
 const { getSetupStatus } = require('../setupWizard');
@@ -252,6 +252,9 @@ router.get('/setup-status', auth, async (_req, res, next) => {
 
 router.get('/', auth, async (req, res, next) => {
   try {
+    if (!req.user?.capabilities?.['settings.manage']) {
+      return res.json({});
+    }
     const { rows } = await query('SELECT klic, hodnota, popis FROM nastaveni ORDER BY klic');
     const obj = {};
     const isAdminPlus = userLevel(req) >= 2;
@@ -265,7 +268,7 @@ router.get('/', auth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.patch('/', auth, requireMinRole('admin'), async (req, res, next) => {
+router.patch('/', auth, requireCapability('settings.manage'), async (req, res, next) => {
   try {
     const beforeResponse = await query('SELECT klic, hodnota FROM nastaveni');
     const beforeMap = beforeResponse.rows.reduce((acc, row) => {

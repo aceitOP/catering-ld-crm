@@ -3,13 +3,13 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const { query } = require('../db');
-const { auth, requireMinRole, userLevel } = require('../middleware/auth');
+const { auth, requireCapability, userLevel } = require('../middleware/auth');
 const { appendAdminAudit } = require('../adminAudit');
 
 const router = express.Router();
 const PROTECTED_ADMIN_ROLES = ['super_admin', 'majitel', 'admin'];
 
-router.get('/', auth, requireMinRole('admin'), async (_req, res, next) => {
+router.get('/', auth, requireCapability('users.manage'), async (_req, res, next) => {
   try {
     const { rows } = await query(
       'SELECT id, jmeno, prijmeni, email, role, telefon, aktivni, posledni_prihlaseni, created_at FROM uzivatele ORDER BY jmeno'
@@ -18,7 +18,7 @@ router.get('/', auth, requireMinRole('admin'), async (_req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.post('/', auth, requireMinRole('admin'), async (req, res, next) => {
+router.post('/', auth, requireCapability('users.manage'), async (req, res, next) => {
   try {
     const { jmeno, prijmeni, email, heslo, role, telefon } = req.body || {};
     if (!heslo || heslo.length < 8) {
@@ -50,7 +50,7 @@ router.post('/', auth, requireMinRole('admin'), async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.patch('/:id', auth, requireMinRole('admin'), async (req, res, next) => {
+router.patch('/:id', auth, requireCapability('users.manage'), async (req, res, next) => {
   try {
     const { rows: targetRows } = await query(
       'SELECT id, jmeno, prijmeni, email, role, telefon, aktivni FROM uzivatele WHERE id = $1',
@@ -96,7 +96,7 @@ router.patch('/:id', auth, requireMinRole('admin'), async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.delete('/:id', auth, requireMinRole('admin'), async (req, res, next) => {
+router.delete('/:id', auth, requireCapability('users.manage'), async (req, res, next) => {
   try {
     if (String(req.user.id) === String(req.params.id)) {
       return res.status(400).json({ error: 'Nemůžete smazat svůj vlastní účet' });

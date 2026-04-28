@@ -472,8 +472,33 @@ export function NastaveniPage() {
   });
 
   const isSuperAdmin = currentUser?.role === 'super_admin';
-  const TABS = [['firma','Profil firmy'],...(isSuperAdmin ? [['moduly','Moduly']] : []),['uziv','Uživatelé'],['heslo','Změna hesla'],['podpis','E-mail podpis'],['notif','Notifikace'],['integrace','Integrace'],['google','Google Kalendář'],['kapacity','Kapacity'],['email','E-mail (IMAP)'],['zaloha','Zálohy'],['login-log','Přihlášení']];
+  const capabilities = currentUser?.capabilities || {};
+  const canManageSettings = Boolean(capabilities['settings.manage']);
+  const canManageSensitiveSettings = Boolean(capabilities['settings.manage_sensitive']);
+  const canManageUsers = Boolean(capabilities['users.manage']);
+  const canManageVouchers = Boolean(capabilities['vouchers.manage']);
+  const canManageVoucherSettings = canManageSettings && canManageVouchers;
+  const canManageBackup = Boolean(capabilities['backup.manage']);
+  const canManageNotifications = Boolean(capabilities['notification_rules.manage']);
+  const canManageEmailTemplates = Boolean(capabilities['email.templates.manage']);
+  const TABS = [
+    ...(canManageSettings ? [['firma','Firma']] : []),
+    ...(canManageVoucherSettings ? [['poukazy','Poukazy']] : []),
+    ...(isSuperAdmin ? [['moduly','Moduly']] : []),
+    ...(canManageUsers ? [['uziv','Uživatelé']] : []),
+    ['heslo','Změna hesla'],
+    ...(canManageEmailTemplates ? [['podpis','E-mail podpis']] : []),
+    ...(canManageNotifications ? [['notif','Notifikace']] : []),
+    ...(canManageSettings ? [['integrace','Integrace'], ['google','Google Kalendář'], ['kapacity','Kapacity']] : []),
+    ...(canManageSensitiveSettings ? [['email','E-mail (IMAP)']] : []),
+    ...(canManageBackup ? [['zaloha','Zálohy']] : []),
+    ...(isSuperAdmin ? [['login-log','Přihlášení']] : []),
+  ];
   const [podpisPreview, setPodpisPreview] = useState(false);
+
+  useEffect(() => {
+    if (!TABS.some(([key]) => key === tab)) setTab(TABS[0]?.[0] || 'heslo');
+  }, [tab, TABS.map(([key]) => key).join('|')]);
 
   const { data: gcStatus, refetch: refetchGcStatus } = useQuery({
     queryKey: ['google-calendar-status'],
@@ -581,9 +606,14 @@ export function NastaveniPage() {
     setUserModal(true);
   };
   const ROLES = {
-    ...(isSuperAdmin ? { super_admin: 'Super admin' } : {}),
-    admin:    'Administrátor',
+    ...(isSuperAdmin ? { super_admin: 'Super admin', majitel: 'Majitel', admin: 'Administrátor' } : {}),
     uzivatel: 'Uživatel',
+  };
+  const ROLE_DESCRIPTIONS = {
+    super_admin: 'Plný přístup, moduly, bezpečnostní nastavení, zálohy a systémové nástroje.',
+    majitel: 'Majitelský dashboard, finance, poukazy, receptury, uživatelé bez správy super-adminů.',
+    admin: 'Denní správa CRM, zakázky, faktury, poukazy a běžná nastavení bez systémových zásahů.',
+    uzivatel: 'Běžný provozní přístup bez administrace systému.',
   };
   const voucherShopOffers = parseVoucherShopOffers(form.voucher_shop_offers ?? nastavData?.data?.voucher_shop_offers);
   const setVoucherShopOffers = (offers) => setForm((f) => ({ ...f, voucher_shop_offers: serializeVoucherShopOffers(offers) }));
@@ -600,12 +630,14 @@ export function NastaveniPage() {
   return (
     <div>
       <PageHeader title="Nastavení"/>
-      <div className="bg-white border-b border-stone-100 px-6 flex">
-        {TABS.filter(([k]) => isSuperAdmin || k !== 'login-log').map(([k,l]) => (
-          <button key={k} onClick={() => setTab(k)} className={`px-4 py-3 text-sm border-b-2 transition-colors ${tab===k?'border-stone-900 text-stone-900 font-medium':'border-transparent text-stone-500 hover:text-stone-700'}`}>{l}</button>
+      <div className="bg-white border-b border-stone-100 px-6 py-3">
+        <div className="flex flex-wrap gap-2">
+          {TABS.map(([k,l]) => (
+          <button key={k} onClick={() => setTab(k)} className={`rounded-xl border px-3 py-2 text-sm transition-colors ${tab===k?'border-stone-900 bg-stone-900 text-white font-medium':'border-stone-200 bg-white text-stone-600 hover:bg-stone-50'}`}>{l}</button>
         ))}
+        </div>
       </div>
-      <div className="p-6 max-w-2xl">
+      <div className="p-6 max-w-5xl">
         {tab === 'firma' && nastavData && (
           <div className="space-y-4">
             <div className="bg-white rounded-xl border border-stone-200 p-5 space-y-4">
@@ -745,7 +777,7 @@ export function NastaveniPage() {
                   })}
                 </div>
               </div>
-              <div className="rounded-xl border border-stone-200 p-4 space-y-4">
+              <div className="hidden rounded-xl border border-stone-200 p-4 space-y-4">
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <div className="text-sm font-medium text-stone-800">Veřejný prodej poukazů</div>
@@ -958,6 +990,178 @@ export function NastaveniPage() {
           </div>
         )}
 
+        {tab === 'poukazy' && nastavData && (
+          <div className="space-y-4">
+            <div className="bg-white rounded-xl border border-stone-200 p-5 space-y-5">
+              <div className="flex flex-wrap items-start justify-between gap-4 border-b border-stone-100 pb-4">
+                <div>
+                  <div className="text-sm font-semibold text-stone-800">Poukazy a veřejný shop</div>
+                  <div className="text-xs text-stone-500 mt-1">Samostatné nastavení pro modul Poukazy, veřejnou stránku /shop, texty, logo a obchodní podmínky.</div>
+                </div>
+                <label className="inline-flex items-center gap-2 rounded-lg border border-stone-200 px-3 py-2 text-xs font-medium text-stone-700 cursor-pointer hover:bg-stone-50">
+                  <input
+                    type="checkbox"
+                    className="rounded"
+                    checked={String(form.voucher_shop_enabled ?? nastavData?.data?.voucher_shop_enabled ?? 'false') === 'true'}
+                    onChange={(e) => setForm((f) => ({ ...f, voucher_shop_enabled: String(e.target.checked) }))}
+                  />
+                  Veřejný prodej aktivní
+                </label>
+              </div>
+
+              <div className={`rounded-lg px-3 py-2 text-xs ${String(form.firma_iban ?? nastavData?.data?.firma_iban ?? '').trim() ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
+                {String(form.firma_iban ?? nastavData?.data?.firma_iban ?? '').trim()
+                  ? 'IBAN je vyplněný, veřejný prodej může přijímat objednávky.'
+                  : 'Pro dokončení objednávky je potřeba vyplnit firemní IBAN v kartě Firma.'}
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-5">
+                <div className="rounded-xl border border-stone-200 bg-stone-50 p-4">
+                  <div className="text-xs font-semibold text-stone-700 mb-3">Logo /shop</div>
+                  <div className="w-full aspect-square rounded-xl border border-dashed border-stone-300 bg-white flex items-center justify-center overflow-hidden">
+                    {(form.voucher_shop_logo_data_url ?? nastavData?.data?.voucher_shop_logo_data_url) ? (
+                      <img src={form.voucher_shop_logo_data_url ?? nastavData?.data?.voucher_shop_logo_data_url} alt="Logo shopu" className="w-full h-full object-contain"/>
+                    ) : (
+                      <span className="text-xs font-semibold text-stone-400 text-center px-2">Shop logo</span>
+                    )}
+                  </div>
+                  <div className="mt-3 flex flex-col gap-2">
+                    <label className="inline-flex items-center justify-center px-3 py-2 text-xs font-medium border border-stone-200 rounded-lg bg-white hover:bg-stone-50 cursor-pointer">
+                      Nahrát logo
+                      <input type="file" accept="image/png,image/svg+xml,.png,.svg" className="hidden" onChange={handleVoucherShopLogoChange}/>
+                    </label>
+                    {(form.voucher_shop_logo_data_url ?? nastavData?.data?.voucher_shop_logo_data_url) && (
+                      <button type="button" className="px-3 py-2 text-xs font-medium border border-stone-200 rounded-lg bg-white hover:bg-stone-50"
+                        onClick={() => setForm(f => ({ ...f, voucher_shop_logo_data_url: '' }))}>
+                        Odebrat logo
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {[
+                      ['voucher_shop_brand_title', 'Název stránky', 'Catering LD'],
+                      ['voucher_shop_header_subtitle', 'Podtitulek v hlavičce', 'Poukazy · Praha'],
+                      ['voucher_shop_hero_eyebrow', 'Malý text nad nadpisem', '[01] - Dárkové poukazy'],
+                      ['voucher_shop_hero_title', 'Hlavní nadpis', 'Darujte chuť, ne věci.'],
+                      ['voucher_shop_hero_highlight', 'Zvýrazněné slovo', 'chuť'],
+                      ['voucher_shop_footer_title', 'Nadpis patičky', 'Pojďme spolu obdarovat.'],
+                      ['voucher_shop_terms_title', 'Nadpis OP', 'Obchodní podmínky'],
+                    ].map(([k, label, placeholder]) => (
+                      <div key={k}>
+                        <label className="text-xs text-stone-500 block mb-1">{label}</label>
+                        <input
+                          className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                          value={form[k] ?? nastavData?.data?.[k] ?? ''}
+                          onChange={(e) => setForm((f) => ({ ...f, [k]: e.target.value }))}
+                          placeholder={placeholder}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  <div>
+                    <label className="text-xs text-stone-500 block mb-1">Hero text</label>
+                    <textarea
+                      className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none resize-y"
+                      rows={2}
+                      value={form.voucher_shop_hero_text ?? nastavData?.data?.voucher_shop_hero_text ?? ''}
+                      onChange={(e) => setForm((f) => ({ ...f, voucher_shop_hero_text: e.target.value }))}
+                      placeholder="Hodnotové i zážitkové poukazy..."
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <label className="text-xs text-stone-500 block mb-1">Povolené hodnoty</label>
+                  <input className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                    value={form.voucher_shop_values ?? nastavData?.data?.voucher_shop_values ?? '1000,2000,3000,5000,10000'}
+                    onChange={(e) => setForm((f) => ({ ...f, voucher_shop_values: e.target.value }))}
+                    placeholder="1000,2000,3000,5000"/>
+                </div>
+                <div>
+                  <label className="text-xs text-stone-500 block mb-1">Minimální hodnota</label>
+                  <input type="number" min="1" max="1000000" className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                    value={form.voucher_shop_min_amount ?? nastavData?.data?.voucher_shop_min_amount ?? '500'}
+                    onChange={(e) => setForm((f) => ({ ...f, voucher_shop_min_amount: e.target.value }))}/>
+                </div>
+                <div>
+                  <label className="text-xs text-stone-500 block mb-1">Platnost v měsících</label>
+                  <input type="number" min="1" max="120" className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                    value={form.voucher_shop_validity_months ?? nastavData?.data?.voucher_shop_validity_months ?? '12'}
+                    onChange={(e) => setForm((f) => ({ ...f, voucher_shop_validity_months: e.target.value }))}/>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+                {[1, 2, 3].map((step) => (
+                  <div key={step} className="rounded-xl border border-stone-200 p-3 space-y-2">
+                    <div className="text-xs font-semibold text-stone-700">Krok {step}</div>
+                    <input className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                      value={form[`voucher_shop_how_title_${step}`] ?? nastavData?.data?.[`voucher_shop_how_title_${step}`] ?? ''}
+                      onChange={(e) => setForm((f) => ({ ...f, [`voucher_shop_how_title_${step}`]: e.target.value }))}
+                      placeholder={step === 1 ? 'Vyberte poukaz' : step === 2 ? 'Personalizujte' : 'Dokončete objednávku'}/>
+                    <textarea className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none resize-y"
+                      rows={3}
+                      value={form[`voucher_shop_how_text_${step}`] ?? nastavData?.data?.[`voucher_shop_how_text_${step}`] ?? ''}
+                      onChange={(e) => setForm((f) => ({ ...f, [`voucher_shop_how_text_${step}`]: e.target.value }))}
+                      placeholder="Krátký popis kroku"/>
+                  </div>
+                ))}
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-medium text-stone-800">Nabízené poukazy ve shopu</div>
+                    <div className="text-xs text-stone-500 mt-1">Dlaždice pro /shop, například Degustační menu pro dva.</div>
+                  </div>
+                  <button type="button" className="px-3 py-2 text-xs font-medium border border-stone-200 rounded-lg hover:bg-stone-50" onClick={addVoucherShopOffer}>
+                    Přidat poukaz
+                  </button>
+                </div>
+                <div className="space-y-3">
+                  {voucherShopOffers.map((offer, index) => (
+                    <div key={offer.id || index} className="rounded-lg border border-stone-200 p-3 space-y-3">
+                      <div className="grid grid-cols-1 md:grid-cols-[1fr_150px_auto] gap-2">
+                        <div>
+                          <label className="text-xs text-stone-500 block mb-1">Název</label>
+                          <input className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" value={offer.title || ''} onChange={(e) => updateVoucherShopOffer(index, 'title', e.target.value)} placeholder="Degustační menu pro dva"/>
+                        </div>
+                        <div>
+                          <label className="text-xs text-stone-500 block mb-1">Hodnota</label>
+                          <input type="number" min="1" max="1000000" className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" value={offer.amount || ''} onChange={(e) => updateVoucherShopOffer(index, 'amount', e.target.value)} placeholder="2500"/>
+                        </div>
+                        <div className="flex items-end">
+                          <button type="button" className="px-3 py-2 text-xs font-medium border border-stone-200 rounded-lg hover:bg-stone-50" onClick={() => removeVoucherShopOffer(index)}>Smazat</button>
+                        </div>
+                      </div>
+                      <textarea className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none resize-y" rows={2} value={offer.description || ''} onChange={(e) => updateVoucherShopOffer(index, 'description', e.target.value)} placeholder="Krátký popis pro dlaždici a náhled poukazu."/>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs text-stone-500 block mb-1">Obchodní podmínky pro /shop</label>
+                <textarea className="w-full border border-stone-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none resize-y" rows={8}
+                  value={form.voucher_shop_terms_text ?? nastavData?.data?.voucher_shop_terms_text ?? ''}
+                  onChange={(e) => setForm((f) => ({ ...f, voucher_shop_terms_text: e.target.value }))}
+                  placeholder="Obchodní podmínky nebo informace k použití poukazu."/>
+              </div>
+
+              <div className="flex justify-end">
+                <Btn variant="primary" onClick={() => saveMut.mutate(form)} disabled={saveMut.isPending}>
+                  {saveMut.isPending ? 'Ukládám...' : 'Uložit poukazy'}
+                </Btn>
+              </div>
+            </div>
+          </div>
+        )}
+
         {tab === 'moduly' && isSuperAdmin && (
           <div className="space-y-4">
             <div className="bg-white rounded-xl border border-stone-200 p-5 space-y-4">
@@ -1007,7 +1211,7 @@ export function NastaveniPage() {
                     <div className="text-sm font-medium text-stone-800">{u.jmeno} {u.prijmeni}</div>
                     <div className="text-xs text-stone-400 flex items-center gap-1.5">
                       {u.email}
-                      <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold ${u.role==='super_admin'?'bg-purple-100 text-purple-700':u.role==='admin'?'bg-blue-100 text-blue-700':'bg-stone-100 text-stone-500'}`}>
+                      <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold ${u.role==='super_admin'?'bg-purple-100 text-purple-700':u.role==='majitel'?'bg-emerald-100 text-emerald-700':u.role==='admin'?'bg-blue-100 text-blue-700':'bg-stone-100 text-stone-500'}`}>
                         {ROLES[u.role]||u.role}
                       </span>
                     </div>
@@ -1630,7 +1834,7 @@ export function NastaveniPage() {
       </div>
 
       <Modal open={userModal} onClose={() => setUserModal(false)} title="Nový uživatel"
-        footer={<><Btn onClick={() => setUserModal(false)}>Zrušit</Btn><Btn variant="primary" onClick={() => userMut.mutate(userForm)} disabled={!userForm.jmeno||!userForm.email||userMut.isPending}>{userMut.isPending?'Ukládám...':'Přidat'}</Btn></>}>
+        footer={<><Btn onClick={() => setUserModal(false)}>Zrušit</Btn><Btn variant="primary" onClick={() => userMut.mutate(userForm)} disabled={!userForm.jmeno||!userForm.email||userForm.heslo.length<8||userMut.isPending}>{userMut.isPending?'Ukládám...':'Přidat'}</Btn></>}>
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div><label className="text-xs text-stone-500 block mb-1">Jméno</label><input className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" value={userForm.jmeno} onChange={e=>setU('jmeno',e.target.value)}/></div>
@@ -1640,6 +1844,9 @@ export function NastaveniPage() {
           <div className="grid grid-cols-2 gap-3">
             <div><label className="text-xs text-stone-500 block mb-1">Role</label><select className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" value={userForm.role} onChange={e=>setU('role',e.target.value)}>{Object.entries(ROLES).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></div>
             <div><label className="text-xs text-stone-500 block mb-1">Telefon</label><input className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" value={userForm.telefon} onChange={e=>setU('telefon',e.target.value)}/></div>
+          </div>
+          <div className="rounded-lg bg-stone-50 px-3 py-2 text-xs text-stone-600">
+            {ROLE_DESCRIPTIONS[userForm.role] || ROLE_DESCRIPTIONS.uzivatel}
           </div>
           <div><label className="text-xs text-stone-500 block mb-1">Heslo (výchozí)</label><input type="password" className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none" placeholder="min. 8 znaků" value={userForm.heslo} onChange={e=>setU('heslo',e.target.value)}/></div>
         </div>
