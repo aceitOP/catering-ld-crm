@@ -32,7 +32,7 @@ function sanitizeSettingValue(key, value) {
     return raw.trim().slice(0, 80);
   }
 
-  if (key === 'app_logo_data_url') {
+  if (key === 'app_logo_data_url' || key === 'voucher_shop_logo_data_url') {
     const trimmed = raw.trim();
     if (!trimmed) return '';
     if (!LOGO_DATA_URL_RE.test(trimmed)) {
@@ -166,7 +166,24 @@ function sanitizeSettingValue(key, value) {
   }
 
   if (key === 'voucher_shop_terms_text') {
-    return raw.trim().slice(0, 5000);
+    return raw.trim().slice(0, 20000);
+  }
+
+  if (key.startsWith('voucher_shop_') && (
+    key.includes('_title')
+    || key.endsWith('_text_1')
+    || key.endsWith('_text_2')
+    || key.endsWith('_text_3')
+    || key === 'voucher_shop_brand_title'
+    || key === 'voucher_shop_header_subtitle'
+    || key === 'voucher_shop_hero_eyebrow'
+    || key === 'voucher_shop_hero_text'
+    || key === 'voucher_shop_hero_highlight'
+    || key === 'voucher_shop_footer_title'
+    || key === 'voucher_shop_terms_title'
+  )) {
+    const max = key.includes('_text') || key === 'voucher_shop_hero_text' ? 1000 : 160;
+    return raw.trim().slice(0, max);
   }
 
   if (key === 'backup_auto_time') {
@@ -294,6 +311,21 @@ router.post('/setup-wizard', auth, requireMinRole('super_admin'), async (req, re
       'app_document_font_family',
       'public_ga4_measurement_id',
       'voucher_design_style',
+      'voucher_shop_logo_data_url',
+      'voucher_shop_brand_title',
+      'voucher_shop_header_subtitle',
+      'voucher_shop_hero_eyebrow',
+      'voucher_shop_hero_title',
+      'voucher_shop_hero_highlight',
+      'voucher_shop_hero_text',
+      'voucher_shop_how_title_1',
+      'voucher_shop_how_text_1',
+      'voucher_shop_how_title_2',
+      'voucher_shop_how_text_2',
+      'voucher_shop_how_title_3',
+      'voucher_shop_how_text_3',
+      'voucher_shop_footer_title',
+      'voucher_shop_terms_title',
       'firma_nazev',
       'firma_ico',
       'firma_dic',

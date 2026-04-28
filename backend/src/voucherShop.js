@@ -180,6 +180,21 @@ async function getVoucherShopConfig({ includeQr = false } = {}) {
     'voucher_shop_offers',
     'voucher_shop_validity_months',
     'voucher_shop_terms_text',
+    'voucher_shop_logo_data_url',
+    'voucher_shop_brand_title',
+    'voucher_shop_header_subtitle',
+    'voucher_shop_hero_eyebrow',
+    'voucher_shop_hero_title',
+    'voucher_shop_hero_highlight',
+    'voucher_shop_hero_text',
+    'voucher_shop_how_title_1',
+    'voucher_shop_how_text_1',
+    'voucher_shop_how_title_2',
+    'voucher_shop_how_text_2',
+    'voucher_shop_how_title_3',
+    'voucher_shop_how_text_3',
+    'voucher_shop_footer_title',
+    'voucher_shop_terms_title',
   ]);
   const values = parseShopValues(firma.voucher_shop_values || '1000,2000,3000,5000,10000');
   const minAmount = parsePositiveInt(firma.voucher_shop_min_amount, 500, 1, 1000000);
@@ -191,6 +206,31 @@ async function getVoucherShopConfig({ includeQr = false } = {}) {
     offers,
     validity_months: parsePositiveInt(firma.voucher_shop_validity_months, 12),
     terms_text: firma.voucher_shop_terms_text || '',
+    page: {
+      logo_data_url: firma.voucher_shop_logo_data_url || '',
+      brand_title: firma.voucher_shop_brand_title || firma.firma_nazev || firma.app_title || 'Catering LD',
+      header_subtitle: firma.voucher_shop_header_subtitle || 'Poukazy · Praha',
+      hero_eyebrow: firma.voucher_shop_hero_eyebrow || '[01] - Dárkové poukazy',
+      hero_title: firma.voucher_shop_hero_title || 'Darujte chuť, ne věci.',
+      hero_highlight: firma.voucher_shop_hero_highlight || 'chuť',
+      hero_text: firma.voucher_shop_hero_text || 'Hodnotové i zážitkové poukazy. Vyberte částku, doplňte jméno a vzkaz, náhled poukazu uvidíte ještě před objednáním.',
+      how_steps: [
+        {
+          title: firma.voucher_shop_how_title_1 || 'Vyberte poukaz',
+          text: firma.voucher_shop_how_text_1 || 'Hodnotový nebo zážitkový poukaz z aktuální nabídky.',
+        },
+        {
+          title: firma.voucher_shop_how_title_2 || 'Personalizujte',
+          text: firma.voucher_shop_how_text_2 || 'Doplňte jméno, e-mail, vzkaz a fakturační údaje.',
+        },
+        {
+          title: firma.voucher_shop_how_title_3 || 'Dokončete objednávku',
+          text: firma.voucher_shop_how_text_3 || 'Po odeslání vám přijde potvrzení objednávky.',
+        },
+      ],
+      footer_title: firma.voucher_shop_footer_title || 'Pojďme spolu obdarovat.',
+      terms_title: firma.voucher_shop_terms_title || 'Obchodní podmínky',
+    },
     bank_ready: isValidIban(firma.firma_iban),
     iban: normalizeIban(firma.firma_iban),
     currency: 'CZK',

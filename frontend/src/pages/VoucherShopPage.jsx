@@ -74,6 +74,18 @@ function getPreviewClasses(style) {
   return { frame: 'ld-preview-classic', label: 'Klasický' };
 }
 
+function renderHeroTitle(title, highlight) {
+  const safeTitle = String(title || 'Darujte chuť, ne věci.');
+  const safeHighlight = String(highlight || '').trim();
+  if (!safeHighlight || !safeTitle.includes(safeHighlight)) return safeTitle;
+  const [before, after] = safeTitle.split(safeHighlight);
+  return (
+    <>
+      {before}<span className="ld-serif-italic">{safeHighlight}</span>{after}
+    </>
+  );
+}
+
 export default function VoucherShopPage() {
   const navigate = useNavigate();
   const [category, setCategory] = useState('Vše');
@@ -218,7 +230,9 @@ export default function VoucherShopPage() {
     );
   }
 
-  const brandTitle = config.branding?.firma_nazev || config.branding?.app_title || 'Catering LD';
+  const page = config.page || {};
+  const brandTitle = page.brand_title || config.branding?.firma_nazev || config.branding?.app_title || 'Catering LD';
+  const shopLogo = page.logo_data_url || config.branding?.app_logo_data_url || '';
 
   return (
     <div className="ld-root">
@@ -243,14 +257,14 @@ export default function VoucherShopPage() {
 
       <header className="sticky top-0 z-40 flex items-center justify-between gap-6 border-b border-[#1a14101a] bg-[#ede6df]/95 px-5 py-5 backdrop-blur md:px-14">
         <div className="flex items-center gap-3">
-          {config.branding?.app_logo_data_url ? (
-            <img src={config.branding.app_logo_data_url} alt={brandTitle} className="h-10 w-10 object-contain" />
+          {shopLogo ? (
+            <img src={shopLogo} alt={brandTitle} className="h-10 w-10 object-contain" />
           ) : (
             <div className="grid h-9 w-9 place-items-center rounded-full bg-[#16110d] text-sm font-semibold italic text-[#f5f0eb]">ld</div>
           )}
           <div>
             <div className="ld-serif text-2xl">{brandTitle}</div>
-            <div className="ld-mono mt-1 text-[#4a3f37]">Poukazy · Praha</div>
+            <div className="ld-mono mt-1 text-[#4a3f37]">{page.header_subtitle || 'Poukazy · Praha'}</div>
           </div>
         </div>
         <nav className="ld-nav flex items-center gap-7 text-sm font-medium">
@@ -267,15 +281,14 @@ export default function VoucherShopPage() {
         <div className="absolute right-[-8%] top-[12%] h-[45vw] max-h-[560px] w-[45vw] max-w-[560px] rounded-[55%_45%_45%_55%] bg-[#cabeb8] opacity-60 blur-sm" />
         <div className="relative mx-auto max-w-[1400px]">
           <div className="ld-rise mb-7 flex gap-3">
-            <span className="ld-mono text-[#4a3f37]">[01] - Dárkové poukazy</span>
-            <span className="ld-mono text-[#4a3f37]">· Sezóna 26 ·</span>
+            <span className="ld-mono text-[#4a3f37]">{page.hero_eyebrow || '[01] - Dárkové poukazy'}</span>
           </div>
           <h1 className="ld-serif ld-rise ld-hero-title m-0 text-[clamp(56px,11vw,196px)]">
-            Darujte <span className="ld-serif-italic">chuť</span>, ne věci.
+            {renderHeroTitle(page.hero_title, page.hero_highlight)}
           </h1>
           <div className="ld-hero-grid ld-rise mt-14 grid grid-cols-[1fr_auto_1fr] items-end gap-10">
             <p className="m-0 max-w-[500px] text-[17px] leading-relaxed text-[#4a3f37]">
-              Hodnotové i zážitkové poukazy. Vyberte částku, doplňte jméno a vzkaz, náhled poukazu uvidíte ještě před objednáním.
+              {page.hero_text || 'Hodnotové i zážitkové poukazy. Vyberte částku, doplňte jméno a vzkaz, náhled poukazu uvidíte ještě před objednáním.'}
             </p>
             <button className="ld-btn" type="button" onClick={() => document.getElementById('ld-grid')?.scrollIntoView({ behavior: 'smooth' })}>
               Vybrat poukaz <ArrowRight size={15} />
@@ -292,13 +305,13 @@ export default function VoucherShopPage() {
             <div className="h-px flex-1 bg-[#1a14102e]" />
           </div>
           <div className="ld-howit grid grid-cols-3 gap-8">
-            {[
-              ['01', 'Vyberte poukaz', 'Hodnotový nebo zážitkový poukaz z aktuální nabídky.'],
-              ['02', 'Personalizujte', 'Doplňte jméno, e-mail, vzkaz a fakturační údaje.'],
-              ['03', 'Dokončete objednávku', 'Po odeslání vám přijde potvrzení objednávky.'],
-            ].map(([number, title, text]) => (
-              <div key={number} className="border-t border-[#16110d] pt-5">
-                <div className="ld-serif-italic mb-2 text-sm text-[#4a3f37]">{number}</div>
+            {(page.how_steps || [
+              { title: 'Vyberte poukaz', text: 'Hodnotový nebo zážitkový poukaz z aktuální nabídky.' },
+              { title: 'Personalizujte', text: 'Doplňte jméno, e-mail, vzkaz a fakturační údaje.' },
+              { title: 'Dokončete objednávku', text: 'Po odeslání vám přijde potvrzení objednávky.' },
+            ]).map(({ title, text }, index) => (
+              <div key={`${index}-${title}`} className="border-t border-[#16110d] pt-5">
+                <div className="ld-serif-italic mb-2 text-sm text-[#4a3f37]">{String(index + 1).padStart(2, '0')}</div>
                 <h3 className="ld-serif m-0 mb-3 text-3xl">{title}</h3>
                 <p className="m-0 leading-relaxed text-[#4a3f37]">{text}</p>
               </div>
@@ -353,7 +366,7 @@ export default function VoucherShopPage() {
       <footer className="border-t border-[#1a14101a] px-5 py-12 md:px-14">
         <div className="mx-auto flex max-w-[1400px] flex-wrap items-end justify-between gap-8">
           <div>
-            <div className="ld-serif text-5xl">Pojďme spolu obdarovat.</div>
+            <div className="ld-serif text-5xl">{page.footer_title || 'Pojďme spolu obdarovat.'}</div>
             <div className="ld-mono mt-5 text-[#4a3f37]">{config.branding?.firma_email || 'info@cateringld.cz'} · {config.branding?.firma_telefon || 'Catering LD'}</div>
           </div>
           <Link to="/shop/obchodni-podminky" className="text-sm font-semibold underline">Obchodní podmínky</Link>

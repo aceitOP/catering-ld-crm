@@ -555,6 +555,25 @@ export function NastaveniPage() {
     reader.onerror = () => toast.error('Logo se nepodařilo načíst');
     reader.readAsDataURL(file);
   };
+  const handleVoucherShopLogoChange = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    if (!['image/png', 'image/svg+xml'].includes(file.type)) {
+      toast.error('Logo musí být PNG nebo SVG');
+      return;
+    }
+    if (file.size > 1024 * 1024) {
+      toast.error('Logo může mít maximálně 1 MB');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setForm((f) => ({ ...f, voucher_shop_logo_data_url: String(reader.result || '') }));
+    };
+    reader.onerror = () => toast.error('Logo se nepodařilo načíst');
+    reader.readAsDataURL(file);
+  };
   const uzivatele = uzivData?.data?.data || [];
   const setU = (k,v) => setUserForm(f=>({...f,[k]:v}));
   const openUserCreateModal = () => {
@@ -730,7 +749,7 @@ export function NastaveniPage() {
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <div className="text-sm font-medium text-stone-800">Veřejný prodej poukazů</div>
-                    <div className="text-xs text-stone-500 mt-1">Zapne veřejnou stránku pro objednání dárkového poukazu bankovním převodem.</div>
+                    <div className="text-xs text-stone-500 mt-1">Zapne a nastaví veřejnou stránku pro objednání dárkového poukazu.</div>
                   </div>
                   <label className="inline-flex items-center gap-2 rounded-lg border border-stone-200 px-3 py-2 text-xs font-medium text-stone-700 cursor-pointer hover:bg-stone-50">
                     <input
@@ -746,6 +765,84 @@ export function NastaveniPage() {
                   {String(form.firma_iban ?? nastavData?.data?.firma_iban ?? '').trim()
                     ? 'IBAN je vyplněný, veřejný prodej může přijímat objednávky.'
                     : 'Pro dokončení objednávky je potřeba vyplnit firemní IBAN výše.'}
+                </div>
+                <div className="rounded-lg border border-stone-200 bg-stone-50/50 p-3 space-y-3">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <div className="text-sm font-medium text-stone-800">Vzhled a texty /shop</div>
+                      <div className="text-xs text-stone-500 mt-1">Tyto hodnoty platí jen pro veřejnou FE stránku voucher shopu. Nemění logo CRM ani tiskové dokumenty.</div>
+                    </div>
+                    <div className="w-20 h-20 rounded-xl border border-dashed border-stone-300 bg-white flex items-center justify-center overflow-hidden flex-shrink-0">
+                      {(form.voucher_shop_logo_data_url ?? nastavData?.data?.voucher_shop_logo_data_url) ? (
+                        <img src={form.voucher_shop_logo_data_url ?? nastavData?.data?.voucher_shop_logo_data_url} alt="Logo shopu" className="w-full h-full object-contain"/>
+                      ) : (
+                        <span className="text-[10px] font-semibold text-stone-400 text-center px-2">Shop logo</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <label className="inline-flex items-center justify-center px-3 py-2 text-xs font-medium border border-stone-200 rounded-lg bg-white hover:bg-stone-50 cursor-pointer">
+                      Nahrát logo shopu
+                      <input type="file" accept="image/png,image/svg+xml,.png,.svg" className="hidden" onChange={handleVoucherShopLogoChange}/>
+                    </label>
+                    {(form.voucher_shop_logo_data_url ?? nastavData?.data?.voucher_shop_logo_data_url) && (
+                      <button type="button" className="px-3 py-2 text-xs font-medium border border-stone-200 rounded-lg bg-white hover:bg-stone-50"
+                        onClick={() => setForm(f => ({ ...f, voucher_shop_logo_data_url: '' }))}>
+                        Odebrat logo shopu
+                      </button>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {[
+                      ['voucher_shop_brand_title', 'Název stránky', 'Catering LD'],
+                      ['voucher_shop_header_subtitle', 'Podtitulek v hlavičce', 'Poukazy · Praha'],
+                      ['voucher_shop_hero_eyebrow', 'Malý text nad nadpisem', '[01] - Dárkové poukazy'],
+                      ['voucher_shop_hero_title', 'Hlavní nadpis', 'Darujte chuť, ne věci.'],
+                      ['voucher_shop_hero_highlight', 'Zvýrazněné slovo v nadpisu', 'chuť'],
+                      ['voucher_shop_footer_title', 'Nadpis patičky', 'Pojďme spolu obdarovat.'],
+                      ['voucher_shop_terms_title', 'Nadpis obchodních podmínek', 'Obchodní podmínky'],
+                    ].map(([k, label, placeholder]) => (
+                      <div key={k}>
+                        <label className="text-xs text-stone-500 block mb-1">{label}</label>
+                        <input
+                          className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none bg-white"
+                          value={form[k] ?? nastavData?.data?.[k] ?? ''}
+                          onChange={(e) => setForm((f) => ({ ...f, [k]: e.target.value }))}
+                          placeholder={placeholder}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  <div>
+                    <label className="text-xs text-stone-500 block mb-1">Hero text</label>
+                    <textarea
+                      className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none resize-y bg-white"
+                      rows={2}
+                      value={form.voucher_shop_hero_text ?? nastavData?.data?.voucher_shop_hero_text ?? ''}
+                      onChange={(e) => setForm((f) => ({ ...f, voucher_shop_hero_text: e.target.value }))}
+                      placeholder="Hodnotové i zážitkové poukazy..."
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {[1, 2, 3].map((step) => (
+                      <div key={step} className="rounded-lg border border-stone-200 bg-white p-3 space-y-2">
+                        <div className="text-xs font-semibold text-stone-700">Krok {step}</div>
+                        <input
+                          className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                          value={form[`voucher_shop_how_title_${step}`] ?? nastavData?.data?.[`voucher_shop_how_title_${step}`] ?? ''}
+                          onChange={(e) => setForm((f) => ({ ...f, [`voucher_shop_how_title_${step}`]: e.target.value }))}
+                          placeholder={step === 1 ? 'Vyberte poukaz' : step === 2 ? 'Personalizujte' : 'Dokončete objednávku'}
+                        />
+                        <textarea
+                          className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none resize-y"
+                          rows={3}
+                          value={form[`voucher_shop_how_text_${step}`] ?? nastavData?.data?.[`voucher_shop_how_text_${step}`] ?? ''}
+                          onChange={(e) => setForm((f) => ({ ...f, [`voucher_shop_how_text_${step}`]: e.target.value }))}
+                          placeholder="Krátký popis kroku"
+                        />
+                      </div>
+                    ))}
+                  </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
